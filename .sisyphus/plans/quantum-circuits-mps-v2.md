@@ -2491,7 +2491,7 @@ Parallel Speedup: ~35% faster than sequential
 
 ### Task 8: CT Model Example
 
-- [ ] 8. Create examples/ct_model.jl reproducing run_CT_MPS_C_m_T.jl
+- [x] 8. Create examples/ct_model.jl reproducing run_CT_MPS_C_m_T.jl
 
   **PREREQUISITE: JSON package required**
   ```bash

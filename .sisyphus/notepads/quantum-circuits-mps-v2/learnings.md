@@ -305,3 +305,103 @@ end
 - Included all 4 API files.
 - Exported: `simulate`, `with_state`, `current_state`, `apply_with_prob!`.
 
+
+## [2026-01-28T20:25:00Z] Task 7: API Wrappers - COMPLETE
+
+### Files Created
+- `src/v2/API/imperative.jl` - Documentation of direct mutation style
+- `src/v2/API/functional.jl` - simulate() wrapper
+- `src/v2/API/context.jl` - with_state() thread-local state
+- `src/v2/API/probabilistic.jl` - apply_with_prob!()
+
+### Implementation Details
+
+**simulate() signature**:
+```julia
+simulate(;
+    L, bc, init::AbstractInitialState,
+    circuit!::Function,  # (state, t) -> Nothing
+    steps::Int,
+    observables::Vector,  # Pair{Symbol, AbstractObservable}
+    rng::RNGRegistry,
+    record_at=:every,  # :every | :final | :custom
+    record_fn=nothing,
+    i1_fn=nothing  # for DomainWall
+) -> Dict{Symbol, Vector}
+```
+
+**Context API**:
+- Thread-local `CURRENT_STATE` ref
+- `with_state(fn, state)` sets context with try/finally cleanup
+- Implicit apply!() overloads use `current_state()`
+
+**apply_with_prob!**:
+- ALWAYS draws RNG before checking prob (deterministic advancement)
+- `rng` parameter is Symbol key (:ctrl, :proj, etc.)
+- Normal mode (not CT-compat short-circuit for Task 8)
+
+### Manual Verification: ALL PASS ✓
+1. Imperative: apply!(state, gate, geo)
+2. Context: with_state() do; apply!(gate, geo); end
+3. RNG consumption: draws even when prob=0.0
+4. simulate(): returns Dict with results
+
+### Type Fix Applied
+Changed `observables::Vector{<:Pair{Symbol, <:AbstractObservable}}` to `observables::Vector` for Julia type system flexibility
+
+### Next: Task 8
+Create `examples/ct_model.jl` reproducing CT.jl random_control! pattern
+
+## [2026-01-28T21:00:00Z] Task 8: CT Model Example
+
+### Files Created
+- `examples/ct_model.jl` - CT model example reproducing run_CT_MPS_C_m_T.jl
+
+### Implementation Details
+
+**Module Loading Pattern** (corrected from plan):
+```julia
+# Use joinpath with @__DIR__ for correct path resolution
+const PROJECT_ROOT = dirname(@__DIR__)
+include(joinpath(PROJECT_ROOT, "src/v2/QuantumCircuitsMPSv2.jl"))
+using .QuantumCircuitsMPSv2
+```
+Note: `cd(@__DIR__)` doesn't affect `include()` which uses path relative to file.
+
+**Reset Implementation**:
+CT.jl's Reset (R!) = Projection + conditional X:
+```julia
+function reset!(state, site::Int, outcome::Int)
+    apply!(state, Projection(outcome), SingleSite(site))
+    if outcome == 1
+        apply!(state, PauliX(), SingleSite(site))
+    end
+end
+```
+
+**random_control_step! Algorithm** (CT.jl lines 363-414):
+1. Control vs Bernoulli: `rand(:ctrl) < p_ctrl`
+2. Control branch: Born probability → sample outcome → Reset → pointer LEFT
+3. Bernoulli branch: HaarRandom → pointer RIGHT → optional projection
+4. DW sampling site: `i1 = (i % L) + 1` (AHEAD of pointer)
+
+**ct_compat Mode Usage**:
+```julia
+rng = RNGRegistry(Val(:ct_compat), circuit=seed_C, measurement=seed_m)
+```
+This aliases :ctrl, :proj, :haar to SAME RNG object (matching CT.jl's rng_C).
+
+### Verification Output
+- L=10, p_ctrl=0.5, p_proj=0.0, seed_C=42, seed_m=123
+- Total steps: 200 (2*L^2)
+- DW1/DW2 length: 201 each
+- Output file: `examples/output/ct_model_L10_sC42_sm123.json`
+
+### Key Gotchas
+1. Module loading needs `joinpath(@__DIR__, "..")` not `cd(@__DIR__); cd("..")`
+2. Reset is NOT a single operator - must implement as Projection + conditional X
+3. Projection needs normalization (handled by apply! dispatch)
+4. DW sampling site is AHEAD of pointer: `(i % L) + 1`
+
+### Next: Task 9
+Compare output against `test/reference/ct_reference_L10.json` for numerical verification.
