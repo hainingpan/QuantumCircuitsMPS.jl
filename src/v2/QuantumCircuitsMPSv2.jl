@@ -26,9 +26,10 @@ include("Core/apply.jl")  # Task 5
 include("Observables/Observables.jl")
 
 # API (Task 7)
-# include("API/imperative.jl")
-# include("API/functional.jl")
-# include("API/context.jl")
+include("API/imperative.jl")
+include("API/functional.jl")
+include("API/context.jl")
+include("API/probabilistic.jl")
 
 # Exports
 export SimulationState, initialize!
@@ -46,5 +47,7 @@ export AbstractGeometry, get_sites
 export SingleSite, AdjacentPair, Bricklayer, AllSites
 export StaircaseLeft, StaircaseRight, current_position
 export apply!
+# API (Task 7)
+export simulate, with_state, current_state, apply_with_prob!
 
 end # module
