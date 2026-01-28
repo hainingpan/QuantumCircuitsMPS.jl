@@ -24,7 +24,7 @@ function simulate(;
     init::AbstractInitialState,
     circuit!::Function,           # f(state, t) -> Nothing
     steps::Int,
-    observables::Vector{<:Pair{Symbol, <:AbstractObservable}},
+    observables::Vector,  # Vector{Pair{Symbol, AbstractObservable}} but Julia's type system needs this
     rng::RNGRegistry,
     record_at::Symbol = :every,   # :every | :final | :custom
     record_fn::Union{Function,Nothing} = nothing,
