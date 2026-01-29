@@ -36,6 +36,9 @@ include("API/simulation_styles/style_imperative.jl")
 include("API/simulation_styles/style_callback.jl")
 include("API/simulation_styles/style_iterator.jl")
 
+# Circuit (lazy mode API)
+include("Circuit/Circuit.jl")
+
 # === PUBLIC API EXPORTS ===
 # State
 export SimulationState, initialize!, ProductState, RandomMPS
@@ -55,6 +58,8 @@ export apply!, simulate, with_state, current_state, apply_with_prob!, apply_bran
 export run_circuit!, simulate_circuits, CircuitSimulation
 export record_every, record_at_circuits, record_always
 export get_state, get_observables, circuits_run
+# Circuit (lazy mode API)
+export Circuit, expand_circuit, simulate!
 
 # === INTERNAL EXPORTS (for CT.jl parity/debugging) ===
 # These are exported for testing/verification but not public API
