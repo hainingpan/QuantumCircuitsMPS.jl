@@ -7,11 +7,20 @@
 # The 4 styles are:
 #   A: Action-Based (apply_stochastic!) - Gate+geometry unified in Action type
 #   B: Categorical (apply_categorical!) - Simple tuple-based syntax
-#   C: Named Parameters (apply_branch!) - Fully self-documenting
+#   C: Named Parameters (apply_with_prob!) - Fully self-documenting
 #   D: Macro DSL (@stochastic) - Reads like natural language
 
 using Pkg; Pkg.activate(dirname(@__DIR__))
 using QuantumCircuitsMPS
+
+# Include deprecated styles for comparison
+# We need to define apply!(::SimulationState, ::Action) in Main because 
+# it's not in the package anymore and the deprecated files expect it.
+import QuantumCircuitsMPS: apply!, SimulationState
+include("../src/_deprecated/probabilistic_styles/action.jl")
+include("../src/_deprecated/probabilistic_styles/style_a_action.jl")
+include("../src/_deprecated/probabilistic_styles/style_b_categorical.jl")
+include("../src/_deprecated/probabilistic_styles/style_d_macro.jl")
 
 #= ============================================
    COMMON PARAMETERS (IDENTICAL FOR ALL STYLES)
@@ -130,7 +139,7 @@ end
 
 
 #= ============================================
-   STYLE C: Fully Named Parameters (apply_branch!)
+   STYLE C: Fully Named Parameters (apply_with_prob!)
    ============================================
    
    Key Feature: Completely self-documenting with named parameters
@@ -144,14 +153,14 @@ end
    - More typing required
    
    Usage:
-     apply_branch!(state;
-         rng = :ctrl,
-         outcomes = [
-             (probability=p1, gate=gate1, geometry=geo1),
-             (probability=p2, gate=gate2, geometry=geo2),
-             ...
-         ]
-     )
+      apply_with_prob!(state;
+          rng = :ctrl,
+          outcomes = [
+              (probability=p1, gate=gate1, geometry=geo1),
+              (probability=p2, gate=gate2, geometry=geo2),
+              ...
+          ]
+      )
 =#
 
 function run_style_c()
@@ -160,7 +169,7 @@ function run_style_c()
     
     # Circuit step using fully named parameters
     function circuit_step!(state, t)
-        apply_branch!(state;
+        apply_with_prob!(state;
             rng = :ctrl,
             outcomes = [
                 (probability=p_ctrl, gate=Reset(), geometry=left),
@@ -261,7 +270,7 @@ if abspath(PROGRAM_FILE) == @__FILE__
     println("Running Style B (apply_categorical!)...")
     dw_b = run_style_b()
     
-    println("Running Style C (apply_branch!)...")
+    println("Running Style C (apply_with_prob!)...")
     dw_c = run_style_c()
     
     println("Running Style D (@stochastic)...")

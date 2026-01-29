@@ -5,7 +5,7 @@
 # Run this file and choose your preferred syntax!
 #
 # The 3 styles are:
-#   1: Imperative (run_circuit!) - Maximum control, user manages loop
+#   1: Imperative (explicit loop) - Maximum control, user manages loop
 #   2: Callback (simulate_circuits) - Structure provided, on_circuit! callback
 #   3: Iterator (CircuitSimulation) - Lazy evaluation, composable with Iterators
 #
@@ -31,25 +31,27 @@ function run_style1_imperative()
     
     state = SimulationState(L=L, bc=:periodic, rng=rng)
     initialize!(state, ProductState(x0 = 1//2^L))
-    track!(state, :DW1 => DomainWall(order=1))
     
-    # 1-arg circuit step (new API requirement)
-    circuit_step!(s) = apply_branch!(s; rng=:ctrl, outcomes=[
+    # i1_fn captured at registration - called automatically during record!
+    get_i1() = (current_position(left) % L) + 1
+    track!(state, :DW1 => DomainWall(order=1, i1_fn=get_i1))
+    
+    # Circuit step with renamed API
+    circuit_step!(s) = apply_with_prob!(s; rng=:ctrl, outcomes=[
         (probability=p_ctrl, gate=Reset(), geometry=left),
         (probability=1-p_ctrl, gate=HaarRandom(), geometry=right)
     ])
     
-    get_i1() = (current_position(left) % L) + 1
+    # Initial recording - no i1 needed!
+    record!(state)
     
-    # Initial recording
-    record!(state; i1=get_i1())
-    
-    # USER controls the loop
+    # Plain loop - no run_circuit! wrapper
     for circuit in 1:N_CIRCUITS
-        run_circuit!(state, circuit_step!, L)
-        # Record every 2 circuits
+        for _ in 1:L
+            circuit_step!(state)
+        end
         if circuit % RECORD_EVERY == 0
-            record!(state; i1=get_i1())
+            record!(state)
         end
     end
     
@@ -62,7 +64,7 @@ function run_style2_callback()
     right = StaircaseRight(1)
     rng = RNGRegistry(Val(:ct_compat), circuit=seed_C, measurement=seed_m)
     
-    circuit_step!(s) = apply_branch!(s; rng=:ctrl, outcomes=[
+    circuit_step!(s) = apply_with_prob!(s; rng=:ctrl, outcomes=[
         (probability=p_ctrl, gate=Reset(), geometry=left),
         (probability=1-p_ctrl, gate=HaarRandom(), geometry=right)
     ])
@@ -89,30 +91,29 @@ function run_style3_iterator()
     right = StaircaseRight(1)
     rng = RNGRegistry(Val(:ct_compat), circuit=seed_C, measurement=seed_m)
     
-    circuit_step!(s) = apply_branch!(s; rng=:ctrl, outcomes=[
+    circuit_step!(s) = apply_with_prob!(s; rng=:ctrl, outcomes=[
         (probability=p_ctrl, gate=Reset(), geometry=left),
         (probability=1-p_ctrl, gate=HaarRandom(), geometry=right)
     ])
     
+    get_i1() = (current_position(left) % L) + 1
     sim = CircuitSimulation(
         L = L,
         bc = :periodic,
         init = ProductState(x0 = 1//2^L),
         circuit_step! = circuit_step!,
-        observables = [:DW1 => DomainWall(order=1)],
+        observables = [:DW1 => DomainWall(order=1, i1_fn=get_i1)],
         rng = rng
         # NOTE: No reset_geometry! - staircases continue accumulating
     )
     
-    get_i1() = (current_position(left) % L) + 1
-    
     # Initial recording
-    record!(sim.state; i1=get_i1())
+    record!(sim.state)
     
     # Iterate with take() to limit circuits
     for (n, state) in enumerate(Iterators.take(sim, N_CIRCUITS))
         if n % RECORD_EVERY == 0
-            record!(state; i1=get_i1())
+            record!(state)
         end
     end
     
@@ -156,7 +157,7 @@ println("=" ^ 70)
 println("Summary:")
 println("=" ^ 70)
 println()
-println("Style 1 (Imperative):  User controls loop with run_circuit!(state, step!, L)")
+println("Style 1 (Imperative):  User controls loop with explicit for _ in 1:L")
 println("Style 2 (Callback):    Structure provided, record_every($RECORD_EVERY) callback")
 println("Style 3 (Iterator):    Lazy evaluation with Iterators.take(sim, $N_CIRCUITS)")
 println()
