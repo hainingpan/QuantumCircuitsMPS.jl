@@ -194,3 +194,53 @@ function compute_sites(geo::AdjacentPair, step::Int, L::Int, bc::Symbol)
     second = (geo.first == L && bc == :periodic) ? 1 : geo.first + 1
     return [geo.first, second]
 end
+
+"""
+    compute_sites(geo::StaircaseRight, step::Int, L::Int, bc::Symbol, gate::AbstractGate) -> Vector{Int}
+
+Compute sites for StaircaseRight geometry based on gate support.
+
+# Arguments
+- `geo`: StaircaseRight geometry
+- `step`: Step number
+- `L`: System size
+- `bc`: Boundary condition (`:periodic` or `:open`)
+- `gate`: Gate to determine support (1-site or 2-site)
+
+# Returns
+- For single-site gates (support == 1): `[pos]`
+- For two-site gates (support == 2): `[pos, pos+1]` with PBC wrapping
+"""
+function compute_sites(geo::StaircaseRight, step::Int, L::Int, bc::Symbol, gate::AbstractGate)
+    pos = compute_site_staircase_right(geo._position, step, L, bc)
+    if support(gate) == 1
+        return [pos]
+    else  # support(gate) == 2
+        return compute_pair_staircase(pos, L, bc)
+    end
+end
+
+"""
+    compute_sites(geo::StaircaseLeft, step::Int, L::Int, bc::Symbol, gate::AbstractGate) -> Vector{Int}
+
+Compute sites for StaircaseLeft geometry based on gate support.
+
+# Arguments
+- `geo`: StaircaseLeft geometry
+- `step`: Step number
+- `L`: System size
+- `bc`: Boundary condition (`:periodic` or `:open`)
+- `gate`: Gate to determine support (1-site or 2-site)
+
+# Returns
+- For single-site gates (support == 1): `[pos]`
+- For two-site gates (support == 2): `[pos, pos+1]` with PBC wrapping
+"""
+function compute_sites(geo::StaircaseLeft, step::Int, L::Int, bc::Symbol, gate::AbstractGate)
+    pos = compute_site_staircase_left(geo._position, step, L, bc)
+    if support(gate) == 1
+        return [pos]
+    else  # support(gate) == 2
+        return compute_pair_staircase(pos, L, bc)
+    end
+end

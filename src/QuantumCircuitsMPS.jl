@@ -59,7 +59,7 @@ export run_circuit!, simulate_circuits, CircuitSimulation
 export record_every, record_at_circuits, record_always
 export get_state, get_observables, circuits_run
 # Circuit (lazy mode API)
-export Circuit, expand_circuit, simulate!
+export Circuit, expand_circuit, simulate!, ExpandedOp
 
 # === INTERNAL EXPORTS (for CT.jl parity/debugging) ===
 # These are exported for testing/verification but not public API

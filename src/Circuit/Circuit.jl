@@ -14,7 +14,7 @@ include("types.jl")
 include("builder.jl")
 
 # Circuit expansion (symbolic → concrete)
-# include("expand.jl")  # Task 5
+include("expand.jl")
 
 # Circuit executor
 # include("execute.jl")  # Task 8
