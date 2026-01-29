@@ -24,3 +24,4 @@ function get_sites end
 include("static.jl")
 include("staircase.jl")
 include("pointer.jl")
+include("compute_sites.jl")

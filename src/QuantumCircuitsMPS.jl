@@ -59,6 +59,7 @@ export get_state, get_observables, circuits_run
 # === INTERNAL EXPORTS (for CT.jl parity/debugging) ===
 # These are exported for testing/verification but not public API
 export advance!, get_sites, current_position  # Geometry internals
+export compute_site_staircase_right, compute_site_staircase_left, compute_pair_staircase  # Pure geometry computation
 export apply_op_internal!, apply_post!        # Apply internals  
 export born_probability                       # Observable internals
 export compute_basis_mapping, physical_to_ram, ram_to_physical # Basis internals
