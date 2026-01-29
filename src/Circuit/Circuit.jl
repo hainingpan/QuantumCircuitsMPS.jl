@@ -8,7 +8,7 @@ Provides:
 """
 
 # Circuit types and internal operation representation
-# include("types.jl")  # Task 3
+include("types.jl")
 
 # CircuitBuilder and do-block API
 # include("builder.jl")  # Task 4
