@@ -11,7 +11,7 @@ Provides:
 include("types.jl")
 
 # CircuitBuilder and do-block API
-# include("builder.jl")  # Task 4
+include("builder.jl")
 
 # Circuit expansion (symbolic → concrete)
 # include("expand.jl")  # Task 5
