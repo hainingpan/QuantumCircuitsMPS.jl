@@ -27,6 +27,7 @@ function compute_basis_mapping(L::Int, bc::Symbol)
             push!(ram_phy, a)
             push!(ram_phy, b)
         end
+
         
         # phy_ram is the inverse: phy_ram[physical_site] = ram_index
         phy_ram = zeros(Int, L)

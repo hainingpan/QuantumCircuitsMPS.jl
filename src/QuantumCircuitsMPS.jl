@@ -46,7 +46,7 @@ export Pointer, move!
 export AbstractObservable, DomainWall, BornProbability
 export track!, record!
 # API
-export apply!, simulate, with_state, current_state, apply_with_prob!, apply_stochastic!, apply_categorical!, apply_branch!, Action, @stochastic
+export apply!, simulate, with_state, current_state, apply_branch!
 
 # === INTERNAL EXPORTS (for CT.jl parity/debugging) ===
 # These are exported for testing/verification but not public API

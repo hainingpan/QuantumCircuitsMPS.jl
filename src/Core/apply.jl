@@ -61,6 +61,67 @@ function _apply_dispatch!(state::SimulationState, gate::AbstractGate, geo::AllSi
     end
 end
 
+# Pointer does NOT auto-advance - user controls movement via move!()
+function _apply_dispatch!(state::SimulationState, gate::AbstractGate, geo::Pointer)
+    sites = get_sites(geo, state)
+    _apply_single!(state, gate, sites)
+    # NO advance! - user explicitly calls move!()
+end
+
+# === Special handling for Reset gate (requires measurement + conditional logic) ===
+
+function _apply_dispatch!(state::SimulationState, gate::Reset, geo::SingleSite)
+    site = get_sites(geo, state)[1]  # SingleSite returns [site]
+    
+    # 1. Compute Born probability
+    p_0 = born_probability(state, site, 0)
+    
+    # 2. Sample outcome using :born stream
+    born_rng = get_rng(state.rng_registry, :born)
+    outcome = rand(born_rng) < p_0 ? 0 : 1
+    
+    # 3. Apply Projection
+    _apply_single!(state, Projection(outcome), [site])
+    
+    # 4. Conditional X to reset to |0⟩
+    if outcome == 1
+        _apply_single!(state, PauliX(), [site])
+    end
+    
+    return nothing
+end
+
+function _apply_dispatch!(state::SimulationState, gate::Reset, geo::AbstractStaircase)
+    site = geo._position  # Current position
+    
+    # Same Reset logic
+    p_0 = born_probability(state, site, 0)
+    born_rng = get_rng(state.rng_registry, :born)
+    outcome = rand(born_rng) < p_0 ? 0 : 1
+    _apply_single!(state, Projection(outcome), [site])
+    if outcome == 1
+        _apply_single!(state, PauliX(), [site])
+    end
+    
+    # Advance staircase after
+    advance!(geo, state.L, state.bc)
+    return nothing
+end
+
+function _apply_dispatch!(state::SimulationState, gate::Reset, geo::Pointer)
+    site = geo._position  # Reset is single-site
+    
+    p_0 = born_probability(state, site, 0)
+    born_rng = get_rng(state.rng_registry, :born)
+    outcome = rand(born_rng) < p_0 ? 0 : 1
+    _apply_single!(state, Projection(outcome), [site])
+    if outcome == 1
+        _apply_single!(state, PauliX(), [site])
+    end
+    # NO advance! - user explicitly calls move!()
+    return nothing
+end
+
 # === Core application logic ===
 
 """

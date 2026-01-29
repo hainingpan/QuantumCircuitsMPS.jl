@@ -46,22 +46,9 @@ function build_operator(gate::HaarRandom, sites::Vector{<:Index}, local_dim::Int
     U_matrix = Q * Lambda
     
     # Build ITensor from 4x4 matrix
-    # Matrix indices: U[out1*d + out2, in1*d + in2] (row-major style)
-    # ITensor indices: sites[1]', sites[2]', sites[1], sites[2]
-    
+    U_4 = reshape(U_matrix, 2, 2, 2, 2)
     s1, s2 = sites[1], sites[2]
-    
-    # Create ITensor with proper index structure
-    op_tensor = ITensor(ComplexF64, s1', s2', dag(s1), dag(s2))
-    
-    for i1 in 1:local_dim, i2 in 1:local_dim  # output indices
-        for j1 in 1:local_dim, j2 in 1:local_dim  # input indices
-            # Map to matrix indices (0-based then to 1-based)
-            row = (i1 - 1) * local_dim + i2  # output: first qubit is "slower"
-            col = (j1 - 1) * local_dim + j2  # input
-            op_tensor[s1' => i1, s2' => i2, s1 => j1, s2 => j2] = U_matrix[row, col]
-        end
-    end
+    op_tensor = ITensor(U_4, s1, s2, s1', s2')
     
     return op_tensor
 end

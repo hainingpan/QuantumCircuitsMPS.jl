@@ -1,96 +1,49 @@
-module Observables
-
 using ITensors
-using ITensorMPS: MPS, orthogonalize, expect
+using ITensorMPS
 
-using ..Core: AbstractObservable, current_state
+"""
+Abstract base type for observable specifications.
+"""
+abstract type AbstractObservable end
 
-export MagnetizationZ,
-       MagnetizationZiAll,
-       EntanglementEntropy,
-       Entropy,
-       MaxBondDim
+# Include implementations
+include("born.jl")
+include("domain_wall.jl")
 
-struct MagnetizationZ <: AbstractObservable end
-struct MagnetizationZiAll <: AbstractObservable end
-struct EntanglementEntropy <: AbstractObservable
-    cut::Int
-    order::Int
+# === Observable Tracking API ===
+
+"""
+    track!(state::SimulationState, spec::Pair{Symbol, AbstractObservable})
+
+Register an observable to be tracked. Values are stored in state.observables.
+
+Example: track!(state, :dw1 => DomainWall(order=1))
+"""
+function track!(state, spec::Pair{Symbol, <:AbstractObservable})
+    name, obs = spec
+    state.observable_specs[name] = obs
+    state.observables[name] = Float64[]
+    return nothing
 end
-struct MaxBondDim <: AbstractObservable end
 
-Entropy(cut::Int; order::Int=1) = EntanglementEntropy(cut, order)
+"""
+    record!(state::SimulationState; i1::Union{Int,Nothing}=nothing)
 
-function _ensure_obs!(state, key::Symbol)
-    get!(state.observables, key) do
-        Vector{Any}()
+Compute all tracked observables and append values to state.observables.
+The i1 parameter is required for DomainWall observables.
+"""
+function record!(state; i1::Union{Int,Nothing}=nothing)
+    for (name, obs) in state.observable_specs
+        if obs isa DomainWall
+            i1 === nothing && throw(ArgumentError(
+                "DomainWall requires i1 parameter (the CT sampling site). " *
+                "Use: record!(state; i1=sampling_site)"
+            ))
+            value = obs(state, i1)
+        else
+            value = obs(state)
+        end
+        push!(state.observables[name], value)
     end
-end
-
-function _zi(state)
-    sZ = expect(state._mps, "Sz")[state._phy_ram][state._phy_list]
-    return real.(sZ) * 2
-end
-
-function _von_neumann_entropy(
-    mps::MPS,
-    i::Int;
-    n::Int=1,
-    positivedefinite::Bool=false,
-    threshold::Float64=1e-16,
-    sv::Bool=false,
-)
-    mps_ = orthogonalize(mps, i)
-    _, S = svd(mps_[i], (linkind(mps_, i),))
-    if sv
-        return array(diag(S))
-    end
-    p = positivedefinite ? max.(diag(S), threshold) : max.(diag(S), threshold) .^ 2
-    if n == 1
-        return -sum(p .* log.(p))
-    elseif n == 0
-        return log(length(p))
-    end
-    return log(sum(p .^ n)) / (1 - n)
-end
-
-function (obs::MagnetizationZiAll)()
-    state = current_state()
-    sZi = _zi(state)
-    vec = _ensure_obs!(state, :Zi)
-    push!(vec, sZi)
-    return sZi
-end
-
-function (obs::MagnetizationZ)()
-    state = current_state()
-    sZi = _zi(state)
-    value = real(sum(sZi)) / state.L
-    vec = _ensure_obs!(state, :Z)
-    push!(vec, value)
-    return value
-end
-
-function (obs::EntanglementEntropy)()
-    state = current_state()
-    1 <= obs.cut < state.L || throw(ArgumentError("cut must satisfy 1 <= cut < L"))
-    ram_cut = state._phy_ram[obs.cut]
-    value = _von_neumann_entropy(state._mps, ram_cut; n=obs.order)
-    vec = _ensure_obs!(state, :entropy)
-    push!(vec, value)
-    return value
-end
-
-function (obs::MaxBondDim)()
-    state = current_state()
-    max_dim = 0
-    for i in 1:(length(state._mps) - 1)
-        dim = commonind(state._mps[i], state._mps[i + 1])
-        max_dim = max(max_dim, space(dim))
-    end
-    vec = _ensure_obs!(state, :max_bond_dim)
-    push!(vec, max_dim)
-    return max_dim
-end
-
+    return nothing
 end

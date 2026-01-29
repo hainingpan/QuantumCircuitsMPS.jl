@@ -23,3 +23,4 @@ function get_sites end
 # Include implementations
 include("static.jl")
 include("staircase.jl")
+include("pointer.jl")

@@ -37,12 +37,14 @@ function domain_wall(state, i1::Int, order::Int)
     
     # Physical site list starting from i1, wrapping around
     # phy_list[j] = the j-th physical site in scanning order
+    # CT.jl line 595: phy_list = [mod(i1+j-2, L)+1 for j in 1:L]
     phy_list = [mod(i1 + j - 2, L) + 1 for j in 1:L]
     
     dw_value = 0.0
     
     for j in 1:L
         # Weight for finding first "1" at position j
+        # CT.jl line 598: (L-j+1)^order
         weight = Float64((L - j + 1)^order)
         
         # Probability of:
@@ -50,13 +52,13 @@ function domain_wall(state, i1::Int, order::Int)
         # - Site j being "1" (the first "1")
         
         # Get the physical sites in scanning order up to position j
-        sites_before = phy_list[1:j-1]  # Should be "0"
-        site_at_j = phy_list[j]         # Should be "1"
+        sites_zero = phy_list[1:j-1]  # Should be "0"
+        site_one = phy_list[j]         # Should be "1"
         
         # Build the probability using projector products
         # P = ⟨ψ| (∏_{k<j} P0_k) P1_j |ψ⟩
         
-        prob = compute_projector_product_expectation(state, sites_before, site_at_j)
+        prob = compute_projector_product_expectation(state, sites_zero, site_one)
         dw_value += weight * prob
     end
     

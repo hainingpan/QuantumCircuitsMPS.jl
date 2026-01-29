@@ -1,56 +1,65 @@
-include("probabilistic_styles/action.jl")
-include("probabilistic_styles/style_a_action.jl")
-include("probabilistic_styles/style_b_categorical.jl")
-include("probabilistic_styles/style_c_named.jl")
-include("probabilistic_styles/style_d_macro.jl")
+# Probabilistic Branching API
+# ==========================
+# 
+# This is the finalized probabilistic API using fully named parameters (Style C).
+# Selected for: self-documenting code, no position memorization, idiomatic Julia.
+#
+# For historical context on alternative styles that were considered, see:
+# - examples/ct_model_styles.jl (comparison of 4 styles)
+# - src/_deprecated/probabilistic_styles/ (alternative implementations)
+
+# Part of the Probabilistic API (Contract 4.4)
 
 """
-    apply_with_prob!(state, gate, geo, prob; rng=:ctrl, else_branch=nothing)
+    apply_branch!(state; rng=:ctrl, outcomes)
 
-Conditionally apply a gate with probability `prob`, with optional else branch.
+Execute one action from outcomes with fully named parameters.
 
-CRITICAL: Per Contract 4.4, this function ALWAYS draws a random number from the 
-specified RNG stream BEFORE checking the probability. This ensures deterministic 
-RNG advancement regardless of which branch is taken.
+Each outcome is a NamedTuple with fields:
+- probability: Float64 (required)
+- gate: AbstractGate (required)
+- geometry: AbstractGeometry (required)
 
-Arguments:
-- state: SimulationState
-- gate: AbstractGate to apply if rand < prob
-- geo: AbstractGeometry where to apply the gate
-- prob: Probability of application (0.0 to 1.0)
-- rng: Symbol identifying the RNG stream in state.rng_registry (default :ctrl)
-- else_branch: Optional tuple (gate, geo) to apply if rand >= prob
+Example:
+    apply_branch!(state;
+        rng = :ctrl,
+        outcomes = [
+            (probability=p_ctrl, gate=Reset(), geometry=left),
+            (probability=1-p_ctrl, gate=HaarRandom(), geometry=right)
+        ]
+    )
 
-Examples:
-    # Simple probabilistic application (original behavior)
-    apply_with_prob!(state, Reset(), site, 0.3)
-    
-    # Either/or branching (new behavior)
-    apply_with_prob!(state, Reset(), left, p_ctrl;
-                    else_branch=(HaarRandom(), right))
+Example (3-way):
+    apply_branch!(state;
+        outcomes = [
+            (probability=0.25, gate=PauliX(), geometry=site),
+            (probability=0.25, gate=PauliY(), geometry=site),
+            (probability=0.50, gate=Identity(), geometry=site)
+        ]
+    )
 """
-function apply_with_prob!(
-    state::SimulationState,
-    gate::AbstractGate,
-    geo::AbstractGeometry,
-    prob::Float64;
+function apply_branch!(
+    state::SimulationState;
     rng::Symbol = :ctrl,
-    else_branch::Union{Nothing, Tuple{AbstractGate, AbstractGeometry}} = nothing
+    outcomes::Vector{<:NamedTuple{(:probability, :gate, :geometry)}}
 )
-    # Get the actual RNG from state's registry
-    actual_rng = get_rng(state.rng_registry, rng)
+    probs = [o.probability for o in outcomes]
+    @assert abs(sum(probs) - 1.0) < 1e-10 "Probabilities must sum to 1"
     
-    # CRITICAL: ALWAYS draw random number BEFORE checking prob
-    # This ensures deterministic RNG advancement
+    # CRITICAL: Draw BEFORE checking
+    actual_rng = get_rng(state.rng_registry, rng)
     r = rand(actual_rng)
     
-    # Conditionally apply based on drawn value
-    if r < prob
-        apply!(state, gate, geo)
-    elseif else_branch !== nothing
-        # Apply the else branch if provided
-        else_gate, else_geo = else_branch
-        apply!(state, else_gate, else_geo)
+    cumulative = 0.0
+    for outcome in outcomes
+        cumulative += outcome.probability
+        if r < cumulative
+            apply!(state, outcome.gate, outcome.geometry)
+            return nothing
+        end
     end
+    
+    last_outcome = last(outcomes)
+    apply!(state, last_outcome.gate, last_outcome.geometry)
     return nothing
 end

@@ -97,3 +97,29 @@ Draw random normal array from the specified stream. For Haar random matrices.
 function Base.randn(registry::RNGRegistry, stream::Symbol, dims...)
     return randn(get_rng(registry, stream), dims...)
 end
+
+# === SimulationState Extensions ===
+
+# Note: SimulationState is defined in State/State.jl, which is included after this file.
+# We use Any for the state argument to avoid circular dependency during inclusion.
+
+"""
+    rand(state, stream::Symbol) -> Float64
+
+Draw a random number from the specified RNG stream.
+Convenience wrapper that hides rng_registry internals.
+
+Example:
+    if rand(state, :ctrl) < p_ctrl
+        # control branch
+    end
+"""
+function Base.rand(state::Any, stream::Symbol)
+    # Check if it's a SimulationState without requiring the type at compile time
+    if nameof(typeof(state)) == :SimulationState
+        isnothing(state.rng_registry) && error("SimulationState has no RNG registry attached.")
+        return rand(state.rng_registry, stream)
+    end
+    # Fallback for other types if necessary, or just throw error
+    throw(MethodError(rand, (state, stream)))
+end

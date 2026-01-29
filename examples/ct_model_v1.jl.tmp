@@ -6,24 +6,24 @@ using QuantumCircuitsMPS
 using JSON
 
 function run_dw_t(L::Int, p_ctrl::Float64, p_proj::Float64, seed_C::Int, seed_m::Int)
-    # Staircases encapsulate directional movement
-    left = StaircaseLeft(L)
-    right = StaircaseRight(L)
+    # Single bidirectional pointer - no syncing needed
+    pointer = Pointer(L)
     
-    # Circuit step: physicist speaks "with prob p_ctrl, Reset+left; else HaarRandom+right"
+    # Circuit step: control vs Bernoulli with direction change
     function circuit_step!(state, t)
-        apply_branch!(state;
-            rng = :ctrl,
-            outcomes = [
-                (probability=p_ctrl, gate=Reset(), geometry=left),
-                (probability=1-p_ctrl, gate=HaarRandom(), geometry=right)
-            ]
-        )
+        if rand(state, :ctrl) < p_ctrl
+            # CONTROL: Reset at current site, move LEFT
+            apply!(state, Reset(), pointer)
+            move!(pointer, :left, L, :periodic)
+        else
+            # BERNOULLI: HaarRandom at current pair, move RIGHT
+            apply!(state, HaarRandom(), pointer)
+            move!(pointer, :right, L, :periodic)
+        end
     end
     
     # i1 for DomainWall depends on current pointer position
-    # Note: left and right are synced by the either/or logic
-    get_i1(state, t) = (current_position(left) % L) + 1
+    get_i1(state, t) = (current_position(pointer) % L) + 1
     
     # Run simulation using functional API
     results = simulate(

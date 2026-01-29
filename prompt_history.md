@@ -172,8 +172,101 @@ i see your point..emm that's true. I think since the new way is much conceptuall
 ---
 THis is almost good. But i think you missed a point before. Long time ago, i mentioned "Make it multiple style for now, and i want to see how they look like as the final product, after that i can decide. "
 
+
 ---
-Let's create several typical ...
+We need to work on fixing this, physics not being correct meaning nothing to the entire package.
+
+I need to first understand what have you realized. and what are you checking. 
+For example, why do I see 82 cases of `[ ]` still unchecked? Meaning that you didn't complete the tasks!
+---
+
+i have a concern in your "Physics verification", you seem to use "ct_model.jl" as the "run_CT_MPS_C_m_T.jl", am i right? or what exactly you checked and then say you find consistent result.
+My understanding here should be, you have run "run_CT_MPS_C_m_T.jl". and get a output json, and then you have  a new jl , which is a reproduced version using "QuantumCircuitsMPS.jl", and these two are the same. Please clarify.
+
+---
+Now you are saying the refactored version using `QuantumCircuitsMPS.jl` is in `examples/ct_model.jl`?
+
+---
+Now I will be angry now.
+1. why the heck is this script even longer than previous "run_CT_MPS_C_m_T.jl", the previous have 141 lines, but "examples/ct_model.jl" has 194 lines!!
+
+This completely defeats the purpose of my packages. as a physicist to describe the circuit, are you going to use 194 lines to just describe the circuit??
+This sounds to me you completely lost your mind and my intention and degerenate to v1. You should justify yourself what you did here.
+---
+
+I don't understand why RandomControl should be built in?
+You already have "staircase" in geometry, why don't you even use it??
+----
+
+I don't understand your reasoning here.
+If you said you finish a package, and my request is just to use the package you just made to write code to "call API". 
+
+Then you refused to use API in the pacakge but do random things you wanted.
+
+Now you are asking me "refactor". I don't even understand what you want to refactor! There are only two possibilities from my perspective:
+1. You failed the package. We spent 18 rounds on the design but that does not work. 
+2. You failed the reproducing code that calls existing finished package. 
+
+---
+THis is fucking ridiculous!
+You should read your own written ".sisyphus/plans/quantum-circuits-mps-v2.md" to see the philosophy section, and tell me what are the issue with your code. Answer me first before you change anything.
+
+---
+
+So why cannot you figure yourself?? Why don't you realize it when you first finish this version? You should continue to think harder on how you should use existing package properly!
+---
+
+You are hulluciating, 
+" We built staircases but they're unidirectional"
+Didn't we have  "StaircaseRight" and "StaircaseLeft"?? You need to 1. realize why your current exapmles fail and defeat the purpose of this julia package QuantumCircuitsMPS.jl
+2. Work on iteratively revise the code until the code satisfy the philosophy. Do you try to modify the philosophy in  `.sisyphus/plans/quantum-circuits-mps-v2.md` (that will be cheating.)
+---
+
+Do you still see what problems you have??
+If not i will tell you!
+
+
+---
+
+/ralph-loop "
+1. **Fix** `examples/ct_model.jl`
+2. **Critique**: Compare revised code against the philosophy in `.sisyphus/plans/quantum-circuits-mps-v2.md`. 
+List every specific violation of the philosophy.
+3. **Verify correctness**: The revised code should still be correct after rectifying.
+5. **Decision**:
+   - IF there are philosophy violations OR test failures: Fix them and RESTART the loop.
+   - IF and ONLY IF the code matches `quantum-circuits-mps-v2.md` 100% AND tests pass: Output <promise>DONE</promise>.
+"
+---
+I am not satisfied:
+1. Why you insist not using "StaircaseLeft" and "StaircaseRight", but would rather manually maintain "pointer" and use "move" ;
+2. You are still using "rand(state, :ctrl) < p_ctrl" which is "low-level". Why don't you use "apply_with_prob!", which is also mentioned in the plan!
+I don't think you try hard enough.
+
+---
+
+I don't understand why you say it is not "apply_with_prob"? I need to either perform a HaarRandom, or Reset, this is literally what you said??
+I suspect what confuses you is that these two operators acting on different sites. But that is your API design, who says apply_with_prob! can only apply to a fixed site?
+
+---
+No all satisfied. 
+1. apply_with_prob!(state, Reset(), left, p_ctrl;
+                        else_branch=(HaarRandom(), right))
+
+this syntax is not generalizable. because 
+a. it only assume two outcomes, what if i have three outcomes?
+b. it does not conceptually "combine" gate with geometry;
+c. the readbiliy is very bad. eveything is position based and it requires users to memorize order of argument.
+
+
+
+Also we previously mentioned that "Make it multiple style for now, and i want to see how they look like as the final product, after that i can decide. " where is it? I expected that i am given a combination of different styles and i will make a decision to choose the best?
+---
+Should all 4 styles be fully implemented as separate API options, or would you prefer to see 2-3 of the most promising ones?:
+I would like to see them all for a fair comparison but its okay if you find certain implementation is obviously absurb in which case you can just not show it.
+--
+---
+Let's create several typical examples, 
 
 I also want to have a plot utils package. One thing is to render the circuit.
 
@@ -181,3 +274,5 @@ Final TODO:
 i see you have update all path to v2, this is fine as development stage, but i want to remind you (and you should also write it down somewhere) that this "v2" should be clean up before final publish it. 
 
 There are a lot of things we have deferre before while we were producing the first MVP. So these thing shouldn't be ignore, and should be added to TODO list in README.
+
+We also have tried a couple of things and they should be removed after they are finalized.
