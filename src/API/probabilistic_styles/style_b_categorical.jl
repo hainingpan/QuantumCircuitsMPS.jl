@@ -1,3 +1,24 @@
+#=
+Style B: Categorical Tuples
+==========================
+
+Philosophy: Simple vector of (probability, gate, geometry) tuples
+
+Pros:
+- Minimal syntax - no new types required
+- Familiar tuple pattern from other probabilistic frameworks
+- Supports N-way branching naturally with vectors
+
+Cons:
+- Position-based within tuples - must remember (prob, gate, geo) order
+- No compile-time enforcement of field names
+
+When to Use:
+Choose this if you prefer simplicity and familiarity over self-documentation
+
+See also: examples/ct_model_styles.jl for side-by-side comparison
+=#
+
 # This file is meant to be included in the QuantumCircuitsMPS module context
 # where AbstractGate, AbstractGeometry, and SimulationState are already defined.
 # It should NOT be loaded standalone.

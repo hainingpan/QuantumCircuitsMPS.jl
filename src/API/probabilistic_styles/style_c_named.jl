@@ -1,3 +1,24 @@
+#=
+Style C: Fully Named Parameters
+===============================
+
+Philosophy: Completely self-documenting with named parameters everywhere
+
+Pros:
+- Completely self-documenting - no memorization of argument order
+- Named fields make intent crystal clear
+- Compile-time field name checking
+
+Cons:
+- More verbose, especially for simple binary branching
+- Requires more typing for common cases
+
+When to Use:
+Choose this if code readability and self-documentation are your top priority
+
+See also: examples/ct_model_styles.jl for side-by-side comparison
+=#
+
 # Style C: Fully Named Parameters
 # Part of the Probabilistic API (Contract 4.4)
 

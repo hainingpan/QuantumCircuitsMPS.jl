@@ -1,3 +1,25 @@
+#=
+Style D: DSL Macro
+==================
+
+Philosophy: DSL that reads like natural language physics descriptions
+
+Pros:
+- Reads like natural language: "with probability p, apply gate to geometry"
+- Cleanest syntax for expressing probabilistic branching
+- Supports N-way branching within the DSL block
+
+Cons:
+- Macros are harder to debug (less helpful error messages)
+- Less IDE support (autocomplete, type hints)
+- Macro hygiene can be surprising if not understood
+
+When to Use:
+Choose this if you want code that reads like physics prose and don't mind macro limitations
+
+See also: examples/ct_model_styles.jl for side-by-side comparison
+=#
+
 # This file is meant to be included in the QuantumCircuitsMPS module context
 # where AbstractGate, AbstractGeometry, and SimulationState are already defined.
 # It should NOT be loaded standalone.

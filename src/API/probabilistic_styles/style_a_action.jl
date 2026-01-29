@@ -1,3 +1,24 @@
+#=
+Style A: Action-Based
+=====================
+
+Philosophy: Unifies gate and geometry into a single "Action" concept
+
+Pros:
+- Gate + geometry conceptually unified (matches how physicists think)
+- Clear probability => action association with Pair syntax
+- Supports N-way branching with variadic arguments
+
+Cons:
+- Requires Action() wrapper for each gate+geometry pair
+- Slightly more verbose than tuple-based alternatives
+
+When to Use:
+Choose this if you want gate+geometry to be a first-class unified concept
+
+See also: examples/ct_model_styles.jl for side-by-side comparison
+=#
+
 # This file is meant to be included in the QuantumCircuitsMPS module context
 # where AbstractGate, AbstractGeometry, and SimulationState are already defined.
 # It should NOT be loaded standalone.
