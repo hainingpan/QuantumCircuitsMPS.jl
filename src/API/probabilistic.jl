@@ -1,3 +1,9 @@
+include("probabilistic_styles/action.jl")
+include("probabilistic_styles/style_a_action.jl")
+include("probabilistic_styles/style_b_categorical.jl")
+include("probabilistic_styles/style_c_named.jl")
+include("probabilistic_styles/style_d_macro.jl")
+
 """
     apply_with_prob!(state, gate, geo, prob; rng=:ctrl, else_branch=nothing)
 

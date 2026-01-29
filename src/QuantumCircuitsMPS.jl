@@ -1,42 +1,58 @@
 module QuantumCircuitsMPS
 
-include("Core/Core.jl")
+using ITensors
+using ITensorMPS
+using Random
+using LinearAlgebra
+
+# Core
+include("Core/basis.jl")
+include("Core/rng.jl")
+
+# State
+include("State/State.jl")
+include("State/initialization.jl")
+
+# Gates
 include("Gates/Gates.jl")
-include("Measurements/Measurements.jl")
+
+# Geometry
+include("Geometry/Geometry.jl")
+
+# Core apply! (after State, Gates, Geometry)
+include("Core/apply.jl")
+
+# Observables
 include("Observables/Observables.jl")
-include("Patterns/Patterns.jl")
 
-using .Core
-using .Gates
-using .Measurements
-using .Observables
-using .Patterns
+# API
+include("API/imperative.jl")
+include("API/functional.jl")
+include("API/context.jl")
+include("API/probabilistic.jl")
 
-export AbstractGate,
-       AbstractMeasurement,
-       AbstractObservable,
-       AbstractPattern,
-       AbstractCircuit,
-       SimulationState,
-       with_state,
-       current_state,
-       simulate,
-       HaarGate,
-       SimplifiedGate,
-       ZMeasurement,
-       ZMeasure,
-       measure!,
-       control_step!,
-       projection_checks!,
-       MagnetizationZ,
-       MagnetizationZiAll,
-       EntanglementEntropy,
-       Entropy,
-       MaxBondDim,
-       Bricklayer,
-       StaircaseStep,
-       bricklayer!,
-       staircase_step!,
-       forward
+# === PUBLIC API EXPORTS ===
+# State
+export SimulationState, initialize!, ProductState, RandomMPS
+# RNG
+export RNGRegistry, get_rng  # NOTE: rand is extended, not exported
+# Gates
+export AbstractGate, PauliX, PauliY, PauliZ, Projection, HaarRandom, Reset, CZ
+# Geometry
+export AbstractGeometry, SingleSite, AdjacentPair, Bricklayer, AllSites
+export StaircaseLeft, StaircaseRight
+export Pointer, move!
+# Observables
+export AbstractObservable, DomainWall, BornProbability
+export track!, record!
+# API
+export apply!, simulate, with_state, current_state, apply_with_prob!, apply_stochastic!, apply_categorical!, apply_branch!, Action, @stochastic
 
-end
+# === INTERNAL EXPORTS (for CT.jl parity/debugging) ===
+# These are exported for testing/verification but not public API
+export advance!, get_sites, current_position  # Geometry internals
+export apply_op_internal!, apply_post!        # Apply internals  
+export born_probability                       # Observable internals
+export compute_basis_mapping, physical_to_ram, ram_to_physical # Basis internals
+
+end # module
