@@ -31,6 +31,11 @@ include("API/functional.jl")
 include("API/context.jl")
 include("API/probabilistic.jl")
 
+# Simulation styles (circuit-level APIs)
+include("API/simulation_styles/style_imperative.jl")
+include("API/simulation_styles/style_callback.jl")
+include("API/simulation_styles/style_iterator.jl")
+
 # === PUBLIC API EXPORTS ===
 # State
 export SimulationState, initialize!, ProductState, RandomMPS
@@ -47,6 +52,9 @@ export AbstractObservable, DomainWall, BornProbability
 export track!, record!
 # API
 export apply!, simulate, with_state, current_state, apply_branch!
+export run_circuit!, simulate_circuits, CircuitSimulation
+export record_every, record_at_circuits, record_always
+export get_state, get_observables, circuits_run
 
 # === INTERNAL EXPORTS (for CT.jl parity/debugging) ===
 # These are exported for testing/verification but not public API
