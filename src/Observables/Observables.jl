@@ -30,16 +30,25 @@ end
     record!(state::SimulationState; i1::Union{Int,Nothing}=nothing)
 
 Compute all tracked observables and append values to state.observables.
-The i1 parameter is required for DomainWall observables.
+
+For DomainWall observables:
+- If i1_fn was provided at construction, it will be called automatically
+- Otherwise, i1 parameter must be provided explicitly
 """
 function record!(state; i1::Union{Int,Nothing}=nothing)
     for (name, obs) in state.observable_specs
         if obs isa DomainWall
-            i1 === nothing && throw(ArgumentError(
-                "DomainWall requires i1 parameter (the CT sampling site). " *
-                "Use: record!(state; i1=sampling_site)"
-            ))
-            value = obs(state, i1)
+            if obs.i1_fn !== nothing
+                # i1_fn is set - call observable without i1, it will use i1_fn
+                value = obs(state)
+            elseif i1 !== nothing
+                # Explicit i1 passed - use it
+                value = obs(state, i1)
+            else
+                throw(ArgumentError(
+                    "DomainWall '$name' requires either i1_fn at registration or i1 at record! call"
+                ))
+            end
         else
             value = obs(state)
         end

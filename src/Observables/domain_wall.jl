@@ -1,5 +1,5 @@
 """
-    DomainWall(; order::Int)
+    DomainWall(; order::Int, i1_fn::Union{Function, Nothing}=nothing)
 
 Domain wall observable for CT model.
 Only supports xj=Set([0]) case (first "1" in bit string).
@@ -8,19 +8,35 @@ The domain wall computes:
   DW = Σ_j (L-j+1)^order * P(first "1" at position j starting from i1)
 
 where position j is measured cyclically starting from i1.
+
+Parameters:
+- order: The order of the domain wall (≥ 1)
+- i1_fn: Optional function that returns the sampling site i1 when called
+         If provided, record! can be called without i1 parameter
 """
 struct DomainWall <: AbstractObservable
     order::Int
+    i1_fn::Union{Function, Nothing}
     
-    function DomainWall(; order::Int)
+    function DomainWall(; order::Int, i1_fn::Union{Function, Nothing}=nothing)
         order >= 1 || throw(ArgumentError("DomainWall order must be >= 1"))
-        new(order)
+        new(order, i1_fn)
     end
 end
 
 # Callable struct interface
-function (dw::DomainWall)(state, i1::Int)
-    return domain_wall(state, i1, dw.order)
+function (dw::DomainWall)(state, i1::Union{Int, Nothing}=nothing)
+    # Determine which i1 to use
+    actual_i1 = if dw.i1_fn !== nothing
+        dw.i1_fn()  # Call the captured function
+    elseif i1 !== nothing
+        i1  # Use explicit parameter
+    else
+        throw(ArgumentError(
+            "DomainWall requires either i1_fn at construction or i1 at call time"
+        ))
+    end
+    return domain_wall(state, actual_i1, dw.order)
 end
 
 """

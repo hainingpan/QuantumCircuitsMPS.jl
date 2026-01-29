@@ -11,9 +11,11 @@
 # Part of the Probabilistic API (Contract 4.4)
 
 """
-    apply_branch!(state; rng=:ctrl, outcomes)
+    apply_with_prob!(state; rng=:ctrl, outcomes)
 
 Execute one action from outcomes with fully named parameters.
+Probabilities may sum to ≤ 1 (implicit "do nothing" branch for remainder).
+Throws error if sum > 1.
 
 Each outcome is a NamedTuple with fields:
 - probability: Float64 (required)
@@ -21,7 +23,7 @@ Each outcome is a NamedTuple with fields:
 - geometry: AbstractGeometry (required)
 
 Example:
-    apply_branch!(state;
+    apply_with_prob!(state;
         rng = :ctrl,
         outcomes = [
             (probability=p_ctrl, gate=Reset(), geometry=left),
@@ -29,27 +31,33 @@ Example:
         ]
     )
 
-Example (3-way):
-    apply_branch!(state;
+Example (sum < 1):
+    apply_with_prob!(state;
         outcomes = [
-            (probability=0.25, gate=PauliX(), geometry=site),
-            (probability=0.25, gate=PauliY(), geometry=site),
-            (probability=0.50, gate=Identity(), geometry=site)
+            (probability=0.3, gate=PauliX(), geometry=site),
+            (probability=0.4, gate=PauliY(), geometry=site)
+            # 0.3 probability of "do nothing"
         ]
     )
 """
-function apply_branch!(
+function apply_with_prob!(
     state::SimulationState;
     rng::Symbol = :ctrl,
     outcomes::Vector{<:NamedTuple{(:probability, :gate, :geometry)}}
 )
     probs = [o.probability for o in outcomes]
-    @assert abs(sum(probs) - 1.0) < 1e-10 "Probabilities must sum to 1"
+    total_prob = sum(probs)
     
-    # CRITICAL: Draw BEFORE checking
+    # Error if probabilities sum to more than 1
+    if total_prob > 1.0 + 1e-10
+        error("Probabilities sum to $total_prob (must be ≤ 1)")
+    end
+    
+    # CRITICAL: Draw BEFORE checking (Contract 4.4)
     actual_rng = get_rng(state.rng_registry, rng)
     r = rand(actual_rng)
     
+    # Check each outcome
     cumulative = 0.0
     for outcome in outcomes
         cumulative += outcome.probability
@@ -59,7 +67,21 @@ function apply_branch!(
         end
     end
     
-    last_outcome = last(outcomes)
-    apply!(state, last_outcome.gate, last_outcome.geometry)
+    # If we get here: "do nothing" branch selected (r >= sum(probs))
     return nothing
+end
+
+"""
+    apply_branch!(state; rng=:ctrl, outcomes)
+
+DEPRECATED: Use `apply_with_prob!` instead.
+This function is kept for backwards compatibility.
+"""
+function apply_branch!(
+    state::SimulationState;
+    rng::Symbol = :ctrl,
+    outcomes::Vector{<:NamedTuple{(:probability, :gate, :geometry)}}
+)
+    @warn "apply_branch! is deprecated, use apply_with_prob! instead" maxlog=1
+    apply_with_prob!(state; rng=rng, outcomes=outcomes)
 end
