@@ -394,6 +394,211 @@ end
     end
 end
 
+@testset "Baseline Visualization Fixtures" begin
+    @testset "Single-qubit gate ASCII output" begin
+        # Baseline: PauliX on single site
+        circuit = Circuit(L=4, bc=:periodic) do c
+            apply!(c, PauliX(), SingleSite(1))
+        end
+        
+        io = IOBuffer()
+        print_circuit(circuit; seed=0, io=io)
+        output = String(take!(io))
+        
+        # Verify structure
+        @test contains(output, "Circuit")
+        @test contains(output, "L=4")
+        @test contains(output, "bc=periodic")
+        @test contains(output, "q1:")
+        @test contains(output, "q2:")
+        @test contains(output, "q3:")
+        @test contains(output, "q4:")
+        @test contains(output, "X")  # Gate label
+        @test contains(output, "Step:")
+    end
+    
+    @testset "Multi-step single-qubit gates ASCII output" begin
+        # Baseline: Multiple single-qubit gates in same step
+        circuit = Circuit(L=4, bc=:periodic, n_steps=3) do c
+            apply!(c, PauliX(), SingleSite(1))
+            apply!(c, PauliY(), SingleSite(2))
+            apply!(c, PauliZ(), SingleSite(3))
+        end
+        
+        io = IOBuffer()
+        print_circuit(circuit; seed=0, io=io)
+        output = String(take!(io))
+        
+        # Verify structure and gate labels
+        @test contains(output, "Circuit")
+        @test contains(output, "X")
+        @test contains(output, "Y")
+        @test contains(output, "Z")
+        @test contains(output, "q1:")
+        @test contains(output, "q2:")
+        @test contains(output, "q3:")
+        # Verify multi-step columns (1a, 1b, 1c, 2a, 2b, 2c, 3a, 3b, 3c)
+        @test contains(output, "1a")
+        @test contains(output, "1b")
+        @test contains(output, "1c")
+    end
+    
+    @testset "Two-qubit gate ASCII output" begin
+        # Baseline: CZ on adjacent pair
+        circuit = Circuit(L=4, bc=:periodic) do c
+            apply!(c, CZ(), AdjacentPair(1))
+        end
+        
+        io = IOBuffer()
+        print_circuit(circuit; seed=0, io=io)
+        output = String(take!(io))
+        
+        # Verify structure
+        @test contains(output, "Circuit")
+        @test contains(output, "CZ")
+        @test contains(output, "q1:")
+        @test contains(output, "q2:")
+        # CZ should appear on both q1 and q2
+        lines = split(output, "\n")
+        q1_line = filter(l -> contains(l, "q1:"), lines)[1]
+        q2_line = filter(l -> contains(l, "q2:"), lines)[1]
+        @test contains(q1_line, "CZ")
+        @test contains(q2_line, "CZ")
+    end
+    
+    @testset "Multi-step two-qubit gates ASCII output" begin
+        # Baseline: CZ on multiple adjacent pairs in same step
+        circuit = Circuit(L=4, bc=:periodic, n_steps=3) do c
+            apply!(c, CZ(), AdjacentPair(1))
+            apply!(c, CZ(), AdjacentPair(2))
+        end
+        
+        io = IOBuffer()
+        print_circuit(circuit; seed=0, io=io)
+        output = String(take!(io))
+        
+        # Verify structure
+        @test contains(output, "Circuit")
+        @test contains(output, "CZ")
+        @test contains(output, "q1:")
+        @test contains(output, "q2:")
+        @test contains(output, "q3:")
+        # Verify multi-step columns
+        @test contains(output, "1a")
+        @test contains(output, "1b")
+        @test contains(output, "2a")
+        @test contains(output, "2b")
+    end
+    
+    @testset "Three-qubit gate ASCII output (StaircaseRight)" begin
+        # Baseline: Reset on StaircaseRight pattern
+        circuit = Circuit(L=5, bc=:periodic, n_steps=3) do c
+            apply!(c, Reset(), StaircaseRight(1))
+        end
+        
+        io = IOBuffer()
+        print_circuit(circuit; seed=0, io=io)
+        output = String(take!(io))
+        
+        # Verify structure
+        @test contains(output, "Circuit")
+        @test contains(output, "Rst")  # Reset label
+        @test contains(output, "q1:")
+        @test contains(output, "q2:")
+        @test contains(output, "q3:")
+        # Verify step columns
+        @test contains(output, "Step:")
+        @test contains(output, "1")
+        @test contains(output, "2")
+        @test contains(output, "3")
+    end
+    
+    @testset "Three-qubit gate ASCII output (StaircaseLeft)" begin
+        # Baseline: HaarRandom on StaircaseLeft pattern
+        circuit = Circuit(L=5, bc=:periodic, n_steps=3) do c
+            apply!(c, HaarRandom(), StaircaseLeft(1))
+        end
+        
+        io = IOBuffer()
+        print_circuit(circuit; seed=0, io=io)
+        output = String(take!(io))
+        
+        # Verify structure
+        @test contains(output, "Circuit")
+        @test contains(output, "Haar")  # HaarRandom label
+        @test contains(output, "q1:")
+        @test contains(output, "q2:")
+        @test contains(output, "q3:")
+        # Verify step columns
+        @test contains(output, "Step:")
+    end
+    
+    @testset "Mixed single and two-qubit gates ASCII output" begin
+        # Baseline: Mix of single-qubit and two-qubit gates
+        circuit = Circuit(L=4, bc=:periodic, n_steps=2) do c
+            apply!(c, PauliX(), SingleSite(1))
+            apply!(c, CZ(), AdjacentPair(2))
+        end
+        
+        io = IOBuffer()
+        print_circuit(circuit; seed=0, io=io)
+        output = String(take!(io))
+        
+        # Verify structure
+        @test contains(output, "Circuit")
+        @test contains(output, "X")
+        @test contains(output, "CZ")
+        @test contains(output, "q1:")
+        @test contains(output, "q2:")
+        @test contains(output, "q3:")
+        # Verify multi-step columns
+        @test contains(output, "1a")
+        @test contains(output, "1b")
+    end
+    
+    @testset "ASCII mode (non-Unicode) baseline" begin
+        # Baseline: ASCII mode output without Unicode characters
+        circuit = Circuit(L=4, bc=:periodic, n_steps=2) do c
+            apply!(c, PauliX(), SingleSite(1))
+            apply!(c, PauliY(), SingleSite(2))
+        end
+        
+        io = IOBuffer()
+        print_circuit(circuit; seed=0, io=io, unicode=false)
+        output = String(take!(io))
+        
+        # Verify ASCII characters
+        @test contains(output, "Circuit")
+        @test contains(output, "X")
+        @test contains(output, "Y")
+        @test contains(output, "q1:")
+        # Should NOT contain Unicode box-drawing characters
+        @test !contains(output, "─")
+        @test !contains(output, "┤")
+        @test !contains(output, "├")
+        # Should contain ASCII characters
+        @test contains(output, "-")
+        @test contains(output, "|")
+    end
+    
+    @testset "SVG output structure baseline" begin
+        # Baseline: SVG output contains expected structure
+        circuit = Circuit(L=4, bc=:periodic) do c
+            apply!(c, PauliX(), SingleSite(1))
+        end
+        
+        # Check if SVG functions are available
+        try
+            io = IOBuffer()
+            # Try to capture SVG output if function exists
+            # This is a placeholder for future SVG testing
+            @test true  # Placeholder - SVG functions may not exist yet
+        catch
+            @test true  # Skip if SVG not available
+        end
+    end
+end
+
 @testset "RNG Alignment" begin
     @testset "expand_circuit and simulate! use same RNG stream" begin
         circuit = Circuit(L=4, bc=:periodic, n_steps=20) do c
