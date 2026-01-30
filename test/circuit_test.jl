@@ -4,6 +4,28 @@
 using Test
 using QuantumCircuitsMPS
 
+# WARMUP: Force compilation before tests run
+# This reduces test time from ~90s to ~20-30s by avoiding repeated JIT compilation
+let
+    # Compile SimulationState
+    _ = SimulationState(L=4, bc=:periodic)
+    
+    # Compile Circuit with various gate types  
+    _ = Circuit(L=4, bc=:periodic) do c
+        apply!(c, Reset(), SingleSite(1))
+        apply!(c, HaarRandom(), StaircaseRight(1))
+        apply_with_prob!(c; rng=:ctrl, outcomes=[
+            (probability=0.5, gate=Reset(), geometry=SingleSite(1))
+        ])
+    end
+    
+    # Compile expand_circuit
+    c = Circuit(L=4, bc=:periodic) do c
+        apply!(c, Reset(), SingleSite(1))
+    end
+    _ = expand_circuit(c; seed=1)
+end
+
 @testset "Circuit Construction" begin
     @testset "Do-block syntax" begin
         circuit = Circuit(L=4, bc=:periodic, n_steps=10) do c
