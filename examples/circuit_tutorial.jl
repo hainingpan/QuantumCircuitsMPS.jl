@@ -66,7 +66,7 @@ println()
 
 circuit = Circuit(L=L, bc=bc, n_steps=n_steps) do c
     apply_with_prob!(c; rng=:ctrl, outcomes=[
-        (probability=p_reset, gate=Reset(), geometry=StaircaseRight(1)),
+        (probability=p_reset, gate=Reset(), geometry=StaircaseLeft(1)),
         (probability=1-p_reset, gate=HaarRandom(), geometry=StaircaseRight(1))
     ])
 end
@@ -119,7 +119,7 @@ println()
 # Create shorter circuit for visualization
 short_circuit = Circuit(L=L, bc=bc, n_steps=10) do c
     apply_with_prob!(c; rng=:ctrl, outcomes=[
-        (probability=p_reset, gate=Reset(), geometry=StaircaseRight(1)),
+        (probability=p_reset, gate=Reset(), geometry=StaircaseLeft(1)),
         (probability=1-p_reset, gate=HaarRandom(), geometry=StaircaseRight(1))
     ])
 end
@@ -166,13 +166,16 @@ end
 println()
 
 # ═══════════════════════════════════════════════════════════════════
-# SECTION 6: Simulating Circuits
+# SECTION 6: Observables and Simulating Circuits
 # ═══════════════════════════════════════════════════════════════════
 # Once a circuit is built and visualized, we can execute it using simulate!().
 # The simulation requires:
 #   1. A SimulationState with initialized MPS and RNG registry
 #   2. The circuit to execute
 #   3. Number of trajectory samples (n_circuits)
+#
+# TIP: Use list_observables() to discover all available observable types
+# that can be measured during simulation (e.g., DomainWall, Entanglement, etc.)
 #
 # CRITICAL: Using the same RNG seed for visualization and simulation ensures
 # they show identical stochastic branch choices.
