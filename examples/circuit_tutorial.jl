@@ -231,8 +231,8 @@ state_verify = SimulationState(
 initialize!(state_verify, ProductState(x0=1//16))
 
 # Track an observable to demonstrate observable access later
-track!(state_verify, :dw1, DomainWall(1))
-record!(state_verify, :dw1)
+track!(state_verify, :dw1 => DomainWall(; order=1, i1_fn=() -> 1))
+record!(state_verify)
 
 simulate!(short_circuit, state_verify; n_circuits=1)
 
