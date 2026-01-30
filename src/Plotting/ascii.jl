@@ -6,8 +6,8 @@
 Print an ASCII visualization of a circuit showing gate placements on qubit wires.
 
 Renders the circuit as a grid with:
-- Step numbers at the top (with letter suffixes for multi-op steps)
-- Qubit wires running horizontally
+- Qubit labels as column headers (q1, q2, q3...)
+- Time steps as rows (1:, 2a:, 2b:, 3:...)
 - Gate labels in boxes at operation sites
 - Fixed-width columns for alignment
 
@@ -19,20 +19,20 @@ Renders the circuit as a grid with:
 
 # Character Sets
 - Unicode mode (default): Uses `─` (wire), `┤` (left box), `├` (right box)
-- ASCII mode: Uses `-` (wire), `|` (both box edges)
+- ASCII mode: Uses `-' (wire), `|` (both box edges)
 
 # Layout Algorithm
 1. Expands circuit using `expand_circuit(circuit; seed=seed)` to get concrete operations
-2. Builds column list handling:
-   - Empty steps → one wire-only column
-   - Single op → one column with no letter suffix
-   - Multiple ops → lettered sub-columns (a, b, c...)
+2. Builds row list handling:
+   - Empty steps → one wire-only row
+   - Single op → one row with no letter suffix
+   - Multiple ops → lettered sub-rows (a, b, c...)
 3. Calculates fixed column width based on longest gate label (+2 for box chars)
-4. Renders header row with step numbers (e.g., "1", "2a", "2b", "3")
-5. Renders qubit rows with gate boxes or wire segments
+4. Renders header row with qubit labels (e.g., "q1", "q2", "q3", "q4")
+5. Renders time step rows with gate boxes or wire segments
 
 # Empty Steps
-Steps with no operations (do-nothing branch selected) still render as one column
+Steps with no operations (do-nothing branch selected) still render as one row
 showing only wire segments.
 
 # Multi-Qubit Gates
@@ -62,11 +62,11 @@ print_circuit(circuit; seed=0, unicode=false)
 ```
 Circuit (L=4, bc=periodic, seed=0)
 
-Step:      1     2     3     4
-q1:   ┤Rst ├────────────┤Haar├
-q2:   ──────┤Rst ├────────────
-q3:   ────────────┤Rst ├──────
-q4:   ┤Haar├────────────┤Rst ├
+          q1    q2    q3    q4
+1:   ┤Rst ├─────────────┤Haar├
+2:   ──────┤Rst ├─────────────
+3:   ────────────┤Rst ├───────
+4:   ┤Haar├─────────────┤Rst ├
 ```
 
 # See Also
@@ -82,27 +82,28 @@ function print_circuit(circuit::Circuit; seed::Int=0, io::IO=stdout, unicode::Bo
     # 1. Expand circuit to get concrete operations per step
     expanded = expand_circuit(circuit; seed=seed)  # Vector{Vector{ExpandedOp}}
     
-    # 2. Build column list: (step_idx, substep_letter, op_or_nothing)
-    columns = []
+    # 2. Build row list: (step_idx, substep_letter, op_or_nothing)
+    # Each row is a time step (or sub-step for multi-op steps)
+    rows = []
     for (step_idx, step_ops) in enumerate(expanded)
         if isempty(step_ops)
-            # Empty step - still render one column
-            push!(columns, (step_idx, "", nothing))
+            # Empty step - still render one row
+            push!(rows, (step_idx, "", nothing))
         elseif length(step_ops) == 1
             # Single op - no letter suffix
-            push!(columns, (step_idx, "", step_ops[1]))
+            push!(rows, (step_idx, "", step_ops[1]))
         else
             # Multiple ops - letter suffix (a, b, c...)
             for (substep_idx, op) in enumerate(step_ops)
                 letter = Char('a' + substep_idx - 1)
-                push!(columns, (step_idx, string(letter), op))
+                push!(rows, (step_idx, string(letter), op))
             end
         end
     end
     
     # 3. Calculate fixed column width
     max_label_len = 1  # Minimum width
-    for (_, _, op) in columns
+    for (_, _, op) in rows
         if op !== nothing
             max_label_len = max(max_label_len, length(op.label))
         end
@@ -113,18 +114,30 @@ function print_circuit(circuit::Circuit; seed::Int=0, io::IO=stdout, unicode::Bo
     println(io, "Circuit (L=$(circuit.L), bc=$(circuit.bc), seed=$seed)")
     println(io)
     
-    # Step header row
-    print(io, "Step: ")
-    for (step, letter, _) in columns
-        header = letter == "" ? string(step) : "$(step)$(letter)"
-        print(io, lpad(header, COL_WIDTH))
+    # Calculate row label width (for alignment)
+    # Find max row label length (e.g., "1:", "1a:", "10b:")
+    max_row_label_len = 0
+    for (step, letter, _) in rows
+        label = letter == "" ? "$(step):" : "$(step)$(letter):"
+        max_row_label_len = max(max_row_label_len, length(label))
+    end
+    ROW_LABEL_WIDTH = max(max_row_label_len + 2, 5)  # +2 for padding, min 5
+    
+    # Qubit header row (q1, q2, q3...)
+    print(io, lpad("", ROW_LABEL_WIDTH))  # Empty space for row label column
+    for q in 1:circuit.L
+        print(io, lpad("q$q", COL_WIDTH))
     end
     println(io)
     
-    # 5. Print qubit rows
-    for q in 1:circuit.L
-        print(io, "q$q:   ")
-        for (_, _, op) in columns
+    # 5. Print time step rows (transposed: each row is a time step)
+    for (step, letter, op) in rows
+        # Row label (step number with optional letter)
+        row_label = letter == "" ? "$(step):" : "$(step)$(letter):"
+        print(io, lpad(row_label, ROW_LABEL_WIDTH - 1), " ")
+        
+        # For each qubit column
+        for q in 1:circuit.L
             if op !== nothing && q in op.sites
                 if length(op.sites) == 1
                     # Single-qubit gate - render box with label as before

@@ -39,3 +39,14 @@
 - 🔄 Task 3: ASCII Multi-Qubit Spanning Box
 - 🔄 Task 4: SVG Multi-Qubit Spanning Box
 - Both can run in parallel (different files, no dependencies)
+
+### [14:50] Wave 2 Complete - Tasks 3 & 4
+- ✅ Task 3: ASCII spanning box (commit 42c7997)
+- ✅ Task 4: SVG spanning box (commit 9f5bd86)
+- Both completed successfully
+- Spanning box pattern now consistent across ASCII and SVG
+
+### [14:52] Wave 3 Starting - Task 5
+- 🔄 Task 5: ASCII Layout Transpose (BREAKING CHANGE)
+- This is a sequential task (depends on Task 3 structure)
+- Will flip orientation: time=vertical (rows), qubits=horizontal (columns)
