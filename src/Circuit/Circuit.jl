@@ -51,3 +51,6 @@ include("expand.jl")
 
 # Circuit executor
 include("execute.jl")
+
+# Recording context and presets
+include("recording.jl")

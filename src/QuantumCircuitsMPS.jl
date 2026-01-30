@@ -63,6 +63,7 @@ export record_every, record_at_circuits, record_always
 export get_state, get_observables, circuits_run
 # Circuit (lazy mode API)
 export Circuit, expand_circuit, simulate!, ExpandedOp
+export RecordingContext, every_n_gates, every_n_steps
 # ASCII Plotting
 export print_circuit
 # Visualization (provided by Luxor extension)
