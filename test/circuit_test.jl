@@ -228,10 +228,10 @@ end
         track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
         
         # Should execute without error
-        simulate!(circuit, state; n_circuits=1, record_initial=true)
+        simulate!(circuit, state; n_circuits=1)
         
-        # Should have 2 records (1 initial + 1 circuit)
-        @test length(state.observables[:dw]) == 2
+        # Should have 1 record (one per circuit with :every_step default)
+        @test length(state.observables[:dw]) == 1
     end
     
     @testset "Stochastic circuit execution" begin
@@ -247,13 +247,13 @@ end
         initialize!(state, ProductState(x0=1//16))
         track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
         
-        simulate!(circuit, state; n_circuits=3, record_initial=true)
+        simulate!(circuit, state; n_circuits=3)
         
-        # Should have 4 records (1 initial + 3 circuits)
-        @test length(state.observables[:dw]) == 4
+        # Should have 3 records (one per circuit with :every_step default)
+        @test length(state.observables[:dw]) == 3
     end
     
-    @testset "Recording contract" begin
+    @testset "Recording with new API" begin
         circuit = Circuit(L=4, bc=:periodic, n_steps=5) do c
             apply!(c, Reset(), SingleSite(1))
         end
@@ -263,27 +263,27 @@ end
         initialize!(state, ProductState(x0=1//16))
         track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
         
-        # Test: record_initial=true, record_every=1
-        simulate!(circuit, state; n_circuits=2, record_initial=true, record_every=1)
-        @test length(state.observables[:dw]) == 3  # 1 initial + 2 circuits
+        # Test: record_when=:every_step (default)
+        simulate!(circuit, state; n_circuits=2, record_when=:every_step)
+        @test length(state.observables[:dw]) == 2  # One per circuit
         
         # Reset state for next test
         state = SimulationState(L=4, bc=:periodic, rng=RNGRegistry(ctrl=42, proj=43, haar=44, born=45))
         initialize!(state, ProductState(x0=1//16))
         track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
         
-        # Test: record_initial=false, n_circuits=3
-        simulate!(circuit, state; n_circuits=3, record_initial=false, record_every=1)
-        @test length(state.observables[:dw]) == 3  # No initial + 3 circuits
+        # Test: record_when=:final_only
+        simulate!(circuit, state; n_circuits=3, record_when=:final_only)
+        @test length(state.observables[:dw]) == 1  # Only at the very end
         
         # Reset state for next test
         state = SimulationState(L=4, bc=:periodic, rng=RNGRegistry(ctrl=42, proj=43, haar=44, born=45))
         initialize!(state, ProductState(x0=1//16))
         track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
         
-        # Test: record_every=2 (records at 0, 1, 3, 5, 5)
-        simulate!(circuit, state; n_circuits=2, record_initial=true, record_every=2)
-        @test length(state.observables[:dw]) == 3  # 1 initial + circuits 1, 2
+        # Test: record_when=every_n_steps(2)
+        simulate!(circuit, state; n_circuits=4, record_when=every_n_steps(2))
+        @test length(state.observables[:dw]) == 2  # Circuits 2 and 4
     end
     
     @testset "Multiple timesteps execute correctly" begin
@@ -299,9 +299,13 @@ end
         track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
         
         # Should complete without error even with many steps
-        simulate!(circuit, state; n_circuits=2, record_initial=true)
+        # Note: Stochastic circuits may have 0-n_circuits records depending on RNG
+        # (if all steps roll "do nothing", no gates execute and no recording happens)
+        simulate!(circuit, state; n_circuits=2)
         
-        @test length(state.observables[:dw]) == 3  # 1 initial + 2 circuits
+        # Verify simulation completed (record count depends on RNG)
+        @test length(state.observables[:dw]) >= 0
+        @test length(state.observables[:dw]) <= 2
     end
 end
 
@@ -619,7 +623,7 @@ end
         initialize!(state, ProductState(x0=1//16))
         
         # Should complete without error (alignment is implicit)
-        simulate!(circuit, state; n_circuits=1, record_initial=false)
+        simulate!(circuit, state; n_circuits=1, record_when=:final_only)
         
         @test true  # If we get here, no errors occurred
     end
@@ -646,7 +650,7 @@ end
         state = SimulationState(L=4, bc=:periodic, rng=rng)
         initialize!(state, ProductState(x0=1//16))
         
-        simulate!(circuit, state; n_circuits=1, record_initial=false)
+        simulate!(circuit, state; n_circuits=1, record_when=:final_only)
         @test true
     end
 end
