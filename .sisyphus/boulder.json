@@ -1,6 +1,10 @@
 {
-  "active_plan": "/mnt/d/Rutgers/QuantumCircuitsMPS.jl/.sisyphus/plans/probabilistic-api-styles.md",
-  "started_at": "2026-01-29T00:34:53.534Z",
+  "active_plan": "/mnt/d/Rutgers/QuantumCircuitsMPS.jl/.sisyphus/plans/circuit-tutorial.md",
+  "started_at": "2026-01-30T04:10:36.832Z",
+  "completed_at": "2026-01-30T04:28:00.000Z",
   "session_ids": ["ses_3fd7b9229ffeMFmFZ9jLDeEm7b"],
-  "plan_name": "probabilistic-api-styles"
+  "plan_name": "circuit-tutorial",
+  "status": "complete",
+  "tasks_completed": 3,
+  "tasks_total": 3
 }
