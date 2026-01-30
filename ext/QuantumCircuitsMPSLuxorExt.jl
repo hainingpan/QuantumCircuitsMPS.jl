@@ -4,8 +4,18 @@ using Luxor
 using QuantumCircuitsMPS
 using QuantumCircuitsMPS: Circuit, expand_circuit, ExpandedOp
 
+"""Wrapper type for SVG data that auto-displays in Jupyter notebooks."""
+struct SVGImage
+    data::String
+end
+
+# MIME display method for IJulia auto-rendering
+function Base.show(io::IO, ::MIME"image/svg+xml", img::SVGImage)
+    write(io, img.data)
+end
+
 """
-    plot_circuit(circuit::Circuit; seed::Int=0, filename::String="circuit.svg")
+    plot_circuit(circuit::Circuit; seed::Int=0, filename::Union{String, Nothing}=nothing)
 
 Export a quantum circuit diagram to SVG using Luxor.jl.
 
@@ -18,7 +28,11 @@ Renders the circuit as a wire diagram with:
 # Arguments
 - `circuit::Circuit`: The circuit to visualize
 - `seed::Int=0`: RNG seed for stochastic branch resolution (same seed = same diagram)
-- `filename::String="circuit.svg"`: Output file path (SVG format)
+- `filename::Union{String, Nothing}=nothing`: Output file path (SVG format). If `nothing`, returns `SVGImage` for auto-display in Jupyter.
+
+# Returns
+- If `filename === nothing`: Returns `SVGImage` wrapper (auto-displays in Jupyter notebooks)
+- If `filename` provided: Writes to file and returns `nothing`
 
 # Requirements
 Requires `Luxor` to be loaded (`using Luxor` before calling).
@@ -35,7 +49,10 @@ circuit = Circuit(L=4, bc=:periodic, n_steps=5) do c
     ])
 end
 
-# Export to SVG
+# Auto-display in Jupyter (returns SVGImage)
+plot_circuit(circuit; seed=42)
+
+# Export to file
 plot_circuit(circuit; seed=42, filename="my_circuit.svg")
 ```
 
@@ -48,7 +65,7 @@ which stochastic branches are displayed, matching the behavior of
 - [`print_circuit`](@ref): ASCII visualization (no Luxor required)
 - [`expand_circuit`](@ref): Get the concrete operations being visualized
 """
-function QuantumCircuitsMPS.plot_circuit(circuit::Circuit; seed::Int=0, filename::String="circuit.svg")
+function QuantumCircuitsMPS.plot_circuit(circuit::Circuit; seed::Int=0, filename::Union{String, Nothing}=nothing)
     # Layout constants
     QUBIT_SPACING = 40.0
     ROW_HEIGHT = 60.0  # Height per time step (was COLUMN_WIDTH)
@@ -81,8 +98,15 @@ function QuantumCircuitsMPS.plot_circuit(circuit::Circuit; seed::Int=0, filename
     canvas_width = 2 * MARGIN + circuit.L * QUBIT_SPACING + 100  # qubit dimension
     canvas_height = 2 * MARGIN + length(rows) * ROW_HEIGHT       # time dimension
     
-    # Create drawing
-    Drawing(canvas_width, canvas_height, filename)
+    # Conditional: in-memory mode vs file mode
+    if filename === nothing
+        # In-memory mode: create SVG drawing surface
+        Drawing(canvas_width, canvas_height, :svg)
+    else
+        # File mode: create drawing with filename
+        Drawing(canvas_width, canvas_height, filename)
+    end
+    
     background("white")
     origin(Point(MARGIN, MARGIN))
     
@@ -137,6 +161,15 @@ function QuantumCircuitsMPS.plot_circuit(circuit::Circuit; seed::Int=0, filename
     end
     
     finish()
+    
+    # Return appropriate value based on mode
+    if filename === nothing
+        # In-memory mode: extract SVG and return wrapper
+        return SVGImage(svgstring())
+    else
+        # File mode: return nothing (backward compatibility)
+        return nothing
+    end
 end
 
 end # module
