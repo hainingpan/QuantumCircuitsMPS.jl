@@ -13,7 +13,7 @@ Renders the circuit as a wire diagram with:
 - Vertical lines representing qubit wires (labeled q1, q2, ...)
 - Boxes with gate labels at sites where gates act
 - Row headers showing step numbers (with letter suffixes for multi-op steps)
-- Time axis goes downward, qubits spread horizontally
+- Time axis goes upward, qubits spread horizontally
 
 # Arguments
 - `circuit::Circuit`: The circuit to visualize
@@ -91,13 +91,13 @@ function QuantumCircuitsMPS.plot_circuit(circuit::Circuit; seed::Int=0, filename
     for q in 1:circuit.L
         x = q * QUBIT_SPACING  # was y
         line(Point(x, 0), Point(x, wire_length), :stroke)
-        # Qubit label at top
-        text("q$q", Point(x, -10), halign=:center)
+        # Qubit label at bottom
+        text("q$q", Point(x, wire_length + 20), halign=:center)
     end
     
     # Draw step headers on left side (was top)
     for (row_idx, (step, letter, _)) in enumerate(rows)
-        y = (row_idx - 0.5) * ROW_HEIGHT  # was x
+        y = wire_length - (row_idx - 0.5) * ROW_HEIGHT  # was x
         header = letter == "" ? string(step) : "$(step)$(letter)"
         text(header, Point(-10, y + 5), halign=:right, valign=:center)
     end
@@ -105,7 +105,7 @@ function QuantumCircuitsMPS.plot_circuit(circuit::Circuit; seed::Int=0, filename
     # Draw gate boxes with transposed coordinates
     for (row_idx, (_, _, op)) in enumerate(rows)
         if op !== nothing
-            y = (row_idx - 0.5) * ROW_HEIGHT  # time position (was x)
+            y = wire_length - (row_idx - 0.5) * ROW_HEIGHT  # time position (was x)
             
             # Check if single-qubit or multi-qubit gate
             if length(op.sites) == 1
