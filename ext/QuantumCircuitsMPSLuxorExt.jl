@@ -4,7 +4,49 @@ using Luxor
 using QuantumCircuitsMPS
 using QuantumCircuitsMPS: Circuit, expand_circuit, ExpandedOp
 
-# Extension provides plot_circuit when Luxor is loaded
+"""
+    plot_circuit(circuit::Circuit; seed::Int=0, filename::String="circuit.svg")
+
+Export a quantum circuit diagram to SVG using Luxor.jl.
+
+Renders the circuit as a wire diagram with:
+- Horizontal lines representing qubit wires (labeled q1, q2, ...)
+- Boxes with gate labels at sites where gates act
+- Column headers showing step numbers (with letter suffixes for multi-op steps)
+
+# Arguments
+- `circuit::Circuit`: The circuit to visualize
+- `seed::Int=0`: RNG seed for stochastic branch resolution (same seed = same diagram)
+- `filename::String="circuit.svg"`: Output file path (SVG format)
+
+# Requirements
+Requires `Luxor` to be loaded (`using Luxor` before calling).
+
+# Example
+```julia
+using QuantumCircuitsMPS
+using Luxor  # Load the extension
+
+circuit = Circuit(L=4, bc=:periodic, n_steps=5) do c
+    apply!(c, Reset(), StaircaseRight(1))
+    apply_with_prob!(c; rng=:ctrl, outcomes=[
+        (probability=0.5, gate=HaarRandom(), geometry=StaircaseLeft(4))
+    ])
+end
+
+# Export to SVG
+plot_circuit(circuit; seed=42, filename="my_circuit.svg")
+```
+
+# Determinism
+Using the same `seed` value produces identical diagrams. The seed controls
+which stochastic branches are displayed, matching the behavior of
+`expand_circuit(circuit; seed=seed)`.
+
+# See Also
+- [`print_circuit`](@ref): ASCII visualization (no Luxor required)
+- [`expand_circuit`](@ref): Get the concrete operations being visualized
+"""
 function QuantumCircuitsMPS.plot_circuit(circuit::Circuit; seed::Int=0, filename::String="circuit.svg")
     # Layout constants
     QUBIT_SPACING = 40.0
