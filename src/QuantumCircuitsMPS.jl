@@ -39,6 +39,9 @@ include("API/simulation_styles/style_iterator.jl")
 # Circuit (lazy mode API)
 include("Circuit/Circuit.jl")
 
+# Plotting
+include("Plotting/Plotting.jl")
+
 # === PUBLIC API EXPORTS ===
 # State
 export SimulationState, initialize!, ProductState, RandomMPS
@@ -60,6 +63,11 @@ export record_every, record_at_circuits, record_always
 export get_state, get_observables, circuits_run
 # Circuit (lazy mode API)
 export Circuit, expand_circuit, simulate!, ExpandedOp
+# ASCII Plotting
+export print_circuit
+# Visualization (provided by Luxor extension)
+function plot_circuit end
+export plot_circuit
 
 # === INTERNAL EXPORTS (for CT.jl parity/debugging) ===
 # These are exported for testing/verification but not public API
