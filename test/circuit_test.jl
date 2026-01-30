@@ -458,12 +458,14 @@ end
         @test contains(output, "CZ")
         @test contains(output, "q1:")
         @test contains(output, "q2:")
-        # CZ should appear on both q1 and q2
+        # After spanning box fix: CZ should appear ONCE (on minimum site)
+        # Other sites show continuation box
         lines = split(output, "\n")
         q1_line = filter(l -> contains(l, "q1:"), lines)[1]
         q2_line = filter(l -> contains(l, "q2:"), lines)[1]
         @test contains(q1_line, "CZ")
-        @test contains(q2_line, "CZ")
+        # q2 should have continuation box (no label)
+        @test contains(q2_line, "┤") || contains(q2_line, "|")
     end
     
     @testset "Multi-step two-qubit gates ASCII output" begin
@@ -722,5 +724,84 @@ end
         
         # Should have at least 2 observables
         @test length(obs) >= 2
+    end
+end
+
+@testset "SVG Multi-Qubit Spanning Box (TDD)" begin
+    @testset "Two-qubit gate renders as single spanning box" begin
+        # TDD RED phase: This test should FAIL initially
+        # Current bug: Multi-qubit gates draw separate boxes for each site
+        # Expected: ONE tall box spanning all sites
+        circuit = Circuit(L=4, bc=:periodic) do c
+            apply!(c, HaarRandom(), AdjacentPair(1))
+        end
+        
+        # Only test if Luxor is available
+        try
+            # Load Luxor extension
+            Base.require(Main, :Luxor)
+            
+            # Generate SVG to temporary file
+            svg_path = tempname() * ".svg"
+            plot_circuit(circuit; seed=0, filename=svg_path)
+            
+            # Read SVG content
+            svg_content = read(svg_path, String)
+            
+            # Verify SVG was created and contains expected structure
+            @test contains(svg_content, "<svg")
+            @test contains(svg_content, "q1")
+            @test contains(svg_content, "q2")
+            @test contains(svg_content, "Haar")
+            
+            # Count the number of <rect> elements (box() renders as <rect>)
+            # With bug: 2 boxes (one per site)
+            # After fix: 1 spanning box
+            rect_count = length(collect(eachmatch(r"<rect", svg_content)))
+            
+            # This will FAIL initially (RED phase) because current code draws 2 boxes
+            # After implementation, should PASS (GREEN phase) with 1 box
+            @test rect_count == 1
+            
+            # Clean up
+            rm(svg_path)
+        catch e
+            if e isa ArgumentError && contains(string(e), "Package Luxor not found")
+                @test_skip "Luxor not available - skipping SVG test"
+            else
+                rethrow(e)
+            end
+        end
+    end
+    
+    @testset "Single-qubit gate still renders correctly (regression test)" begin
+        # Ensure our fix doesn't break single-qubit gates
+        circuit = Circuit(L=4, bc=:periodic) do c
+            apply!(c, PauliX(), SingleSite(2))
+        end
+        
+        try
+            Base.require(Main, :Luxor)
+            
+            svg_path = tempname() * ".svg"
+            plot_circuit(circuit; seed=0, filename=svg_path)
+            
+            svg_content = read(svg_path, String)
+            
+            # Should have exactly 1 box for single-qubit gate
+            rect_count = length(collect(eachmatch(r"<rect", svg_content)))
+            @test rect_count == 1
+            
+            # Should contain the label "X"
+            @test contains(svg_content, "X")
+            
+            rm(svg_path)
+        catch e
+            if e isa ArgumentError && contains(string(e), "Package Luxor not found")
+                @test_skip "Luxor not available - skipping SVG test"
+            else
+                rethrow(e)
+            end
+        end
     end
 end

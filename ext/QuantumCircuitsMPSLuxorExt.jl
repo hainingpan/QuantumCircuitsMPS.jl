@@ -105,12 +105,24 @@ function QuantumCircuitsMPS.plot_circuit(circuit::Circuit; seed::Int=0, filename
     for (col_idx, (_, _, op)) in enumerate(columns)
         if op !== nothing
             x = (col_idx - 0.5) * COLUMN_WIDTH
-            for site in op.sites
-                y = site * QUBIT_SPACING
-                # Box centered at (x, y)
+            
+            # Check if single-qubit or multi-qubit gate
+            if length(op.sites) == 1
+                # Single-qubit gate - render as before
+                y = op.sites[1] * QUBIT_SPACING
                 box(Point(x, y), GATE_WIDTH, GATE_HEIGHT, :stroke)
-                # Label centered in box
                 text(op.label, Point(x, y + 5), halign=:center, valign=:center)
+            else
+                # Multi-qubit gate - render single spanning box
+                min_site = minimum(op.sites)
+                max_site = maximum(op.sites)
+                center_y = ((min_site + max_site) / 2) * QUBIT_SPACING
+                span_height = (max_site - min_site) * QUBIT_SPACING + GATE_HEIGHT
+                
+                # Draw one tall box spanning all sites
+                box(Point(x, center_y), GATE_WIDTH, span_height, :stroke)
+                # Label centered vertically in spanning box
+                text(op.label, Point(x, center_y + 5), halign=:center, valign=:center)
             end
         end
     end
