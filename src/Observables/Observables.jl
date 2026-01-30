@@ -56,3 +56,20 @@ function record!(state; i1::Union{Int,Nothing}=nothing)
     end
     return nothing
 end
+
+"""
+    list_observables() -> Vector{String}
+
+Return a list of available observable type names.
+
+Returns the names of all observable types that can be used with the tracking API.
+
+Example:
+```julia
+obs_types = list_observables()
+# Returns: ["DomainWall", "BornProbability"]
+```
+"""
+function list_observables()::Vector{String}
+    return ["DomainWall", "BornProbability"]
+end

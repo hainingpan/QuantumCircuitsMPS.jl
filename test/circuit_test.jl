@@ -648,3 +648,20 @@ end
         @test true
     end
 end
+
+@testset "Observables API" begin
+    @testset "list_observables()" begin
+        # Test that list_observables returns available observable types
+        obs = list_observables()
+        
+        # Should return a Vector of Strings
+        @test isa(obs, Vector{String})
+        
+        # Should contain the known observable types
+        @test "DomainWall" in obs
+        @test "BornProbability" in obs
+        
+        # Should have at least 2 observables
+        @test length(obs) >= 2
+    end
+end

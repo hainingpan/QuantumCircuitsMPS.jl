@@ -55,7 +55,7 @@ export StaircaseLeft, StaircaseRight
 export Pointer, move!
 # Observables
 export AbstractObservable, DomainWall, BornProbability
-export track!, record!
+export track!, record!, list_observables
 # API
 export apply!, simulate, with_state, current_state, apply_with_prob!, apply_branch!
 export run_circuit!, simulate_circuits, CircuitSimulation
