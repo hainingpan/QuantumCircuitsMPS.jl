@@ -649,6 +649,65 @@ end
     end
 end
 
+@testset "Multi-Qubit Spanning Box (TDD)" begin
+    @testset "Two-qubit gate shows label once (HaarRandom)" begin
+        # TDD RED phase: This test should FAIL initially
+        # Current bug: Multi-qubit gates show label on BOTH qubits
+        # Expected: Label appears ONCE on minimum site, continuation on others
+        circuit = Circuit(L=4, bc=:periodic) do c
+            apply!(c, HaarRandom(), AdjacentPair(1))
+        end
+        
+        ascii = sprint((io) -> print_circuit(circuit; seed=0, io=io))
+        
+        # Label "Haar" should appear exactly once in the output
+        # Currently fails because it appears twice (once per qubit)
+        @test count("Haar", ascii) == 1
+        
+        # Both q1 and q2 should still have SOMETHING (box or continuation)
+        lines = split(ascii, "\n")
+        q1_line = filter(l -> contains(l, "q1:"), lines)[1]
+        q2_line = filter(l -> contains(l, "q2:"), lines)[1]
+        
+        # One should have the label "Haar"
+        has_label_on_q1 = contains(q1_line, "Haar")
+        has_label_on_q2 = contains(q2_line, "Haar")
+        @test has_label_on_q1 ⊻ has_label_on_q2  # XOR: exactly one should be true
+        
+        # Both should have box characters (spanning box)
+        @test contains(q1_line, "┤") || contains(q1_line, "|")
+        @test contains(q2_line, "┤") || contains(q2_line, "|")
+    end
+    
+    @testset "Two-qubit gate shows label once (CZ)" begin
+        # Same test with CZ gate
+        circuit = Circuit(L=4, bc=:periodic) do c
+            apply!(c, CZ(), AdjacentPair(2))
+        end
+        
+        ascii = sprint((io) -> print_circuit(circuit; seed=0, io=io))
+        
+        # Label "CZ" should appear exactly once
+        @test count("CZ", ascii) == 1
+    end
+    
+    @testset "Single-qubit gate still shows label once (regression test)" begin
+        # Ensure our fix doesn't break single-qubit gates
+        circuit = Circuit(L=4, bc=:periodic) do c
+            apply!(c, PauliX(), SingleSite(2))
+        end
+        
+        ascii = sprint((io) -> print_circuit(circuit; seed=0, io=io))
+        
+        # Label "X" should appear exactly once
+        @test count("X", ascii) == 1
+        
+        lines = split(ascii, "\n")
+        q2_line = filter(l -> contains(l, "q2:"), lines)[1]
+        @test contains(q2_line, "X")
+    end
+end
+
 @testset "Observables API" begin
     @testset "list_observables()" begin
         # Test that list_observables returns available observable types

@@ -37,7 +37,8 @@ showing only wire segments.
 
 # Multi-Qubit Gates
 For gates spanning multiple sites (e.g., CZ on sites [2, 3]):
-- Gate label appears in a box on BOTH sites
+- Gate label appears ONCE in a box on the minimum site
+- Other sites show continuation boxes (box edges without label)
 - No vertical connectors drawn (Phase 1 simplification)
 
 # Examples
@@ -125,12 +126,28 @@ function print_circuit(circuit::Circuit; seed::Int=0, io::IO=stdout, unicode::Bo
         print(io, "q$q:   ")
         for (_, _, op) in columns
             if op !== nothing && q in op.sites
-                # Gate on this qubit - render box with label
-                label = op.label
-                padding = COL_WIDTH - length(label) - 2  # -2 for box chars
-                left_pad = padding ÷ 2
-                right_pad = padding - left_pad
-                print(io, LEFT_BOX, repeat(WIRE, left_pad), label, repeat(WIRE, right_pad), RIGHT_BOX)
+                if length(op.sites) == 1
+                    # Single-qubit gate - render box with label as before
+                    label = op.label
+                    padding = COL_WIDTH - length(label) - 2  # -2 for box chars
+                    left_pad = padding ÷ 2
+                    right_pad = padding - left_pad
+                    print(io, LEFT_BOX, repeat(WIRE, left_pad), label, repeat(WIRE, right_pad), RIGHT_BOX)
+                else
+                    # Multi-qubit gate - spanning box logic
+                    min_site = minimum(op.sites)
+                    if q == min_site
+                        # First qubit in the span - show label
+                        label = op.label
+                        padding = COL_WIDTH - length(label) - 2  # -2 for box chars
+                        left_pad = padding ÷ 2
+                        right_pad = padding - left_pad
+                        print(io, LEFT_BOX, repeat(WIRE, left_pad), label, repeat(WIRE, right_pad), RIGHT_BOX)
+                    else
+                        # Continuation qubit - show box without label
+                        print(io, LEFT_BOX, repeat(WIRE, COL_WIDTH - 2), RIGHT_BOX)
+                    end
+                end
             else
                 # Wire segment only
                 print(io, repeat(WIRE, COL_WIDTH))
