@@ -56,8 +56,25 @@ simulate!(circuit, state; n_circuits=5, record_when=:final_only)
 # Custom: record every 10 gates
 simulate!(circuit, state; n_circuits=5, record_when=every_n_gates(10))
 
+# Custom: record every 2 steps
+simulate!(circuit, state; n_circuits=10, record_when=every_n_steps(2))
+
 # Custom: record at specific gate
 simulate!(circuit, state; n_circuits=5, record_when=ctx -> ctx.gate_idx == 100)
+```
+
+# Migration from Old API
+Breaking change: The old `record_initial` and `record_every` parameters have been removed.
+
+Old code (no longer works):
+```julia
+simulate!(circuit, state; n_circuits=100, record_initial=true, record_every=10)
+```
+
+New equivalent:
+```julia
+record!(state)  # Record initial state if desired
+simulate!(circuit, state; n_circuits=100, record_when=every_n_steps(10))
 ```
 
 # RNG Alignment
