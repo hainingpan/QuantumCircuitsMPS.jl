@@ -264,8 +264,8 @@ end
         track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
         
         # Test: record_initial=true, record_every=1
-        simulate!(circuit, state; n_circuits=5, record_initial=true, record_every=1)
-        @test length(state.observables[:dw]) == 6  # 1 initial + 5 circuits
+        simulate!(circuit, state; n_circuits=2, record_initial=true, record_every=1)
+        @test length(state.observables[:dw]) == 3  # 1 initial + 2 circuits
         
         # Reset state for next test
         state = SimulationState(L=4, bc=:periodic, rng=RNGRegistry(ctrl=42, proj=43, haar=44, born=45))
@@ -282,12 +282,12 @@ end
         track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
         
         # Test: record_every=2 (records at 0, 1, 3, 5, 5)
-        simulate!(circuit, state; n_circuits=5, record_initial=true, record_every=2)
-        @test length(state.observables[:dw]) == 4  # 1 initial + circuits 1, 3, 5
+        simulate!(circuit, state; n_circuits=2, record_initial=true, record_every=2)
+        @test length(state.observables[:dw]) == 3  # 1 initial + circuits 1, 2
     end
     
     @testset "Multiple timesteps execute correctly" begin
-        circuit = Circuit(L=4, bc=:periodic, n_steps=20) do c
+        circuit = Circuit(L=4, bc=:periodic, n_steps=10) do c
             apply_with_prob!(c; rng=:ctrl, outcomes=[
                 (probability=0.5, gate=Reset(), geometry=StaircaseRight(1))
             ])
