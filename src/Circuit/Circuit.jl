@@ -17,4 +17,4 @@ include("builder.jl")
 include("expand.jl")
 
 # Circuit executor
-# include("execute.jl")  # Task 8
+include("execute.jl")
