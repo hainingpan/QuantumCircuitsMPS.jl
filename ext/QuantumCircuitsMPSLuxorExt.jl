@@ -110,6 +110,9 @@ function QuantumCircuitsMPS.plot_circuit(circuit::Circuit; seed::Int=0, filename
             if length(op.sites) == 1
                 # Single-qubit gate - render as before
                 y = op.sites[1] * QUBIT_SPACING
+                sethue("white")
+                box(Point(x, y), GATE_WIDTH, GATE_HEIGHT, :fill)
+                sethue("black")
                 box(Point(x, y), GATE_WIDTH, GATE_HEIGHT, :stroke)
                 text(op.label, Point(x, y + 5), halign=:center, valign=:center)
             else
@@ -120,6 +123,9 @@ function QuantumCircuitsMPS.plot_circuit(circuit::Circuit; seed::Int=0, filename
                 span_height = (max_site - min_site) * QUBIT_SPACING + GATE_HEIGHT
                 
                 # Draw one tall box spanning all sites
+                sethue("white")
+                box(Point(x, center_y), GATE_WIDTH, span_height, :fill)
+                sethue("black")
                 box(Point(x, center_y), GATE_WIDTH, span_height, :stroke)
                 # Label centered vertically in spanning box
                 text(op.label, Point(x, center_y + 5), halign=:center, valign=:center)
