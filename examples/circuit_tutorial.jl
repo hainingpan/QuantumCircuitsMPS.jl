@@ -92,7 +92,7 @@ mixed_circuit = Circuit(L=L, bc=:open, n_steps=20) do c
     
     # Stochastic operation: probabilistic reset
     apply_with_prob!(c; rng=:ctrl, outcomes=[
-        (probability=0.5, gate=Reset(), geometry=StaircaseRight(1)),
+        (probability=0.5, gate=Reset(), geometry=StaircaseLeft(1)),
         (probability=0.5, gate=HaarRandom(), geometry=StaircaseRight(1))
     ])
     
@@ -229,6 +229,11 @@ state_verify = SimulationState(
     rng = RNGRegistry(ctrl=42, proj=1, haar=2, born=3)
 )
 initialize!(state_verify, ProductState(x0=1//16))
+
+# Track an observable to demonstrate observable access later
+track!(state_verify, :dw1, DomainWall(1))
+record!(state_verify, :dw1)
+
 simulate!(short_circuit, state_verify; n_circuits=1)
 
 println("✓ Simulation with seed=42 complete")
@@ -236,6 +241,24 @@ println()
 println("ℹ The visualization and simulation used identical RNG branches")
 println("  → What you see in the diagram is what gets executed")
 println("  → This enables reliable debugging and reproducible results")
+println()
+
+# ═══════════════════════════════════════════════════════════════════
+# SECTION 8: Accessing Recorded Observable Data
+# ═══════════════════════════════════════════════════════════════════
+# After tracking and recording observables during simulation, you can access
+# the measured data through the state.observables dictionary using the 
+# observable name as the key.
+
+println("Accessing recorded observable data:")
+println()
+
+# Access the domain wall observable we tracked
+dw_values = state_verify.observables[:dw1]
+println("Domain wall measurements: ", dw_values)
+println()
+println("ℹ Observable data is stored as a vector, with one measurement per timestep")
+println("  You can plot, analyze, or export this data for further study")
 println()
 
 # ═══════════════════════════════════════════════════════════════════
@@ -251,6 +274,8 @@ println("  1. Build circuits with do-block syntax (lazy/symbolic)")
 println("  2. Visualize circuits with print_circuit (ASCII) and plot_circuit (SVG)")
 println("  3. Simulate circuits with simulate!() (deterministic execution)")
 println("  4. Use RNG seeds to ensure visualization matches simulation")
+println("  5. Track and record observables during simulation")
+println("  6. Access recorded observable data via state.observables")
 println()
 println("Circuit API workflow:")
 println("  Build → Visualize → Inspect → Simulate → Analyze")
@@ -261,6 +286,7 @@ println("  • Try different geometries (SingleSite, StaircaseRight, StaircaseLe
 println("  • Vary system size L and timesteps n_steps")
 println("  • Compare periodic vs open boundary conditions")
 println("  • Install Luxor.jl for publication-quality SVG diagrams")
+println("  • Explore different observables with list_observables()")
 println()
 println("=" ^ 70)
 println("Tutorial complete!")
