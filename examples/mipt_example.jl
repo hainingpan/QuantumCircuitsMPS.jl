@@ -16,9 +16,10 @@
 # - Reset(): Measurement + reset to |0⟩ - WRONG for MIPT physics!
 #
 # Circuit structure per step:
-# 1. Bricklayer(:odd)  - Haar random gates on pairs (1,2), (3,4), (5,6), ...
-# 2. Bricklayer(:even) - Haar random gates on pairs (2,3), (4,5), (L,1)...
-# 3. Z-measurements    - Each site measured with probability p (using Measurement(:Z))
+# 1. Bricklayer(:even) - Haar random gates on pairs (2,3), (4,5), (L,1)...
+# 2. Z-measurements    - Each site measured with probability p
+# 3. Bricklayer(:odd)  - Haar random gates on pairs (1,2), (3,4), (5,6), ...
+# 4. Z-measurements    - Each site measured with probability p
 #
 # Phase diagram (at late times):
 # - p < p_c ≈ 0.16: Volume-law phase (S ~ L, highly entangled)
@@ -60,21 +61,23 @@ println()
 # SECTION 2: Circuit Construction
 # ═══════════════════════════════════════════════════════════════════
 # Build circuit with do-block API. Each circuit represents ONE timestep:
-#   1. Bricklayer(:odd) - Random unitaries on odd pairs
-#   2. Bricklayer(:even) - Random unitaries on even pairs  
-#   3. Stochastic measurements - Each site measured with probability p
+#   1. Bricklayer(:even) - Random unitaries on even pairs
+#   2. Z-measurements    - Each site measured with probability p
+#   3. Bricklayer(:odd)  - Random unitaries on odd pairs  
+#   4. Z-measurements    - Each site measured with probability p
 
 println("Building MIPT circuit...")
 println()
 
 # Build circuit with n_steps=1 (one timestep per circuit)
 circuit = Circuit(L=L, bc=bc, n_steps=1) do c
-    # Apply Haar random unitaries in bricklayer pattern
-    apply!(c, HaarRandom(), Bricklayer(:odd))
+    # Even pairs + measure
     apply!(c, HaarRandom(), Bricklayer(:even))
-    
-    # Apply projective Z-measurements with probability p
-    # Each site is independently measured with probability p
+    apply_with_prob!(c; rng=:ctrl, outcomes=[
+        (probability=p, gate=Measurement(:Z), geometry=AllSites())
+    ])
+    # Odd pairs + measure  
+    apply!(c, HaarRandom(), Bricklayer(:odd))
     apply_with_prob!(c; rng=:ctrl, outcomes=[
         (probability=p, gate=Measurement(:Z), geometry=AllSites())
     ])

@@ -124,11 +124,12 @@ n_steps = 50           # Time evolution steps
 
 # Build circuit: Haar random unitaries + stochastic measurements
 circuit = Circuit(L=L, bc=:periodic, n_steps=1) do c
-    # Bricklayer pattern of random two-qubit gates
-    apply!(c, HaarRandom(), Bricklayer(:odd))
+    # Even gates → measure → odd gates → measure per timestep
     apply!(c, HaarRandom(), Bricklayer(:even))
-    
-    # Projective measurements with probability p
+    apply_with_prob!(c; rng=:ctrl, outcomes=[
+        (probability=p, gate=Measurement(:Z), geometry=AllSites())
+    ])
+    apply!(c, HaarRandom(), Bricklayer(:odd))
     apply_with_prob!(c; rng=:ctrl, outcomes=[
         (probability=p, gate=Measurement(:Z), geometry=AllSites())
     ])
