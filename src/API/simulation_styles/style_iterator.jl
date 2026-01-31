@@ -75,7 +75,7 @@ sim = CircuitSimulation(
     L = 10,
     bc = :periodic,
     init = ProductState(x0 = 1//2^10),
-    circuit_step! = state -> apply_branch!(state; ...),
+    circuit_step! = state -> apply_with_prob!(state; ...),
     observables = [:DW1 => DomainWall(order=1)],
     rng = rng,
     reset_geometry! = () -> (left._position = L)

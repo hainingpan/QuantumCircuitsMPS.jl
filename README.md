@@ -25,7 +25,7 @@ QuantumCircuitsMPS.jl is a pure Julia library for simulating quantum circuits us
 
 3. **Periodic boundary conditions**: Native PBC support via folded MPS indexing—standard MPS is naturally open boundary, but this package implements a novel folding trick (`ram_phy = [1, L, 2, L-1, ...]`) to support PBC efficiently without approximations or MPO tricks.
 
-4. **Reproducible randomness**: Independent RNG streams for each source (`:ctrl`, `:haar`, `:born`, `:proj`, `:state_init`) enable reproducible trajectories and systematic debugging. Each stream can be seeded independently.
+4. **Reproducible randomness**: Independent RNG streams for each source (`:ctrl`, `:haar`, `:born`, `:proj`, `:state_init`) enable reproducible trajectories. Useful in cross entropy benchmark and study quantum flucutuations.
 
 **Philosophy**: Users write `apply!(state, HaarRandom(), Bricklayer(:odd))` and never see ITensor index objects, SVD calls, or orthogonalization centers. The package manages the gap between high-level physics intent and low-level tensor manipulations.
 
@@ -195,6 +195,54 @@ end
 **Physics**: Control-induced feedback creates spatial structure in the entanglement. The staircase geometry moves deterministically, creating domain wall defects that track the effective entanglement boundary.
 
 **More Examples**: The `examples/` directory contains complete scripts with parameter sweeps, data export, and visualization. Additional tutorials coming soon.
+
+---
+
+## Core API
+
+### Main Abstractions
+
+| Concept | Description | Examples |
+|---------|-------------|----------|
+| **Gates** | Quantum operations applied to qubits | `HaarRandom()`, `PauliX()`, `Reset()`, `Measurement(:Z)`, `Projection(:up)` |
+| **Geometry** | Which qubits to apply gates to | `Bricklayer(:odd)`, `Bricklayer(:even)`, `AllSites()`, `Site(3)`, `StaircaseLeft(1)` |
+| **Observables** | Quantities to measure during simulation | `EntanglementEntropy(; cut=L÷2)`, `DomainWall(order=1)`, `BornProbability()` |
+| **SimulationState** | The quantum state + tracking | Holds MPS, RNG streams, recorded observables |
+
+### Key Functions
+
+| Function | Purpose | Example |
+|----------|---------|---------|
+| `apply!(state, gate, geometry)` | Apply a gate to specified sites | `apply!(state, HaarRandom(), Bricklayer(:odd))` |
+| `apply_with_prob!(state; rng, outcomes)` | Probabilistic gate application | `apply_with_prob!(state; rng=:ctrl, outcomes=[...])` |
+| `simulate(; L, bc, init, ...)` | Functional simulation API | See CIPT example |
+| `track!(state, obs)` | Register observable for recording | `track!(state, :S => EntanglementEntropy())` |
+| `record!(state; kwargs...)` | Record current observable values | `record!(state; i1=5)` |
+
+### Simulation Workflow
+
+```julia
+# 1. Create state
+state = SimulationState(L=12, bc=:periodic, maxdim=64, rng=RNGRegistry(ctrl=42))
+
+# 2. Initialize
+initialize!(state, ProductState(x0=0//1))
+
+# 3. Track observables
+track!(state, :entropy => EntanglementEntropy(; cut=6))
+
+# 4. Apply circuit operations
+apply!(state, HaarRandom(), Bricklayer(:odd))
+apply!(state, HaarRandom(), Bricklayer(:even))
+
+# 5. Record measurements
+record!(state)
+
+# 6. Access results
+state.observables[:entropy]
+```
+
+For complete API documentation, see the source code docstrings.
 
 ---
 

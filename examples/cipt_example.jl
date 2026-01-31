@@ -12,7 +12,7 @@ function run_dw_t(L::Int, p_ctrl::Float64, p_proj::Float64, seed_C::Int, seed_m:
     
     # Circuit step: physicist speaks "with prob p_ctrl, Reset+left; else HaarRandom+right"
     function circuit_step!(state, t)
-        apply_branch!(state;
+        apply_with_prob!(state;
             rng = :ctrl,
             outcomes = [
                 (probability=p_ctrl, gate=Reset(), geometry=left),

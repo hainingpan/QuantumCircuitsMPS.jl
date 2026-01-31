@@ -69,18 +69,3 @@ function apply_with_prob!(
     # If we get here: "do nothing" branch selected (r >= sum(probs))
     return nothing
 end
-
-"""
-    apply_branch!(state; rng=:ctrl, outcomes)
-
-DEPRECATED: Use `apply_with_prob!` instead.
-This function is kept for backwards compatibility.
-"""
-function apply_branch!(
-    state::SimulationState;
-    rng::Symbol = :ctrl,
-    outcomes::Vector{<:NamedTuple{(:probability, :gate, :geometry)}}
-)
-    @warn "apply_branch! is deprecated, use apply_with_prob! instead" maxlog=1
-    apply_with_prob!(state; rng=rng, outcomes=outcomes)
-end

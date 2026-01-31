@@ -46,7 +46,7 @@ One circuit = L applications of circuit_step!. This matches physicist intuition:
 left = StaircaseLeft(L)
 right = StaircaseRight(1)
 
-circuit_step!(state) = apply_branch!(state; ...)
+circuit_step!(state) = apply_with_prob!(state; ...)
 
 results = simulate_circuits(
     L = L,

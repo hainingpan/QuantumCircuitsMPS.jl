@@ -57,7 +57,7 @@ export Pointer, move!
 export AbstractObservable, DomainWall, BornProbability, EntanglementEntropy
 export track!, record!, list_observables
 # API
-export apply!, simulate, with_state, current_state, apply_with_prob!, apply_branch!
+export apply!, simulate, with_state, current_state, apply_with_prob!
 export run_circuit!, simulate_circuits, CircuitSimulation
 export record_every, record_at_circuits, record_always
 export get_state, get_observables, circuits_run

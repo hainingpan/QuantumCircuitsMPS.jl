@@ -50,7 +50,7 @@ initialize!(state, ProductState(x0 = 1//2^L))
 track!(state, :DW1 => DomainWall(order=1))
 
 left = StaircaseLeft(L)
-circuit_step!(s) = apply_branch!(s; rng=:ctrl, outcomes=[...])
+circuit_step!(s) = apply_with_prob!(s; rng=:ctrl, outcomes=[...])
 
 record!(state; i1=1)  # Initial recording
 for circuit in 1:n_circuits
