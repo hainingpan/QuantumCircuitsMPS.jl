@@ -19,3 +19,6 @@ Thumbs.db
 # Generated outputs
 examples/output/
 *.bin
+# Track specific .sisyphus files
+!.sisyphus/AGENT_INSTRUCTIONS.md
+!.sisyphus/plans/ARCHITECTURE-SUMMARY.md
