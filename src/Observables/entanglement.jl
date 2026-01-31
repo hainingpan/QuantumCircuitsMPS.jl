@@ -5,21 +5,33 @@ Entanglement entropy observable.
 
 Computes the entanglement entropy across a specified cut in the MPS.
 
-Parameters:
-- cut: Physical site where the cut is made (must satisfy 1 <= cut < L)
-- order: Order of the entropy measure
-  - order=1: von Neumann entropy (default)
-  - order=0: Hartley entropy (log of Schmidt rank)
-  - order=n: Rényi entropy of order n
-- threshold: Minimum threshold for singular values (default: 1e-16)
+# Arguments
+- `cut::Int`: Physical site where the cut is made (must satisfy 1 <= cut < L)
+- `order::Int=1`: Order of the entropy measure (must be >= 1)
+  - `order=1`: von Neumann entropy S₁ = -Σᵢ λᵢ log(λᵢ) (default)
+  - `order=2`: Rényi-2 entropy S₂ = log(Σᵢ λᵢ²) / (1-2)
+  - `order=n`: Rényi-n entropy Sₙ = log(Σᵢ λᵢⁿ) / (1-n)
+- `threshold::Float64=1e-16`: Minimum threshold for singular values (default: 1e-16)
 
+!!! note "Hartley entropy (order=0) is NOT supported"
+    Hartley entropy (order=0) measures log₂(Schmidt rank), but is not available via 
+    this interface because:
+    - MPS compression retains singular values above a cutoff threshold (~1e-10)
+    - Numerically, "zero" singular values are never truly zero in floating-point arithmetic
+    - This makes `log(rank)` give `log(maxdim)` instead of `log(true_rank)`
+    - Result is threshold-dependent and unreliable
+    
+    **Alternative**: Access MPS singular values directly via `orthogonalize!` + `svd`,
+    then apply your own threshold to determine the Schmidt rank.
+
+# Implementation
 The entropy is computed by:
 1. Converting the physical cut position to RAM ordering
 2. Orthogonalizing the MPS at the cut site
 3. Performing SVD to obtain Schmidt values
 4. Computing the entropy from the Schmidt spectrum
 
-Example:
+# Example
 ```julia
 ee = EntanglementEntropy(; cut=2, order=1)
 entropy = ee(state)

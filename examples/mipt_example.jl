@@ -57,11 +57,40 @@ println("  maxdim = $maxdim (maximum bond dimension)")
 println()
 
 # ═══════════════════════════════════════════════════════════════════
-# SECTION 2: Simulation State Setup
+# SECTION 2: Circuit Construction
+# ═══════════════════════════════════════════════════════════════════
+# Build circuit with do-block API. Each circuit represents ONE timestep:
+#   1. Bricklayer(:odd) - Random unitaries on odd pairs
+#   2. Bricklayer(:even) - Random unitaries on even pairs  
+#   3. Stochastic measurements - Each site measured with probability p
+
+println("Building MIPT circuit...")
+println()
+
+# Build circuit with n_steps=1 (one timestep per circuit)
+circuit = Circuit(L=L, bc=bc, n_steps=1) do c
+    # Apply Haar random unitaries in bricklayer pattern
+    apply!(c, HaarRandom(), Bricklayer(:odd))
+    apply!(c, HaarRandom(), Bricklayer(:even))
+    
+    # Apply projective Z-measurements with probability p
+    # Each site is independently measured with probability p
+    apply_with_prob!(c; rng=:ctrl, outcomes=[
+        (probability=p, gate=Measurement(:Z), geometry=AllSites())
+    ])
+end
+
+println("✓ Circuit built successfully")
+println("  Circuit represents 1 timestep")
+println("  Will run $n_steps times for full simulation")
+println()
+
+# ═══════════════════════════════════════════════════════════════════
+# SECTION 3: Simulation State Setup
 # ═══════════════════════════════════════════════════════════════════
 # Create simulation state and initialize to product state |0⟩⊗L
 
-println("Setting up simulation...")
+println("Setting up simulation state...")
 println()
 
 # Create simulation state
@@ -86,45 +115,25 @@ println("  Initial state: |0⟩⊗L")
 println()
 
 # ═══════════════════════════════════════════════════════════════════
-# SECTION 3: MIPT Simulation Loop
+# SECTION 4: Run Simulation
 # ═══════════════════════════════════════════════════════════════════
-# We use imperative API to apply the MIPT circuit structure:
-#   1. Bricklayer(:odd) - Random unitaries on odd pairs
-#   2. Bricklayer(:even) - Random unitaries on even pairs  
-#   3. Stochastic measurements - Each site measured with probability p
+# Execute circuit n_steps times (once per timestep)
+# Recording occurs automatically after each circuit execution
 
 println("Running MIPT simulation ($n_steps steps)...")
 println()
 
-# Storage for entropy values
-entropy_vals = Float64[]
-
-# MIPT circuit loop
-for t in 1:n_steps
-    # Apply Haar random unitaries in bricklayer pattern
-    apply!(state, HaarRandom(), Bricklayer(:odd))
-    apply!(state, HaarRandom(), Bricklayer(:even))
-    
-    # Apply projective Z-measurements with probability p
-    # Each site is independently measured with probability p
-    actual_rng = get_rng(state.rng_registry, :ctrl)
-    for site in 1:L
-        if rand(actual_rng) < p
-            apply!(state, Measurement(:Z), SingleSite(site))
-        end
-    end
-    
-    # Record entropy after each timestep
-    record!(state)
-    push!(entropy_vals, state.observables[:entropy][end])
-end
+simulate!(circuit, state; n_circuits=n_steps, record_when=:every_step)
 
 println("✓ Simulation complete")
 println()
 
 # ═══════════════════════════════════════════════════════════════════
-# SECTION 4: Results and Analysis
+# SECTION 5: Results and Analysis
 # ═══════════════════════════════════════════════════════════════════
+
+# Access entropy values from state.observables
+entropy_vals = state.observables[:entropy]
 
 println("Entanglement Entropy Evolution:")
 println("-" ^ 70)
