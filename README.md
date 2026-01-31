@@ -223,25 +223,27 @@ end
 ### Simulation Workflow
 
 ```julia
-# 1. Create state
-state = SimulationState(L=12, bc=:periodic, maxdim=64, rng=RNGRegistry(ctrl=42))
+# 1. Define circuit (declarative)
+circuit = Circuit(L=12, bc=:periodic, n_steps=1) do c
+    apply!(c, HaarRandom(), Bricklayer(:even))
+    apply!(c, HaarRandom(), Bricklayer(:odd))
+end
 
-# 2. Initialize
+# 2. Create and initialize state
+state = SimulationState(L=12, bc=:periodic, maxdim=64, rng=RNGRegistry(ctrl=42))
 initialize!(state, ProductState(x0=0//1))
 
 # 3. Track observables
 track!(state, :entropy => EntanglementEntropy(; cut=6))
 
-# 4. Apply circuit operations
-apply!(state, HaarRandom(), Bricklayer(:odd))
-apply!(state, HaarRandom(), Bricklayer(:even))
+# 4. Simulate (circuit + state)
+simulate!(circuit, state; n_circuits=50, record_when=:every_step)
 
-# 5. Record measurements
-record!(state)
-
-# 6. Access results
+# 5. Access results
 state.observables[:entropy]
 ```
+
+The workflow separates circuit definition from execution.
 
 For complete API documentation, see the source code docstrings.
 
