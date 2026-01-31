@@ -1,3 +1,35 @@
+# === Compound Geometry Helpers ===
+
+"""Check if geometry requires element-by-element iteration."""
+is_compound_geometry(::Bricklayer) = true
+is_compound_geometry(::AllSites) = true
+is_compound_geometry(::AbstractGeometry) = false
+
+"""
+Get elements for compound geometry iteration.
+Returns Vector{Vector{Int}} - each inner vector is sites for one gate application.
+"""
+function get_compound_elements(geo::Bricklayer, L::Int, bc::Symbol)
+    pairs = Tuple{Int,Int}[]
+    if geo.parity == :odd
+        for i in 1:2:L-1
+            push!(pairs, (i, i+1))
+        end
+    else
+        for i in 2:2:L-1
+            push!(pairs, (i, i+1))
+        end
+        if bc == :periodic
+            push!(pairs, (L, 1))
+        end
+    end
+    return [[p1, p2] for (p1, p2) in pairs]
+end
+
+function get_compound_elements(geo::AllSites, L::Int, bc::Symbol)
+    return [[site] for site in 1:L]
+end
+
 # === Circuit Execution Engine ===
 # Executes Circuit objects on SimulationState with stochastic branch resolution
 
@@ -116,32 +148,103 @@ function simulate!(circuit::Circuit, state::SimulationState;
                 current_gate = nothing
                 
                 if op.type == :deterministic
-                    # Compute sites and apply gate
-                    sites = compute_sites_dispatch(op.geometry, op.gate, step, circuit.L, circuit.bc)
-                    execute_gate!(state, op.gate, sites)
-                    gate_executed = true
-                    current_gate = op.gate
+                    if is_compound_geometry(op.geometry)
+                        # Compound geometry: iterate over elements
+                        elements = get_compound_elements(op.geometry, circuit.L, circuit.bc)
+                        for sites in elements
+                            execute_gate!(state, op.gate, sites)
+                            gate_idx += 1
+                            is_step_boundary = (step == circuit.n_steps) && (op_idx == length(circuit.operations)) && (sites == elements[end])
+                            ctx = RecordingContext(circuit_idx, gate_idx, op.gate, is_step_boundary)
+                            
+                            # Evaluate recording
+                            if record_when isa Symbol
+                                if record_when == :every_step && is_step_boundary
+                                    should_record_this_step = true
+                                elseif record_when == :every_gate
+                                    record!(state)
+                                elseif record_when == :final_only && is_step_boundary && circuit_idx == n_circuits
+                                    should_record_this_step = true
+                                end
+                            elseif record_when isa Function && record_when(ctx)
+                                should_record_this_step = true
+                            end
+                        end
+                        gate_executed = false  # Already handled above
+                        current_gate = nothing
+                    else
+                        # Simple geometry: existing path
+                        sites = compute_sites_dispatch(op.geometry, op.gate, step, circuit.L, circuit.bc)
+                        execute_gate!(state, op.gate, sites)
+                        gate_executed = true
+                        current_gate = op.gate
+                    end
                     
                 elseif op.type == :stochastic
-                    # Consume ONE RNG draw (matches expand_circuit and apply_with_prob!)
                     actual_rng = get_rng(state.rng_registry, op.rng)
-                    r = rand(actual_rng)
                     
-                    # Select branch using cumulative probability matching
-                    cumulative = 0.0
-                    for outcome in op.outcomes
-                        cumulative += outcome.probability
-                        if r < cumulative  # STRICT < (matches probabilistic.jl:64)
-                            # Branch selected - compute sites and apply
-                            sites = compute_sites_dispatch(outcome.geometry, outcome.gate, step, circuit.L, circuit.bc)
-                            execute_gate!(state, outcome.gate, sites)
-                            gate_executed = true
-                            current_gate = outcome.gate
-                            break
+                    # Check if ANY outcome has compound geometry
+                    has_compound = any(is_compound_geometry(o.geometry) for o in op.outcomes)
+                    
+                    if has_compound
+                        # Compound stochastic: per-element independent RNG draws
+                        # Use first compound geometry to determine elements
+                        compound_geo = first(o.geometry for o in op.outcomes if is_compound_geometry(o.geometry))
+                        elements = get_compound_elements(compound_geo, circuit.L, circuit.bc)
+                        
+                        for sites in elements
+                            r = rand(actual_rng)  # Independent draw per element
+                            cumulative = 0.0
+                            for outcome in op.outcomes
+                                cumulative += outcome.probability
+                                if r < cumulative
+                                    execute_gate!(state, outcome.gate, sites)
+                                    gate_idx += 1
+                                    is_step_boundary = (step == circuit.n_steps) && (op_idx == length(circuit.operations)) && (sites == elements[end])
+                                    ctx = RecordingContext(circuit_idx, gate_idx, outcome.gate, is_step_boundary)
+                                    
+                                    if record_when isa Symbol
+                                        if record_when == :every_step && is_step_boundary
+                                            should_record_this_step = true
+                                        elseif record_when == :every_gate
+                                            record!(state)
+                                        elseif record_when == :final_only && is_step_boundary && circuit_idx == n_circuits
+                                            should_record_this_step = true
+                                        end
+                                    elseif record_when isa Function && record_when(ctx)
+                                        should_record_this_step = true
+                                    end
+                                    break
+                                end
+                            end
+                            # If no break: "do nothing" for this element
+                        end
+                        
+                        # For :every_step mode with compound geometry, always check step boundary
+                        is_step_boundary = (step == circuit.n_steps) && (op_idx == length(circuit.operations))
+                        if record_when == :every_step && is_step_boundary
+                            should_record_this_step = true
+                        elseif record_when == :final_only && is_step_boundary && circuit_idx == n_circuits
+                            should_record_this_step = true
+                        end
+                        
+                        gate_executed = false  # Already handled
+                        current_gate = nothing
+                    else
+                        # Simple stochastic: existing single-draw path
+                        r = rand(actual_rng)
+                        cumulative = 0.0
+                        for outcome in op.outcomes
+                            cumulative += outcome.probability
+                            if r < cumulative
+                                sites = compute_sites_dispatch(outcome.geometry, outcome.gate, step, circuit.L, circuit.bc)
+                                execute_gate!(state, outcome.gate, sites)
+                                gate_executed = true
+                                current_gate = outcome.gate
+                                break
+                            end
                         end
                     end
-                    # If no break: "do nothing" branch (r >= sum(probabilities))
-                    # DO NOT increment gate_idx or create RecordingContext for "do nothing"
                 end
                 
                 # Only process recording logic if a gate was actually executed
@@ -207,6 +310,10 @@ function execute_gate!(state::SimulationState, gate::AbstractGate, sites::Vector
         # Reset requires SingleSite wrapper to trigger correct dispatch
         # (Reset's build_operator(gate, ::Vector{Int}) throws error)
         site = sites[1]  # Reset is always single-site
+        apply!(state, gate, SingleSite(site))
+    elseif gate isa Measurement
+        # Measurement requires SingleSite wrapper (like Reset)
+        site = sites[1]  # Measurement is always single-site
         apply!(state, gate, SingleSite(site))
     else
         # Normal gates use sites vector directly

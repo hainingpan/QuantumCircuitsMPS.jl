@@ -3,6 +3,38 @@
 
 using Random
 
+# === Compound Geometry Helpers ===
+
+"""Check if geometry requires element-by-element expansion."""
+is_compound_geometry_expand(::Bricklayer) = true
+is_compound_geometry_expand(::AllSites) = true
+is_compound_geometry_expand(::AbstractGeometry) = false
+
+"""
+Get elements for compound geometry expansion.
+Returns Vector{Vector{Int}} - each inner vector is sites for one ExpandedOp.
+"""
+function get_compound_elements_expand(geo::Bricklayer, L::Int, bc::Symbol)
+    pairs = Tuple{Int,Int}[]
+    if geo.parity == :odd
+        for i in 1:2:L-1
+            push!(pairs, (i, i+1))
+        end
+    else
+        for i in 2:2:L-1
+            push!(pairs, (i, i+1))
+        end
+        if bc == :periodic
+            push!(pairs, (L, 1))
+        end
+    end
+    return [[p1, p2] for (p1, p2) in pairs]
+end
+
+function get_compound_elements_expand(geo::AllSites, L::Int, bc::Symbol)
+    return [[site] for site in 1:L]
+end
+
 """
     ExpandedOp
 
@@ -49,6 +81,7 @@ gate_label(CZ())          # Returns "CZ"
 gate_label(::Reset) = "Rst"
 gate_label(::HaarRandom) = "Haar"
 gate_label(::Projection) = "Prj"
+gate_label(::Measurement) = "Meas"
 gate_label(::PauliX) = "X"
 gate_label(::PauliY) = "Y"
 gate_label(::PauliZ) = "Z"
@@ -78,9 +111,13 @@ function validate_geometry(geo::AbstractGeometry)
         # supported
     elseif geo isa AdjacentPair
         # supported
+    elseif geo isa Bricklayer
+        # supported
+    elseif geo isa AllSites
+        # supported
     else
         throw(ArgumentError("Phase 1 does not support geometry type $(typeof(geo)). " *
-                            "Supported: StaircaseRight, StaircaseLeft, SingleSite, AdjacentPair"))
+                            "Supported: StaircaseRight, StaircaseLeft, SingleSite, AdjacentPair, Bricklayer, AllSites"))
     end
 end
 
@@ -226,30 +263,69 @@ function expand_circuit(circuit::Circuit; seed::Int=0)
         # Process each operation in the circuit
         for op in circuit.operations
             if op.type == :deterministic
-                # No RNG consumption - just compute sites
-                sites = compute_sites_dispatch(op.geometry, op.gate, step, circuit.L, circuit.bc)
-                push!(step_ops, ExpandedOp(
-                    step,
-                    op.gate,
-                    sites,
-                    gate_label(op.gate)
-                ))
-                
-            elseif op.type == :stochastic
-                # Consume ONE RNG draw to select branch
-                selected = select_branch(rng, op.outcomes)
-                
-                if selected !== nothing
-                    # Branch was selected - compute sites and add operation
-                    sites = compute_sites_dispatch(selected.geometry, selected.gate, step, circuit.L, circuit.bc)
+                if is_compound_geometry_expand(op.geometry)
+                    # Compound geometry: expand to multiple ExpandedOps
+                    elements = get_compound_elements_expand(op.geometry, circuit.L, circuit.bc)
+                    for sites in elements
+                        push!(step_ops, ExpandedOp(
+                            step,
+                            op.gate,
+                            sites,
+                            gate_label(op.gate)
+                        ))
+                    end
+                else
+                    # Simple geometry: single ExpandedOp
+                    sites = compute_sites_dispatch(op.geometry, op.gate, step, circuit.L, circuit.bc)
                     push!(step_ops, ExpandedOp(
                         step,
-                        selected.gate,
+                        op.gate,
                         sites,
-                        gate_label(selected.gate)
+                        gate_label(op.gate)
                     ))
                 end
-                # If nothing selected: "do nothing", no entry added
+                
+            elseif op.type == :stochastic
+                # Check if ANY outcome has compound geometry
+                has_compound = any(is_compound_geometry_expand(o.geometry) for o in op.outcomes)
+                
+                if has_compound
+                    # Compound stochastic: per-element independent RNG draws
+                    # Use first compound geometry to determine elements
+                    compound_geo = first(o.geometry for o in op.outcomes if is_compound_geometry_expand(o.geometry))
+                    elements = get_compound_elements_expand(compound_geo, circuit.L, circuit.bc)
+                    
+                    for sites in elements
+                        # Independent RNG draw per element
+                        selected = select_branch(rng, op.outcomes)
+                        
+                        if selected !== nothing
+                            # Branch selected for this element
+                            push!(step_ops, ExpandedOp(
+                                step,
+                                selected.gate,
+                                sites,
+                                gate_label(selected.gate)
+                            ))
+                        end
+                        # If nothing selected: "do nothing" for this element
+                    end
+                else
+                    # Simple stochastic: single RNG draw
+                    selected = select_branch(rng, op.outcomes)
+                    
+                    if selected !== nothing
+                        # Branch was selected - compute sites and add operation
+                        sites = compute_sites_dispatch(selected.geometry, selected.gate, step, circuit.L, circuit.bc)
+                        push!(step_ops, ExpandedOp(
+                            step,
+                            selected.gate,
+                            sites,
+                            gate_label(selected.gate)
+                        ))
+                    end
+                    # If nothing selected: "do nothing", no entry added
+                end
             end
         end
         
