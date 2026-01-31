@@ -3,38 +3,6 @@
 
 using Random
 
-# === Compound Geometry Helpers ===
-
-"""Check if geometry requires element-by-element expansion."""
-is_compound_geometry_expand(::Bricklayer) = true
-is_compound_geometry_expand(::AllSites) = true
-is_compound_geometry_expand(::AbstractGeometry) = false
-
-"""
-Get elements for compound geometry expansion.
-Returns Vector{Vector{Int}} - each inner vector is sites for one ExpandedOp.
-"""
-function get_compound_elements_expand(geo::Bricklayer, L::Int, bc::Symbol)
-    pairs = Tuple{Int,Int}[]
-    if geo.parity == :odd
-        for i in 1:2:L-1
-            push!(pairs, (i, i+1))
-        end
-    else
-        for i in 2:2:L-1
-            push!(pairs, (i, i+1))
-        end
-        if bc == :periodic
-            push!(pairs, (L, 1))
-        end
-    end
-    return [[p1, p2] for (p1, p2) in pairs]
-end
-
-function get_compound_elements_expand(geo::AllSites, L::Int, bc::Symbol)
-    return [[site] for site in 1:L]
-end
-
 """
     ExpandedOp
 
@@ -263,9 +231,9 @@ function expand_circuit(circuit::Circuit; seed::Int=0)
         # Process each operation in the circuit
         for op in circuit.operations
             if op.type == :deterministic
-                if is_compound_geometry_expand(op.geometry)
-                    # Compound geometry: expand to multiple ExpandedOps
-                    elements = get_compound_elements_expand(op.geometry, circuit.L, circuit.bc)
+    if is_compound_geometry(op.geometry)
+        # Expand compound geometries into individual elements
+        elements = get_compound_elements(op.geometry, circuit.L, circuit.bc)
                     for sites in elements
                         push!(step_ops, ExpandedOp(
                             step,
@@ -287,13 +255,12 @@ function expand_circuit(circuit::Circuit; seed::Int=0)
                 
             elseif op.type == :stochastic
                 # Check if ANY outcome has compound geometry
-                has_compound = any(is_compound_geometry_expand(o.geometry) for o in op.outcomes)
+                has_compound = any(is_compound_geometry(o.geometry) for o in op.outcomes)
                 
                 if has_compound
-                    # Compound stochastic: per-element independent RNG draws
-                    # Use first compound geometry to determine elements
-                    compound_geo = first(o.geometry for o in op.outcomes if is_compound_geometry_expand(o.geometry))
-                    elements = get_compound_elements_expand(compound_geo, circuit.L, circuit.bc)
+                    # Compound geometry → independent RNG per element
+                    compound_geo = first(o.geometry for o in op.outcomes if is_compound_geometry(o.geometry))
+                    elements = get_compound_elements(compound_geo, circuit.L, circuit.bc)
                     
                     for sites in elements
                         # Independent RNG draw per element

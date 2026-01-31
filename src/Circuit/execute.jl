@@ -1,35 +1,3 @@
-# === Compound Geometry Helpers ===
-
-"""Check if geometry requires element-by-element iteration."""
-is_compound_geometry(::Bricklayer) = true
-is_compound_geometry(::AllSites) = true
-is_compound_geometry(::AbstractGeometry) = false
-
-"""
-Get elements for compound geometry iteration.
-Returns Vector{Vector{Int}} - each inner vector is sites for one gate application.
-"""
-function get_compound_elements(geo::Bricklayer, L::Int, bc::Symbol)
-    pairs = Tuple{Int,Int}[]
-    if geo.parity == :odd
-        for i in 1:2:L-1
-            push!(pairs, (i, i+1))
-        end
-    else
-        for i in 2:2:L-1
-            push!(pairs, (i, i+1))
-        end
-        if bc == :periodic
-            push!(pairs, (L, 1))
-        end
-    end
-    return [[p1, p2] for (p1, p2) in pairs]
-end
-
-function get_compound_elements(geo::AllSites, L::Int, bc::Symbol)
-    return [[site] for site in 1:L]
-end
-
 # === Circuit Execution Engine ===
 # Executes Circuit objects on SimulationState with stochastic branch resolution
 
