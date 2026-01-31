@@ -68,57 +68,97 @@ function _apply_dispatch!(state::SimulationState, gate::AbstractGate, geo::Point
     # NO advance! - user explicitly calls move!()
 end
 
-# === Special handling for Reset gate (requires measurement + conditional logic) ===
+# === Internal helper for Born-sampled projection ===
 
-function _apply_dispatch!(state::SimulationState, gate::Reset, geo::SingleSite)
-    site = get_sites(geo, state)[1]  # SingleSite returns [site]
-    
-    # 1. Compute Born probability
+"""
+    _measure_single_site!(state::SimulationState, site::Int) -> Int
+
+Perform Born-sampled projective measurement on a single site.
+Returns the measurement outcome (0 or 1).
+
+This is the FUNDAMENTAL measurement operation:
+1. Compute Born probability P(0|ψ)
+2. Sample outcome using :born RNG stream
+3. Apply Projection operator
+4. Return outcome (for conditional logic in Reset)
+"""
+function _measure_single_site!(state::SimulationState, site::Int)
     p_0 = born_probability(state, site, 0)
-    
-    # 2. Sample outcome using :born stream
     born_rng = get_rng(state.rng_registry, :born)
     outcome = rand(born_rng) < p_0 ? 0 : 1
-    
-    # 3. Apply Projection
     _apply_single!(state, Projection(outcome), [site])
-    
-    # 4. Conditional X to reset to |0⟩
+    return outcome
+end
+
+# === Measurement gate dispatch (FUNDAMENTAL - pure projection) ===
+
+function _apply_dispatch!(state::SimulationState, gate::Measurement, geo::SingleSite)
+    site = get_sites(geo, state)[1]
+    _measure_single_site!(state, site)
+    return nothing
+end
+
+function _apply_dispatch!(state::SimulationState, gate::Measurement, geo::AllSites)
+    all_sites = get_all_sites(geo, state)
+    for site in all_sites
+        _measure_single_site!(state, site)  # Independent per-site sampling
+    end
+    return nothing
+end
+
+function _apply_dispatch!(state::SimulationState, gate::Measurement, geo::AbstractStaircase)
+    site = geo._position
+    _measure_single_site!(state, site)
+    advance!(geo, state.L, state.bc)
+    return nothing
+end
+
+function _apply_dispatch!(state::SimulationState, gate::Measurement, geo::Pointer)
+    site = geo._position
+    _measure_single_site!(state, site)
+    # NO advance! - user explicitly calls move!()
+    return nothing
+end
+
+# === Reset gate dispatch (DERIVED - measurement + conditional X) ===
+
+function _apply_dispatch!(state::SimulationState, gate::Reset, geo::SingleSite)
+    site = get_sites(geo, state)[1]
+    outcome = _measure_single_site!(state, site)
     if outcome == 1
         _apply_single!(state, PauliX(), [site])
     end
-    
+    return nothing
+end
+
+function _apply_dispatch!(state::SimulationState, gate::Reset, geo::AllSites)
+    all_sites = get_all_sites(geo, state)
+    for site in all_sites
+        outcome = _measure_single_site!(state, site)
+        if outcome == 1
+            _apply_single!(state, PauliX(), [site])
+        end
+    end
     return nothing
 end
 
 function _apply_dispatch!(state::SimulationState, gate::Reset, geo::AbstractStaircase)
-    site = geo._position  # Current position
-    
-    # Same Reset logic
-    p_0 = born_probability(state, site, 0)
-    born_rng = get_rng(state.rng_registry, :born)
-    outcome = rand(born_rng) < p_0 ? 0 : 1
-    _apply_single!(state, Projection(outcome), [site])
+    site = geo._position
+    outcome = _measure_single_site!(state, site)
     if outcome == 1
         _apply_single!(state, PauliX(), [site])
     end
-    
-    # Advance staircase after
     advance!(geo, state.L, state.bc)
     return nothing
 end
 
 function _apply_dispatch!(state::SimulationState, gate::Reset, geo::Pointer)
-    site = geo._position  # Reset is single-site
-    
-    p_0 = born_probability(state, site, 0)
-    born_rng = get_rng(state.rng_registry, :born)
-    outcome = rand(born_rng) < p_0 ? 0 : 1
-    _apply_single!(state, Projection(outcome), [site])
+    site = geo._position
+    outcome = _measure_single_site!(state, site)
     if outcome == 1
         _apply_single!(state, PauliX(), [site])
     end
-    # NO advance! - user explicitly calls move!()
+    # NO advance!
     return nothing
 end
 
