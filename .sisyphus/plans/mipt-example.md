@@ -58,10 +58,10 @@ Create a complete MIPT example demonstrating measurement-induced phase transitio
 - `test/entanglement_test.jl` - Unit tests
 
 ### Definition of Done
-- [ ] `julia -e 'using QuantumCircuitsMPS; apply!(state, Measurement(:Z), SingleSite(1))'` works
-- [ ] `julia -e 'using QuantumCircuitsMPS; track!(state, :ee => EntanglementEntropy(; cut=2))'` works
-- [ ] `julia examples/mipt_example.jl` exits with code 0
-- [ ] All existing tests still pass: `julia --project -e 'using Pkg; Pkg.test()'`
+- [x] `julia -e 'using QuantumCircuitsMPS; apply!(state, Measurement(:Z), SingleSite(1))'` works
+- [x] `julia -e 'using QuantumCircuitsMPS; track!(state, :ee => EntanglementEntropy(; cut=2))'` works
+- [x] `julia examples/mipt_example.jl` exits with code 0
+- [x] All existing tests still pass: `julia --project -e 'using Pkg; Pkg.test()'`
 
 ### Must Have
 - `Measurement` gate as FUNDAMENTAL type (pure Born sampling + projection, NO reset)
@@ -767,7 +767,7 @@ Parallel Speedup: ~40% faster than sequential
 
 ---
 
-- [ ] 5. Create mipt_tutorial.ipynb
+- [x] 5. Create mipt_tutorial.ipynb
 
   **What to do**:
   - Create `examples/mipt_tutorial.ipynb` as pedagogical notebook:
@@ -863,7 +863,7 @@ Parallel Speedup: ~40% faster than sequential
 
 ---
 
-- [ ] 6. Add entanglement_test.jl
+- [x] 6. Add entanglement_test.jl
 
   **What to do**:
   - Create `test/entanglement_test.jl` with:
@@ -922,7 +922,7 @@ Parallel Speedup: ~40% faster than sequential
 
 ---
 
-- [ ] 7. Final verification and documentation update
+- [x] 7. Final verification and documentation update
 
   **What to do**:
   - Run full test suite to verify all components work together
@@ -1028,11 +1028,11 @@ julia --project -e '
 ```
 
 ### Final Checklist
-- [ ] `Measurement(:Z)` gate is FUNDAMENTAL (pure Born + projection)
-- [ ] `Reset` is DERIVED (uses Measurement + conditional X)
-- [ ] EntanglementEntropy observable follows DomainWall API pattern
-- [ ] MIPT example uses `Measurement(:Z)`, NOT `Reset()`
-- [ ] mipt_example.jl runs without error
-- [ ] mipt_tutorial.ipynb is valid JSON
-- [ ] All existing tests still pass
-- [ ] No deprecated `current_state()` pattern used
+- [x] `Measurement(:Z)` gate is FUNDAMENTAL (pure Born + projection)
+- [x] `Reset` is DERIVED (uses Measurement + conditional X)
+- [x] EntanglementEntropy observable follows DomainWall API pattern
+- [x] MIPT example uses `Measurement(:Z)`, NOT `Reset()`
+- [x] mipt_example.jl runs without error
+- [x] mipt_tutorial.ipynb is valid JSON
+- [x] All existing tests still pass
+- [x] No deprecated `current_state()` pattern used

@@ -424,3 +424,62 @@ Circuit (L=4, bc=periodic, seed=0)
 ```
 
 All tests pass (188 total).
+
+## [2026-01-30] Task 6: Tutorial Staircase Pattern Fix
+
+### Pattern Corrections Made
+
+**Files Modified:**
+- `examples/circuit_tutorial.jl` - Lines 69, 95, 122
+- `examples/circuit_tutorial.ipynb` - Code cells with stochastic operations
+
+**Changes:**
+- **BEFORE (WRONG)**: Both `Reset()` and `HaarRandom()` used `StaircaseRight(1)`
+- **AFTER (CORRECT)**: 
+  - `Reset()` → `StaircaseLeft(1)` (propagates from left edge)
+  - `HaarRandom()` → `StaircaseRight(1)` (applies from right edge)
+
+**Pattern Source:**
+From `examples/ct_model.jl` lines 18-19, the canonical CT model uses:
+```julia
+(probability=p_ctrl, gate=Reset(), geometry=left)   # StaircaseLeft
+(probability=1-p_ctrl, gate=HaarRandom(), geometry=right)  # StaircaseRight
+```
+
+### Documentation Enhancement
+
+Added `list_observables()` mention to Section 6 in both tutorial files:
+- **Purpose**: Help users discover available observable types (DomainWall, Entanglement, etc.)
+- **Placement**: Section 6 header comment (now titled "Observables and Simulating Circuits")
+- **Context**: Introduced before simulation example, alongside RNG seed explanation
+
+### Execution Verification
+
+**Test Command:**
+```bash
+julia --project -e 'using QuantumCircuitsMPS; circuit = Circuit(L=4, bc=:periodic, n_steps=5) do c; ...; end'
+```
+
+**Results:**
+✓ Circuit builds without errors
+✓ Correct pattern: Reset→StaircaseLeft, HaarRandom→StaircaseRight  
+✓ ASCII visualization renders correctly
+✓ Notebook JSON structure valid
+
+**Pattern Validation:**
+```bash
+grep -E "(Reset.*StaircaseLeft)" examples/circuit_tutorial.jl
+# Returns 2 matches (lines 69, 122) ✓
+
+grep -E "(HaarRandom.*StaircaseRight)" examples/circuit_tutorial.jl  
+# Returns 3 matches (lines 70, 96, 123) ✓
+```
+
+### Physics Rationale
+
+The CT (Continuous Time) model requires directional geometry matching gate physics:
+- **Reset**: Measurement-induced collapse from left boundary → StaircaseLeft
+- **HaarRandom**: Unitary evolution from right boundary → StaircaseRight
+
+This ensures the tutorial demonstrates physically correct CT dynamics, matching the authoritative `ct_model.jl` implementation.
+

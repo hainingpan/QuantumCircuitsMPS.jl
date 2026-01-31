@@ -50,3 +50,45 @@
 - 🔄 Task 5: ASCII Layout Transpose (BREAKING CHANGE)
 - This is a sequential task (depends on Task 3 structure)
 - Will flip orientation: time=vertical (rows), qubits=horizontal (columns)
+
+### [15:10] Task 5 Complete - ASCII Layout Transpose
+- ✅ Transposed loop structure implemented
+- ✅ Header shows qubit labels (q1, q2, q3...) as columns
+- ✅ Rows show time steps (1a:, 1b:, 2:...)
+- ✅ Spanning box logic preserved in new orientation
+- ✅ All 188 baseline tests updated and passing
+- ✅ Commit: (pending) - feat(plotting)!: transpose ASCII layout
+
+### [15:12] Wave 4 Starting - Task 6 (Final)
+- 🔄 Task 6: Fix Tutorial StaircaseLeft/Right Pattern
+- This is the final task in the boulder
+- Will update examples/circuit_tutorial.jl and .ipynb files
+
+### [15:20] Task 6 Complete - Tutorial Staircase Pattern Fix
+- ✅ Reset() changed to use StaircaseLeft(1) (3 locations)
+- ✅ HaarRandom() kept with StaircaseRight(1) (already correct)
+- ✅ Added list_observables() mention in Section 6
+- ✅ Tutorial executes without error
+- ✅ Commit: 11b964f - fix(examples): use correct StaircaseLeft/Right pattern
+
+### [15:25] BOULDER COMPLETE ✅
+- All 6 tasks completed successfully
+- All commits atomic and descriptive
+- All tests passing
+- Breaking change (Task 5) documented with BREAKING CHANGE marker
+- Notepad fully populated with learnings
+
+## Final Summary
+
+**Completed Tasks:**
+1. ✅ Baseline Capture (commit 75ef84d)
+2. ✅ list_observables() Helper (commit 307d1e0)
+3. ✅ ASCII Multi-Qubit Spanning Box (commit 42c7997)
+4. ✅ SVG Multi-Qubit Spanning Box (commit 9f5bd86)
+5. ✅ ASCII Layout Transpose (commit 362d5f9) - BREAKING CHANGE
+6. ✅ Tutorial StaircaseLeft/Right Fix (commit 11b964f)
+
+**Total Commits:** 6
+**Test Count:** 188 passing
+**Duration:** ~2 hours
+**Parallel Waves:** 2 (Wave 1: Tasks 1-2, Wave 2: Tasks 3-4)
