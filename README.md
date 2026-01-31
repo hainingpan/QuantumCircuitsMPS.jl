@@ -15,13 +15,17 @@ MIPT (Measurement-Induced Phase Transition) and CIPT (Control-Induced Phase Tran
 
 QuantumCircuitsMPS.jl is a pure Julia library for simulating quantum circuits using Matrix Product State (MPS) methods. It's purpose-built for researchers studying measurement-induced and control-induced phase transitions in monitored quantum systems.
 
+> ⚠️ **Note**: This package is under active development. APIs may change and bugs may exist. Please report issues on [GitHub](https://github.com/hainingpan/QuantumCircuitsMPS.jl/issues).
+
 **Why use this package?**
 
 1. **Pure Julia MPS simulation**: No Python dependencies. Native Julia performance with ITensors.jl backend, scaling to 100+ qubits.
 
-2. **First-class MIPT/CIPT support**: Trajectories, feedback loops, and forced measurement outcomes are built into the API, not afterthoughts.
+2. **Physics-first API**: Write circuits using intuitive abstractions (Gates + Geometry) without managing MPS bond dimensions, index orderings, or truncation schemes. The library handles tensor network details internally.
 
-3. **Physics-first API**: Write circuits using intuitive abstractions (Gates + Geometry) without managing MPS bond dimensions, index orderings, or truncation schemes. The library handles tensor network details internally.
+3. **Periodic boundary conditions**: Native PBC support via folded MPS indexing—standard MPS is naturally open boundary, but this package implements a novel folding trick (`ram_phy = [1, L, 2, L-1, ...]`) to support PBC efficiently without approximations or MPO tricks.
+
+4. **Reproducible randomness**: Independent RNG streams for each source (`:ctrl`, `:haar`, `:born`, `:proj`, `:state_init`) enable reproducible trajectories and systematic debugging. Each stream can be seeded independently.
 
 **Philosophy**: Users write `apply!(state, HaarRandom(), Bricklayer(:odd))` and never see ITensor index objects, SVD calls, or orthogonalization centers. The package manages the gap between high-level physics intent and low-level tensor manipulations.
 
@@ -162,7 +166,7 @@ function run_cipt(L::Int, p_ctrl::Float64)
     
     # Circuit step: conditional branching based on control probability
     function circuit_step!(state, t)
-        apply_branch!(state; rng=:ctrl, outcomes=[
+        apply_with_prob!(state; rng=:ctrl, outcomes=[
             (probability=p_ctrl, gate=Reset(), geometry=left),
             (probability=1-p_ctrl, gate=HaarRandom(), geometry=right)
         ])
