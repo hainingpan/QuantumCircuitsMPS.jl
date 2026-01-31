@@ -656,7 +656,7 @@ Parallel Speedup: ~40% faster than sequential
 
 ---
 
-- [ ] 4. Create mipt_example.jl
+- [x] 4. Create mipt_example.jl
 
   **What to do**:
   - Create `examples/mipt_example.jl` implementing standard MIPT protocol:
