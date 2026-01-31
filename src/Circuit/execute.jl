@@ -126,17 +126,9 @@ function simulate!(circuit::Circuit, state::SimulationState;
                             ctx = RecordingContext(circuit_idx, gate_idx, op.gate, is_step_boundary)
                             
                             # Evaluate recording
-                            if record_when isa Symbol
-                                if record_when == :every_step && is_step_boundary
-                                    should_record_this_step = true
-                                elseif record_when == :every_gate
-                                    record!(state)
-                                elseif record_when == :final_only && is_step_boundary && circuit_idx == n_circuits
-                                    should_record_this_step = true
-                                end
-                            elseif record_when isa Function && record_when(ctx)
-                                should_record_this_step = true
-                            end
+                            set_flag, record_now = _evaluate_recording(record_when, ctx, circuit_idx, n_circuits)
+                            should_record_this_step |= set_flag
+                            record_now && record!(state)
                         end
                         gate_executed = false  # Already handled above
                         current_gate = nothing
@@ -171,17 +163,9 @@ function simulate!(circuit::Circuit, state::SimulationState;
                                     is_step_boundary = (step == circuit.n_steps) && (op_idx == length(circuit.operations)) && (sites == elements[end])
                                     ctx = RecordingContext(circuit_idx, gate_idx, outcome.gate, is_step_boundary)
                                     
-                                    if record_when isa Symbol
-                                        if record_when == :every_step && is_step_boundary
-                                            should_record_this_step = true
-                                        elseif record_when == :every_gate
-                                            record!(state)
-                                        elseif record_when == :final_only && is_step_boundary && circuit_idx == n_circuits
-                                            should_record_this_step = true
-                                        end
-                                    elseif record_when isa Function && record_when(ctx)
-                                        should_record_this_step = true
-                                    end
+                                    set_flag, record_now = _evaluate_recording(record_when, ctx, circuit_idx, n_circuits)
+                                    should_record_this_step |= set_flag
+                                    record_now && record!(state)
                                     break
                                 end
                             end
@@ -190,9 +174,7 @@ function simulate!(circuit::Circuit, state::SimulationState;
                         
                         # For :every_step mode with compound geometry, always check step boundary
                         is_step_boundary = (step == circuit.n_steps) && (op_idx == length(circuit.operations))
-                        if record_when == :every_step && is_step_boundary
-                            should_record_this_step = true
-                        elseif record_when == :final_only && is_step_boundary && circuit_idx == n_circuits
+                        if is_step_boundary && _should_record_at_step_boundary(record_when, circuit_idx, n_circuits)
                             should_record_this_step = true
                         end
                         
@@ -221,32 +203,16 @@ function simulate!(circuit::Circuit, state::SimulationState;
                     is_step_boundary = (step == circuit.n_steps) && (op_idx == length(circuit.operations))
                     ctx = RecordingContext(circuit_idx, gate_idx, current_gate, is_step_boundary)
                     
-                    # Evaluate record_when and set flag
-                    if record_when isa Symbol
-                        if record_when == :every_step && is_step_boundary
-                            should_record_this_step = true
-                        elseif record_when == :every_gate
-                            should_record_this_step = true
-                        elseif record_when == :final_only && is_step_boundary && circuit_idx == n_circuits
-                            should_record_this_step = true
-                        end
-                    elseif record_when isa Function
-                        if record_when(ctx)
-                            should_record_this_step = true
-                        end
-                    end
-                    
-                    # For :every_gate, record immediately after each gate
-                    if record_when == :every_gate && should_record_this_step
-                        record!(state)
-                        should_record_this_step = false  # Reset flag after recording
-                    end
+                    # Evaluate recording criteria
+                    set_flag, record_now = _evaluate_recording(record_when, ctx, circuit_idx, n_circuits)
+                    should_record_this_step |= set_flag
+                    record_now && record!(state)
                 end
             end
         end
         
-        # Record after this circuit completes (for non-every_gate modes)
-        if should_record_this_step && record_when != :every_gate
+        # Record after this circuit completes (flag set by :every_step, :final_only, or custom function)
+        if should_record_this_step
             record!(state)
         end
     end

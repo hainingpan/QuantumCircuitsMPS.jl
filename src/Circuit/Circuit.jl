@@ -49,8 +49,8 @@ include("builder.jl")
 # Circuit expansion (symbolic → concrete)
 include("expand.jl")
 
-# Circuit executor
-include("execute.jl")
-
-# Recording context and presets
+# Recording context and presets (must come before execute.jl)
 include("recording.jl")
+
+# Circuit executor (depends on recording.jl for RecordingContext)
+include("execute.jl")
