@@ -9,6 +9,7 @@ abstract type AbstractObservable end
 # Include implementations
 include("born.jl")
 include("domain_wall.jl")
+include("entanglement.jl")
 
 # === Observable Tracking API ===
 
@@ -71,5 +72,5 @@ obs_types = list_observables()
 ```
 """
 function list_observables()::Vector{String}
-    return ["DomainWall", "BornProbability"]
+    return ["DomainWall", "BornProbability", "EntanglementEntropy"]
 end

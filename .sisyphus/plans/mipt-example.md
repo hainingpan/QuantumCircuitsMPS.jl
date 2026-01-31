@@ -507,7 +507,7 @@ Parallel Speedup: ~40% faster than sequential
 
 ---
 
-- [ ] 3. Add EntanglementEntropy observable
+- [x] 3. Add EntanglementEntropy observable
 
   **What to do**:
   - Create `src/Observables/entanglement.jl` with:
