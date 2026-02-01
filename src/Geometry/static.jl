@@ -32,9 +32,15 @@ end
 """
     Bricklayer(parity::Symbol)
 
-Geometry for bricklayer (even/odd) gate application pattern.
+Geometry for bricklayer gate application pattern.
+
+Nearest-neighbor (NN) modes:
 - `:odd` parity → pairs (1,2), (3,4), (5,6), ...
 - `:even` parity → pairs (2,3), (4,5), ... plus (L,1) for PBC
+
+Next-nearest-neighbor (NNN) modes:
+- `:nnn_odd` parity → pairs (1,3), (5,7), (9,11), ... (stride 4, offset 1)
+- `:nnn_even` parity → pairs (2,4), (6,8), (10,12), ... (stride 4, offset 2)
 
 apply! loops internally over all pairs.
 """
@@ -42,7 +48,7 @@ struct Bricklayer <: AbstractGeometry
     parity::Symbol
     
     function Bricklayer(parity::Symbol)
-        parity in (:odd, :even) || throw(ArgumentError("Bricklayer parity must be :odd or :even, got $parity"))
+        parity in (:odd, :even, :nnn_odd, :nnn_even) || throw(ArgumentError("Bricklayer parity must be :odd, :even, :nnn_odd, or :nnn_even, got $parity"))
         new(parity)
     end
 end
@@ -62,7 +68,7 @@ function get_pairs(geo::Bricklayer, state)
         for i in 1:2:L-1
             push!(pairs, (i, i+1))
         end
-    else
+    elseif geo.parity == :even
         # Even pairs: (2,3), (4,5), ...
         for i in 2:2:L-1
             push!(pairs, (i, i+1))
@@ -70,6 +76,16 @@ function get_pairs(geo::Bricklayer, state)
         # For PBC, also include (L, 1)
         if bc == :periodic
             push!(pairs, (L, 1))
+        end
+    elseif geo.parity == :nnn_odd
+        # Odd NNN pairs: (1,3), (5,7), (9,11), ...
+        for i in 1:4:L-2
+            push!(pairs, (i, i+2))
+        end
+    elseif geo.parity == :nnn_even
+        # Even NNN pairs: (2,4), (6,8), (10,12), ...
+        for i in 2:4:L-2
+            push!(pairs, (i, i+2))
         end
     end
     
