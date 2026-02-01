@@ -192,7 +192,7 @@ function _apply_single!(state::SimulationState, gate::AbstractGate, phy_sites::V
     apply_op_internal!(state.mps, op, state.sites, state.cutoff, state.maxdim)
     
     # Contract 3.5: Normalization dispatch
-    if gate isa Projection
+    if gate isa Projection || gate isa SpinSectorProjection
         normalize!(state.mps)
     end
     # Unitaries (HaarRandom, CZ, PauliX/Y/Z): NO normalize

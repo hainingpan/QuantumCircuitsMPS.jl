@@ -147,8 +147,10 @@ function initialize!(state::SimulationState, init::ProductState)
         # "0" → "0", "1" → "1"
         vec_int_pos
     elseif site_type == "S=1"
-        # "0" → "-1", "1" → "+1" (binary encoding for spin-1)
-        [b == "0" ? "-1" : "+1" for b in vec_int_pos]
+        # For S=1: "0" → "Up" (m=+1), "1" → "Dn" (m=-1)
+        # ITensor uses "Up"/"Z0"/"Dn" for m = +1, 0, -1
+        # Binary encoding: 0 = spin up, 1 = spin down
+        [b == "0" ? "Up" : "Dn" for b in vec_int_pos]
     elseif site_type == "Qudit"
         # Generic qudit: "0" → "1", "1" → "2", etc. (1-indexed states)
         # For binary qudits, "0" → "1", "1" → "2"

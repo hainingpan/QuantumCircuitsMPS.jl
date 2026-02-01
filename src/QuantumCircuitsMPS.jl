@@ -50,6 +50,7 @@ export RNGRegistry, get_rng  # NOTE: rand is extended, not exported
 # Gates
 export AbstractGate, PauliX, PauliY, PauliZ, Projection, HaarRandom, Measurement, Reset, CZ
 export total_spin_projector, verify_spin_projectors
+export SpinSectorProjection, SpinSectorMeasurement
 # Geometry
 export AbstractGeometry, SingleSite, AdjacentPair, Bricklayer, AllSites
 export StaircaseLeft, StaircaseRight
