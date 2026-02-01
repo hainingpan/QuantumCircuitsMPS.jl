@@ -9,29 +9,53 @@ Base type for staircase geometries with internal pointer.
 abstract type AbstractStaircase <: AbstractGeometry end
 
 """
-    StaircaseRight(start_position::Int)
+    StaircaseRight(start_position::Int; range::Int=1)
 
-Staircase that moves right: applies at (pos, pos+1), then advances pos.
-At pos=L (PBC), pair is (L, 1), then wraps to pos=1.
-For OBC, stops at L-1 (pair is (L-1, L)).
+Staircase that moves right: applies at (pos, pos+range), then advances pos.
+
+# Arguments
+- `start_position`: Initial position
+- `range`: Distance between sites (default 1 for nearest neighbors)
+
+# Examples
+```julia
+StaircaseRight(1)           # NN: (1,2), (2,3), ...
+StaircaseRight(1; range=2)  # NNN: (1,3), (2,4), ...
+```
 """
 mutable struct StaircaseRight <: AbstractStaircase
     _position::Int  # internal, use current_position() to read
+    range::Int      # distance between sites
     
-    StaircaseRight(start::Int) = new(start)
+    function StaircaseRight(start::Int; range::Int=1)
+        range >= 1 || throw(ArgumentError("range must be >= 1"))
+        new(start, range)
+    end
 end
 
 """
-    StaircaseLeft(start_position::Int)
+    StaircaseLeft(start_position::Int; range::Int=1)
 
-Staircase that moves left: applies at (pos, pos+1), then decrements pos.
-At pos=1 (PBC), pair is (1, 2), then wraps to pos=L.
-For OBC, wraps to L-1 (pair is (L-1, L)).
+Staircase that moves left: applies at (pos, pos+range), then decrements pos.
+
+# Arguments
+- `start_position`: Initial position
+- `range`: Distance between sites (default 1 for nearest neighbors)
+
+# Examples
+```julia
+StaircaseLeft(1)           # NN: (1,2), (2,3), ...
+StaircaseLeft(1; range=2)  # NNN: (1,3), (2,4), ...
+```
 """
 mutable struct StaircaseLeft <: AbstractStaircase
     _position::Int  # internal, use current_position() to read
+    range::Int      # distance between sites
     
-    StaircaseLeft(start::Int) = new(start)
+    function StaircaseLeft(start::Int; range::Int=1)
+        range >= 1 || throw(ArgumentError("range must be >= 1"))
+        new(start, range)
+    end
 end
 
 """
@@ -45,12 +69,26 @@ current_position(geo::AbstractStaircase) = geo._position
     get_sites(geo::AbstractStaircase, state) -> Vector{Int}
 
 Get current pair of physical sites for the staircase.
-Returns [pos, pos+1] or [L, 1] for PBC wrap.
+Returns [pos, pos+range] with proper boundary condition handling.
 """
 function get_sites(geo::AbstractStaircase, state)
     pos = geo._position
     L = state.L
-    second = (pos == L && state.bc == :periodic) ? 1 : pos + 1
+    range = geo.range
+    
+    # Compute second site with wrapping for PBC
+    if state.bc == :periodic
+        second = mod1(pos + range, L)
+    else
+        second = pos + range
+        # Validate second site is within bounds for OBC
+        if second > L
+            throw(ArgumentError(
+                "Staircase at position $pos with range=$range exceeds system size L=$L (OBC)"
+            ))
+        end
+    end
+    
     return [pos, second]
 end
 
