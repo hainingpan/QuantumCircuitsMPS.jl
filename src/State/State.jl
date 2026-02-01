@@ -74,6 +74,11 @@ function SimulationState(;
     # Validate bc
     bc in (:open, :periodic) || throw(ArgumentError("bc must be :open or :periodic, got $bc"))
     
+    # Auto-detect local_dim from site_type if not explicitly set
+    if site_type == "S=1" && local_dim == 2  # default not overridden
+        local_dim = 3
+    end
+    
     # Compute basis mapping (OBC works now, PBC throws until Task 4)
     phy_ram, ram_phy = compute_basis_mapping(L, bc)
     

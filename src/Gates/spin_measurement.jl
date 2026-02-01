@@ -97,8 +97,26 @@ function build_operator(gate::SpinSectorProjection, sites::Vector{<:Index}, loca
     # sites = [site_i, site_j] for two adjacent spins
     site_i, site_j = sites
     
-    # Create ITensor with both site indices (unprimed and primed)
-    op_tensor = ITensor(gate.projector, site_i', site_j', site_i, site_j)
+    # Reshape 9×9 matrix to (3,3,3,3) tensor
+    # 
+    # The 9×9 projector matrix has basis ordering (m1, m2) where:
+    # - m1 ∈ {+1, 0, -1} indexes the first spin (slow index in row/col)
+    # - m2 ∈ {+1, 0, -1} indexes the second spin (fast index in row/col)
+    # So matrix row/col = (m1-1)*3 + m2 (1-indexed with m2 cycling fast)
+    #
+    # Julia reshape(M, 3,3,3,3) produces tensor T where:
+    # - T[i1, i2, i3, i4] with i1 fastest, i4 slowest
+    # - For M[row,col]: row → (i1=m2_out, i2=m1_out), col → (i3=m2_in, i4=m1_in)
+    #
+    # Physical meaning: m1 = site_i, m2 = site_j
+    # So reshaped tensor has indices: (site_j, site_i, site_j, site_i)
+    #
+    # ITensor construction must match: ITensor(data, j, i, j', i')
+    proj_tensor = reshape(gate.projector, local_dim, local_dim, local_dim, local_dim)
+    
+    # Create ITensor with correct index ordering to match matrix basis
+    # The reshaped tensor has (m2=site_j fast, m1=site_i slow) for both row and col
+    op_tensor = ITensor(proj_tensor, site_j, site_i, site_j', site_i')
     
     return op_tensor
 end
@@ -129,7 +147,13 @@ function build_operator(gate::SpinSectorMeasurement, sites::Vector{<:Index}, loc
     end
     
     site_i, site_j = sites
-    op_tensor = ITensor(P_S, site_i', site_j', site_i, site_j)
+    
+    # Reshape 9×9 matrix to (3,3,3,3) tensor
+    # Same basis ordering as SpinSectorProjection: m2 is fast, m1 is slow
+    proj_tensor = reshape(P_S, local_dim, local_dim, local_dim, local_dim)
+    
+    # Create ITensor with correct index ordering to match matrix basis
+    op_tensor = ITensor(proj_tensor, site_j, site_i, site_j', site_i')
     
     return op_tensor
 end
