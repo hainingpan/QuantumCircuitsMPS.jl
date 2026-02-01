@@ -1,5 +1,5 @@
 """
-    EntanglementEntropy(; cut::Int, order::Int=1, threshold::Float64=1e-16)
+    EntanglementEntropy(; cut::Int, order::Int=1, threshold::Float64=1e-16, base::Real=2)
 
 Entanglement entropy observable.
 
@@ -12,6 +12,7 @@ Computes the entanglement entropy across a specified cut in the MPS.
   - `order=2`: Rényi-2 entropy S₂ = log(Σᵢ λᵢ²) / (1-2)
   - `order=n`: Rényi-n entropy Sₙ = log(Σᵢ λᵢⁿ) / (1-n)
 - `threshold::Float64=1e-16`: Minimum threshold for singular values (default: 1e-16)
+- `base::Real=2`: Base of logarithm for entropy computation (default: 2 for bits)
 
 !!! note "Hartley entropy (order=0) is NOT supported"
     Hartley entropy (order=0) measures log₂(Schmidt rank), but is not available via 
@@ -41,12 +42,14 @@ struct EntanglementEntropy <: AbstractObservable
     cut::Int
     order::Int
     threshold::Float64
+    base::Float64
     
-    function EntanglementEntropy(; cut::Int, order::Int=1, threshold::Float64=1e-16)
+    function EntanglementEntropy(; cut::Int, order::Int=1, threshold::Float64=1e-16, base::Real=2)
         cut >= 1 || throw(ArgumentError("EntanglementEntropy cut must be >= 1"))
         order >= 1 || throw(ArgumentError("EntanglementEntropy order must be >= 1"))
         threshold > 0 || throw(ArgumentError("EntanglementEntropy threshold must be > 0"))
-        new(cut, order, threshold)
+        base > 0 || throw(ArgumentError("EntanglementEntropy base must be > 0"))
+        new(cut, order, threshold, Float64(base))
     end
 end
 
@@ -59,11 +62,11 @@ function (ee::EntanglementEntropy)(state)
     ram_cut = state.phy_ram[ee.cut]
     
     # Compute entropy using internal helper
-    return _von_neumann_entropy(state.mps, ram_cut; n=ee.order, threshold=ee.threshold)
+    return _von_neumann_entropy(state.mps, ram_cut; n=ee.order, threshold=ee.threshold, base=ee.base)
 end
 
 """
-    _von_neumann_entropy(mps::MPS, i::Int; n::Int=1, threshold::Float64=1e-16) -> Float64
+    _von_neumann_entropy(mps::MPS, i::Int; n::Int=1, threshold::Float64=1e-16, base::Float64=2.0) -> Float64
 
 Compute entanglement entropy at bond i of an MPS.
 
@@ -72,6 +75,7 @@ Arguments:
 - i: The bond index (site index) where entropy is computed
 - n: Order of entropy (1=von Neumann, 0=Hartley, n=Rényi)
 - threshold: Minimum threshold for singular values to avoid log(0)
+- base: Base of logarithm for entropy computation (default: 2.0 for bits)
 
 Returns:
 - Entanglement entropy value
@@ -81,15 +85,16 @@ The function:
 2. Performs SVD on the tensor to extract Schmidt values
 3. Computes probabilities from Schmidt values (squared)
 4. Returns entropy based on order:
-   - n=1: von Neumann entropy S₁ = -Σ p log(p)
-   - n=0: Hartley entropy S₀ = log(rank)
-   - n≠1: Rényi entropy Sₙ = log(Σ pⁿ) / (1-n)
+   - n=1: von Neumann entropy S₁ = -Σ p log_b(p)
+   - n=0: Hartley entropy S₀ = log_b(rank)
+   - n≠1: Rényi entropy Sₙ = log_b(Σ pⁿ) / (1-n)
 """
 function _von_neumann_entropy(
     mps::MPS,
     i::Int;
     n::Int=1,
     threshold::Float64=1e-16,
+    base::Float64=2.0,
 )
     # Orthogonalize MPS to site i
     mps_ = orthogonalize(mps, i)
@@ -103,15 +108,18 @@ function _von_neumann_entropy(
     singular_vals = diag(S)
     p = max.(singular_vals, threshold) .^ 2
     
+    # Define log with specified base: log_b(x) = log(x) / log(b)
+    log_fn = x -> log(x) / log(base)
+    
     # Compute entropy based on order
     if n == 1
-        # von Neumann entropy: S₁ = -Σ p log(p)
-        return -sum(p .* log.(p))
+        # von Neumann entropy: S₁ = -Σ p log_b(p)
+        return -sum(p .* log_fn.(p))
     elseif n == 0
-        # Hartley entropy: S₀ = log(rank)
-        return log(length(p))
+        # Hartley entropy: S₀ = log_b(rank)
+        return log_fn(length(p))
     else
-        # Rényi entropy: Sₙ = log(Σ pⁿ) / (1-n)
-        return log(sum(p .^ n)) / (1 - n)
+        # Rényi entropy: Sₙ = log_b(Σ pⁿ) / (1-n)
+        return log_fn(sum(p .^ n)) / (1 - n)
     end
 end
