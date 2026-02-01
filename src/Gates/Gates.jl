@@ -24,3 +24,4 @@ function build_operator end
 include("single_qubit.jl")
 include("two_qubit.jl")
 include("composite.jl")
+include("spin_projectors.jl")

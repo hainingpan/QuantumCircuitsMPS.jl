@@ -49,6 +49,7 @@ export SimulationState, initialize!, ProductState, RandomMPS
 export RNGRegistry, get_rng  # NOTE: rand is extended, not exported
 # Gates
 export AbstractGate, PauliX, PauliY, PauliZ, Projection, HaarRandom, Measurement, Reset, CZ
+export total_spin_projector, verify_spin_projectors
 # Geometry
 export AbstractGeometry, SingleSite, AdjacentPair, Bricklayer, AllSites
 export StaircaseLeft, StaircaseRight
