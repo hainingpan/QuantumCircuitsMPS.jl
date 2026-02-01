@@ -192,7 +192,7 @@ function _apply_single!(state::SimulationState, gate::AbstractGate, phy_sites::V
     apply_op_internal!(state.mps, op, state.sites, state.cutoff, state.maxdim)
     
     # Contract 3.5: Normalization dispatch
-    if gate isa Projection || gate isa SpinSectorProjection
+    if gate isa Projection || gate isa SpinSectorProjection || gate isa SpinSectorMeasurement
         normalize!(state.mps)
     end
     # Unitaries (HaarRandom, CZ, PauliX/Y/Z): NO normalize
@@ -211,7 +211,8 @@ function _build_gate_operator(state::SimulationState, gate::AbstractGate, phy_si
     else
         # Multi-site gate: use indices in RAM order
         site_indices = [state.sites[rs] for rs in ram_sites]
-        return build_operator(gate, site_indices, state.local_dim; rng=state.rng_registry)
+        return build_operator(gate, site_indices, state.local_dim; 
+                              rng=state.rng_registry, mps=state.mps, ram_sites=ram_sites)
     end
 end
 
