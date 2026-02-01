@@ -4,6 +4,6 @@
 
 # Example usage:
 #   state = SimulationState(L=10, bc=:periodic, rng=RNGRegistry(...))
-#   initialize!(state, ProductState(x0=0))
+#   initialize!(state, ProductState(binary_int=0))
 #   apply!(state, HaarRandom(), Bricklayer(:odd))
 #   apply!(state, Projection(0), SingleSite(1))

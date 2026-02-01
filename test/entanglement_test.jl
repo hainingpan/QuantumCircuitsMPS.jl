@@ -8,7 +8,7 @@ using QuantumCircuitsMPS
     @testset "Product state entropy" begin
         # Product state |0⟩⊗L should have zero entanglement entropy
         state = SimulationState(L=4, bc=:open)
-        initialize!(state, ProductState(x0=0//1))  # All qubits in |0⟩
+        initialize!(state, ProductState(binary_int=0))  # All qubits in |0⟩
         
         ee = EntanglementEntropy(cut=2, order=1)
         entropy = ee(state)
@@ -25,7 +25,7 @@ using QuantumCircuitsMPS
     @testset "Track/record integration" begin
         # Test that track!/record! workflow works correctly
         state = SimulationState(L=4, bc=:open; rng=RNGRegistry(ctrl=1, proj=2, haar=3, born=4))
-        initialize!(state, ProductState(x0=0//1))
+        initialize!(state, ProductState(binary_int=0))
         
         # Track entanglement entropy at cut=2
         track!(state, :ee => EntanglementEntropy(cut=2, order=1))
@@ -48,7 +48,7 @@ using QuantumCircuitsMPS
     @testset "Cut validation" begin
         # Test that cut validation works correctly
         state = SimulationState(L=4, bc=:open)
-        initialize!(state, ProductState(x0=0//1))
+        initialize!(state, ProductState(binary_int=0))
         
         # cut=1 should work (minimum valid cut)
         ee1 = EntanglementEntropy(cut=1, order=1)

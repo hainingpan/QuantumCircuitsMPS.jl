@@ -140,7 +140,7 @@ state = SimulationState(
     L=L, bc=:periodic, maxdim=64,
     rng=RNGRegistry(ctrl=42, born=1, haar=2, proj=3)
 )
-initialize!(state, ProductState(x0=0//1))
+initialize!(state, ProductState(binary_int=0))
 track!(state, :entropy => EntanglementEntropy(; cut=L÷2))
 
 # Run simulation
@@ -179,7 +179,7 @@ function run_cipt(L::Int, p_ctrl::Float64)
     # Functional simulation API
     results = simulate(
         L=L, bc=:periodic,
-        init=ProductState(x0=1//2^L),
+        init=ProductState(binary_int=1),
         rng=RNGRegistry(Val(:ct_compat), circuit=42, measurement=123),
         steps=2*L^2,
         circuit!=circuit_step!,
@@ -231,7 +231,7 @@ end
 
 # 2. Create and initialize state
 state = SimulationState(L=12, bc=:periodic, maxdim=64, rng=RNGRegistry(ctrl=42))
-initialize!(state, ProductState(x0=0//1))
+initialize!(state, ProductState(binary_int=0))
 
 # 3. Track observables
 track!(state, :entropy => EntanglementEntropy(; cut=6))

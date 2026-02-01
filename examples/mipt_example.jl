@@ -106,7 +106,7 @@ state = SimulationState(
 )
 
 # Initialize to product state |0⟩⊗L
-initialize!(state, ProductState(x0=0//1))
+initialize!(state, ProductState(binary_int=0))
 
 # Track entanglement entropy
 track!(state, :entropy => EntanglementEntropy(; cut=cut))

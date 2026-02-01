@@ -41,7 +41,7 @@ end
 
 rng = RNGRegistry(ctrl=42, proj=43, haar=44, born=45)
 state = SimulationState(L=4, bc=:periodic, rng=rng)
-initialize!(state, ProductState(x0=1//16))
+initialize!(state, ProductState(binary_int=1))
 track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
 
 # Record after every circuit (default)

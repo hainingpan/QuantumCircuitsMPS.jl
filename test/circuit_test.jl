@@ -224,7 +224,7 @@ end
         
         rng = RNGRegistry(ctrl=42, proj=43, haar=44, born=45)
         state = SimulationState(L=4, bc=:periodic, rng=rng)
-        initialize!(state, ProductState(x0=1//16))
+        initialize!(state, ProductState(binary_int=1))
         track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
         
         # Should execute without error
@@ -244,7 +244,7 @@ end
         
         rng = RNGRegistry(ctrl=42, proj=43, haar=44, born=45)
         state = SimulationState(L=4, bc=:periodic, rng=rng)
-        initialize!(state, ProductState(x0=1//16))
+        initialize!(state, ProductState(binary_int=1))
         track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
         
         simulate!(circuit, state; n_circuits=3)
@@ -260,7 +260,7 @@ end
         
         rng = RNGRegistry(ctrl=42, proj=43, haar=44, born=45)
         state = SimulationState(L=4, bc=:periodic, rng=rng)
-        initialize!(state, ProductState(x0=1//16))
+        initialize!(state, ProductState(binary_int=1))
         track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
         
         # Test: record_when=:every_step (default)
@@ -269,7 +269,7 @@ end
         
         # Reset state for next test
         state = SimulationState(L=4, bc=:periodic, rng=RNGRegistry(ctrl=42, proj=43, haar=44, born=45))
-        initialize!(state, ProductState(x0=1//16))
+        initialize!(state, ProductState(binary_int=1))
         track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
         
         # Test: record_when=:final_only
@@ -278,7 +278,7 @@ end
         
         # Reset state for next test
         state = SimulationState(L=4, bc=:periodic, rng=RNGRegistry(ctrl=42, proj=43, haar=44, born=45))
-        initialize!(state, ProductState(x0=1//16))
+        initialize!(state, ProductState(binary_int=1))
         track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
         
         # Test: record_when=every_n_steps(2)
@@ -295,7 +295,7 @@ end
         
         rng = RNGRegistry(ctrl=42, proj=43, haar=44, born=45)
         state = SimulationState(L=4, bc=:periodic, rng=rng)
-        initialize!(state, ProductState(x0=1//16))
+        initialize!(state, ProductState(binary_int=1))
         track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
         
         # Should complete without error even with many steps
@@ -620,7 +620,7 @@ end
         # Simulate with matching seed
         rng = RNGRegistry(ctrl=42, proj=43, haar=44, born=45)
         state = SimulationState(L=4, bc=:periodic, rng=rng)
-        initialize!(state, ProductState(x0=1//16))
+        initialize!(state, ProductState(binary_int=1))
         
         # Should complete without error (alignment is implicit)
         simulate!(circuit, state; n_circuits=1, record_when=:final_only)
@@ -648,7 +648,7 @@ end
         # Execute to verify no errors
         rng = RNGRegistry(ctrl=0, proj=43, haar=44, born=45)
         state = SimulationState(L=4, bc=:periodic, rng=rng)
-        initialize!(state, ProductState(x0=1//16))
+        initialize!(state, ProductState(binary_int=1))
         
         simulate!(circuit, state; n_circuits=1, record_when=:final_only)
         @test true
@@ -869,7 +869,7 @@ end
         
         rng = RNGRegistry(ctrl=42, proj=43, haar=44, born=45)
         state = SimulationState(L=4, bc=:periodic, rng=rng)
-        initialize!(state, ProductState(x0=0//1))
+        initialize!(state, ProductState(binary_int=0))
         track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
         
         # Should execute without error
@@ -887,7 +887,7 @@ end
         
         rng = RNGRegistry(ctrl=42, proj=43, haar=44, born=45)
         state = SimulationState(L=4, bc=:periodic, rng=rng)
-        initialize!(state, ProductState(x0=0//1))
+        initialize!(state, ProductState(binary_int=0))
         track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
         
         # Should execute without error
@@ -908,7 +908,7 @@ end
         
         rng = RNGRegistry(ctrl=42, proj=43, haar=44, born=45)
         state = SimulationState(L=4, bc=:periodic, rng=rng)
-        initialize!(state, ProductState(x0=0//1))
+        initialize!(state, ProductState(binary_int=0))
         track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
         
         # Should execute without error
@@ -928,12 +928,12 @@ end
         
         # First state
         s1 = SimulationState(L=4, bc=:periodic, rng=RNGRegistry(ctrl=42, proj=1, haar=2, born=3))
-        initialize!(s1, ProductState(x0=0//1))
+        initialize!(s1, ProductState(binary_int=0))
         simulate!(circuit, s1; n_circuits=5)
         
         # Second state with same seeds
         s2 = SimulationState(L=4, bc=:periodic, rng=RNGRegistry(ctrl=42, proj=1, haar=2, born=3))
-        initialize!(s2, ProductState(x0=0//1))
+        initialize!(s2, ProductState(binary_int=0))
         simulate!(circuit, s2; n_circuits=5)
         
         # Compare MPS tensors - need to handle different tensor ranks
@@ -1018,7 +1018,7 @@ end
         # We can't directly count measurements, but we verify no errors
         rng = RNGRegistry(ctrl=42, proj=1, haar=2, born=3)
         state = SimulationState(L=4, bc=:periodic, rng=rng)
-        initialize!(state, ProductState(x0=0//1))
+        initialize!(state, ProductState(binary_int=0))
         
         # Should execute without error (alignment is implicit)
         simulate!(circuit, state; n_circuits=1, record_when=:final_only)
@@ -1042,7 +1042,7 @@ end
         # simulate! should execute without error
         rng = RNGRegistry(ctrl=42, proj=43, haar=44, born=45)
         state = SimulationState(L=2, bc=:open, rng=rng)
-        initialize!(state, ProductState(x0=0//1))
+        initialize!(state, ProductState(binary_int=0))
         track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
         
         # Note: Empty compound geometry doesn't trigger recording in deterministic path
@@ -1062,7 +1062,7 @@ end
         
         rng = RNGRegistry(ctrl=42, proj=43, haar=44, born=45)
         state = SimulationState(L=4, bc=:open, rng=rng)
-        initialize!(state, ProductState(x0=0//1))
+        initialize!(state, ProductState(binary_int=0))
         track!(state, :entropy => EntanglementEntropy(cut=2, order=1))
         
         # Simulate with recording
