@@ -56,7 +56,7 @@ export AbstractGeometry, SingleSite, AdjacentPair, Bricklayer, AllSites
 export StaircaseLeft, StaircaseRight
 export Pointer, move!
 # Observables
-export AbstractObservable, DomainWall, BornProbability, EntanglementEntropy
+export AbstractObservable, DomainWall, BornProbability, EntanglementEntropy, StringOrder
 export track!, record!, list_observables
 # API
 export apply!, simulate, with_state, current_state, apply_with_prob!
