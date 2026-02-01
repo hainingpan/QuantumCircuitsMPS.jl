@@ -42,15 +42,28 @@ get_compound_elements(geo, 3, :open)  # [[1], [2], [3]]
 function get_compound_elements(geo::Bricklayer, L::Int, bc::Symbol)
     pairs = Tuple{Int,Int}[]
     if geo.parity == :odd
+        # NN odd pairs: (1,2), (3,4), (5,6), ...
         for i in 1:2:L-1
             push!(pairs, (i, i+1))
         end
-    else
+    elseif geo.parity == :even
+        # NN even pairs: (2,3), (4,5), ...
         for i in 2:2:L-1
             push!(pairs, (i, i+1))
         end
+        # For PBC, also include (L, 1)
         if bc == :periodic
             push!(pairs, (L, 1))
+        end
+    elseif geo.parity == :nnn_odd
+        # NNN odd pairs: (1,3), (5,7), (9,11), ... (stride 4, offset 1)
+        for i in 1:4:L-2
+            push!(pairs, (i, i+2))
+        end
+    elseif geo.parity == :nnn_even
+        # NNN even pairs: (2,4), (6,8), (10,12), ... (stride 4, offset 2)
+        for i in 2:4:L-2
+            push!(pairs, (i, i+2))
         end
     end
     return [[p1, p2] for (p1, p2) in pairs]
