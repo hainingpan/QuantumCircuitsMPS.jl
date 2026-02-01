@@ -28,15 +28,14 @@ println()
 
 L = 12                     # Chain length (must be divisible by 4 for NNN coverage)
 n_layers = L               # Number of projection layers
-bc = :open                 # Boundary conditions (see note below)
+bc = :periodic             # Boundary conditions (less ambiguous than :open)
 p_nn = 0.7                 # Probability of NN projection (1-p_nn = P(NNN))
 
 # NOTE on boundary conditions:
-# SpinSectorMeasurement (Protocol B) requires adjacent RAM indices due to
-# implementation constraints in compute_two_site_born_probability(). With PBC,
-# the folded MPS indexing maps physical neighbors to non-adjacent RAM sites.
-# We use :open BC which works for both protocols and doesn't fundamentally
-# change the AKLT physics for demonstration purposes.
+# We use bc=:periodic which gives well-defined physics for AKLT:
+# - NN AKLT: |SO| ≈ 4/9, S = 2 (in base 2)
+# - NNN AKLT: |SO| ≈ (4/9)² ≈ 0.198, S = 4 (in base 2)
+# SpinSectorMeasurement (Protocol B) DOES NOT WORK regardless of BC.
 
 println("System Parameters:")
 println("  L = $L (chain length)")
@@ -44,6 +43,13 @@ println("  n_layers = $n_layers")
 println("  bc = $bc")
 println("  p_nn = $p_nn (probability of NN projection)")
 println("  p_nnn = $(1-p_nn) (probability of NNN projection)")
+println()
+
+# Physics Sanity Check (bc=:periodic, base 2 logarithm):
+# | p_nn | p_nnn | Ground State | |SO|           | S (von Neumann) |
+# |------|-------|--------------|----------------|-----------------|
+# |  1   |   0   | NN AKLT      | 4/9 ≈ 0.444    |        2        |
+# |  0   |   1   | NNN AKLT     | (4/9)² ≈ 0.198 |        4        |
 println()
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -99,7 +105,7 @@ state_A.mps = MPS(state_A.sites, ["Z0" for _ in 1:L])
 println("✓ Initialized to |Z0⟩⊗$L (m=0 product state)")
 
 # Track observables
-track!(state_A, :entropy => EntanglementEntropy(cut=L÷2, order=1))
+track!(state_A, :entropy => EntanglementEntropy(cut=L÷2, order=1, base=2))
 track!(state_A, :string_order => StringOrder(1, L÷2+1))
 println("✓ Tracking: entropy, string_order")
 
@@ -120,12 +126,12 @@ SO_final_A = state_A.observables[:string_order][end]
 println("\nProtocol A Results:")
 println("  Final entropy: $(round(S_final_A, digits=4))")
 println("  Final |string order|: $(round(abs(SO_final_A), digits=4))")
-println("  Expected AKLT: |SO| ≈ 0.444 (4/9)")
+println("  Expected AKLT: |SO| ≈ 0.444 (4/9), S ≈ 2 for bc=:periodic")
 
-if abs(abs(SO_final_A) - 4/9) < 0.1
+if abs(abs(SO_final_A) - 4/9) < 0.1 && abs(S_final_A - 2) < 1.0
     println("  ✅ CONVERGED to AKLT ground state!")
 else
-    println("  ⚠️  Did not fully converge (try p_nn=1.0 for pure NN)")
+    println("  ⚠️  Did not fully converge (try increasing n_layers or p_nn=1.0)")
 end
 println()
 
@@ -137,42 +143,57 @@ println("─"^70)
 println("Protocol B: SpinSectorMeasurement (Born Sampling)")
 println("─"^70)
 println()
-println("⚠️  VERIFIED RESULT: Protocol B does NOT converge to AKLT ground state")
-println()
-println("Physics Explanation:")
-println("  Born sampling COLLAPSES each pair to S=0 OR S=1 (not both).")
-println("  This destroys the coherent superposition required for AKLT.")
-println("  The measurement-induced decoherence prevents ground state formation.")
-println()
 
-# Still run the protocol to demonstrate the physics
-circuit_B = Circuit(L=L, bc=bc, n_steps=1) do c
-    # Pure NN for Protocol B (simpler, avoids NNN complexity)
-    apply!(c, meas_gate, Bricklayer(:odd))
-    apply!(c, meas_gate, Bricklayer(:even))
+if bc == :periodic
+    println("⚠️  SKIPPED: Protocol B requires bc=:open due to adjacency constraints")
+    println()
+    println("Physics Explanation:")
+    println("  1. SpinSectorMeasurement requires adjacent RAM indices for Born sampling")
+    println("  2. With bc=:periodic, folded MPS indexing maps physical neighbors to")
+    println("     non-adjacent RAM sites (e.g., sites 1 and L+1 are neighbors)")
+    println("  3. This is a technical limitation, not physics")
+    println()
+    println("  IMPORTANT: Protocol B doesn't converge to AKLT regardless of BC!")
+    println("  Born sampling COLLAPSES to S=0 OR S=1, destroying entanglement.")
+    println()
+else
+    println("⚠️  VERIFIED RESULT: Protocol B does NOT converge to AKLT ground state")
+    println()
+    println("Physics Explanation:")
+    println("  Born sampling COLLAPSES each pair to S=0 OR S=1 (not both).")
+    println("  This destroys the coherent superposition required for AKLT.")
+    println("  The measurement-induced decoherence prevents ground state formation.")
+    println()
+
+    # Still run the protocol to demonstrate the physics
+    circuit_B = Circuit(L=L, bc=bc, n_steps=1) do c
+        # Pure NN for Protocol B (simpler, avoids NNN complexity)
+        apply!(c, meas_gate, Bricklayer(:odd))
+        apply!(c, meas_gate, Bricklayer(:even))
+    end
+    println("✓ Circuit defined: pure NN measurement")
+
+    rng_reg_B = RNGRegistry(ctrl=1, proj=2, haar=3, born=42)
+    state_B = SimulationState(L=L, bc=bc, site_type="S=1", maxdim=128, rng=rng_reg_B)
+    state_B.mps = MPS(state_B.sites, ["Z0" for _ in 1:L])
+    println("✓ Initialized to |Z0⟩⊗$L with born=42 for reproducibility")
+
+    track!(state_B, :entropy => EntanglementEntropy(cut=L÷2, order=1, base=2))
+    track!(state_B, :string_order => StringOrder(1, L÷2+1))
+    println("✓ Tracking: entropy, string_order")
+
+    println("\nRunning $n_layers layers of NN measurements (Born sampling)...")
+    simulate!(circuit_B, state_B; n_circuits=n_layers, record_when=:every_step)
+
+    S_final_B = state_B.observables[:entropy][end]
+    SO_final_B = state_B.observables[:string_order][end]
+
+    println("\nProtocol B Results:")
+    println("  Final entropy: $(round(S_final_B, digits=4))")
+    println("  Final |string order|: $(round(abs(SO_final_B), digits=4))")
+    println("  ❌ NOT AKLT: |SO| << 4/9 (measurement-induced decoherence)")
+    println()
 end
-println("✓ Circuit defined: pure NN measurement")
-
-rng_reg_B = RNGRegistry(ctrl=1, proj=2, haar=3, born=42)
-state_B = SimulationState(L=L, bc=bc, site_type="S=1", maxdim=128, rng=rng_reg_B)
-state_B.mps = MPS(state_B.sites, ["Z0" for _ in 1:L])
-println("✓ Initialized to |Z0⟩⊗$L with born=42 for reproducibility")
-
-track!(state_B, :entropy => EntanglementEntropy(cut=L÷2, order=1))
-track!(state_B, :string_order => StringOrder(1, L÷2+1))
-println("✓ Tracking: entropy, string_order")
-
-println("\nRunning $n_layers layers of NN measurements (Born sampling)...")
-simulate!(circuit_B, state_B; n_circuits=n_layers, record_when=:every_step)
-
-S_final_B = state_B.observables[:entropy][end]
-SO_final_B = state_B.observables[:string_order][end]
-
-println("\nProtocol B Results:")
-println("  Final entropy: $(round(S_final_B, digits=4))")
-println("  Final |string order|: $(round(abs(SO_final_B), digits=4))")
-println("  ❌ NOT AKLT: |SO| << 4/9 (measurement-induced decoherence)")
-println()
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Summary: Protocol Comparison
@@ -182,14 +203,26 @@ println("═"^70)
 println("Summary: Protocol Comparison")
 println("═"^70)
 println()
-println("Results Table:")
-println("  ┌─────────────┬──────────────┬─────────────────┬─────────────┐")
-println("  │   Protocol  │ Final |SO|   │  Final Entropy  │   Status    │")
-println("  ├─────────────┼──────────────┼─────────────────┼─────────────┤")
-status_A = abs(abs(SO_final_A) - 4/9) < 0.1 ? "✅ WORKS" : "⚠️ PARTIAL"
-@printf("  │      A      │    %6.4f    │      %6.4f      │  %s  │\n", abs(SO_final_A), S_final_A, status_A)
-@printf("  │      B      │    %6.4f    │      %6.4f      │  ❌ FAILS  │\n", abs(SO_final_B), S_final_B)
-println("  └─────────────┴──────────────┴─────────────────┴─────────────┘")
+
+if bc == :open
+    println("Results Table:")
+    println("  ┌─────────────┬──────────────┬─────────────────┬─────────────┐")
+    println("  │   Protocol  │ Final |SO|   │  Final Entropy  │   Status    │")
+    println("  ├─────────────┼──────────────┼─────────────────┼─────────────┤")
+    status_A = abs(abs(SO_final_A) - 4/9) < 0.1 ? "✅ WORKS" : "⚠️ PARTIAL"
+    @printf("  │      A      │    %6.4f    │      %6.4f      │  %s  │\n", abs(SO_final_A), S_final_A, status_A)
+    @printf("  │      B      │    %6.4f    │      %6.4f      │  ❌ FAILS  │\n", abs(SO_final_B), S_final_B)
+    println("  └─────────────┴──────────────┴─────────────────┴─────────────┘")
+else
+    println("Results Table:")
+    println("  ┌─────────────┬──────────────┬─────────────────┬─────────────┐")
+    println("  │   Protocol  │ Final |SO|   │  Final Entropy  │   Status    │")
+    println("  ├─────────────┼──────────────┼─────────────────┼─────────────┤")
+    status_A = abs(abs(SO_final_A) - 4/9) < 0.1 && abs(S_final_A - 2) < 1.0 ? "✅ WORKS" : "⚠️ PARTIAL"
+    @printf("  │      A      │    %6.4f    │      %6.4f      │  %s  │\n", abs(SO_final_A), S_final_A, status_A)
+    println("  │      B      │   SKIPPED    │     SKIPPED     │  N/A (PBC)  │")
+    println("  └─────────────┴──────────────┴─────────────────┴─────────────┘")
+end
 println()
 println("Key Physics Insights:")
 println()
