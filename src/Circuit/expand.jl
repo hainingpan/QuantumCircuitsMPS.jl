@@ -54,6 +54,7 @@ gate_label(::PauliX) = "X"
 gate_label(::PauliY) = "Y"
 gate_label(::PauliZ) = "Z"
 gate_label(::CZ) = "CZ"
+gate_label(::SpinSectorProjection) = "P(S≠2)"
 gate_label(g::AbstractGate) = string(typeof(g))  # Fallback
 
 """
