@@ -72,6 +72,49 @@ function QuantumCircuitsMPS.plot_circuit(circuit::Circuit; seed::Int=0, filename
     GATE_WIDTH = 30.0   # Width along qubit axis
     GATE_HEIGHT = 40.0  # Height along time axis
     MARGIN = 50.0
+    MIN_FONT_SIZE = 8.0  # Minimum font size before truncation
+    DEFAULT_FONT_SIZE = 11.0  # Default Luxor font size
+    
+    # Helper: Calculate font size to fit text in box, with truncation fallback
+    function calc_font_size(label::String, box_width::Float64, default_size::Float64=DEFAULT_FONT_SIZE)
+        # Set default font size to measure
+        fontsize(default_size)
+        extents = textextents(label)
+        text_width = extents[3]  # width is 3rd element
+        
+        # If fits at default size, return default
+        if text_width <= box_width * 0.9  # 90% of box for padding
+            return (default_size, label)
+        end
+        
+        # Scale down proportionally
+        scale_factor = (box_width * 0.9) / text_width
+        scaled_size = default_size * scale_factor
+        
+        # If scaled size >= minimum, use it
+        if scaled_size >= MIN_FONT_SIZE
+            return (scaled_size, label)
+        end
+        
+        # At minimum size, check if truncation needed
+        fontsize(MIN_FONT_SIZE)
+        extents = textextents(label)
+        text_width = extents[3]
+        
+        if text_width <= box_width * 0.9
+            return (MIN_FONT_SIZE, label)
+        end
+        
+        # Truncate with "..."
+        truncated = label
+        extents = textextents(truncated * "...")
+        while extents[3] > box_width * 0.9 && length(truncated) > 1
+            truncated = truncated[1:end-1]
+            extents = textextents(truncated * "...")
+        end
+        
+        return (MIN_FONT_SIZE, truncated * "...")
+    end
     
     # Expand circuit to get concrete operations
     expanded = expand_circuit(circuit; seed=seed)
@@ -141,7 +184,11 @@ function QuantumCircuitsMPS.plot_circuit(circuit::Circuit; seed::Int=0, filename
                 box(Point(x, y), GATE_WIDTH, GATE_HEIGHT, :fill)
                 setcolor("black")
                 box(Point(x, y), GATE_WIDTH, GATE_HEIGHT, :stroke)
-                text(op.label, Point(x, y + 5), halign=:center, valign=:center)
+                
+                # Apply dynamic font sizing
+                (font_sz, display_label) = calc_font_size(op.label, GATE_WIDTH)
+                fontsize(font_sz)
+                text(display_label, Point(x, y + 5), halign=:center, valign=:center)
             else
                 # Multi-qubit gate - render single spanning box
                 min_site = minimum(op.sites)
@@ -154,8 +201,11 @@ function QuantumCircuitsMPS.plot_circuit(circuit::Circuit; seed::Int=0, filename
                 box(Point(center_x, y), span_width, GATE_HEIGHT, :fill)
                 setcolor("black")
                 box(Point(center_x, y), span_width, GATE_HEIGHT, :stroke)
-                # Label centered horizontally in spanning box
-                text(op.label, Point(center_x, y + 5), halign=:center, valign=:center)
+                
+                # Apply dynamic font sizing with span_width
+                (font_sz, display_label) = calc_font_size(op.label, span_width)
+                fontsize(font_sz)
+                text(display_label, Point(center_x, y + 5), halign=:center, valign=:center)
             end
         end
     end
