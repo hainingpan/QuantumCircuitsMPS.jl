@@ -55,6 +55,43 @@ function get_compound_elements(geo::Bricklayer, L::Int, bc::Symbol)
         if bc == :periodic
             push!(pairs, (L, 1))
         end
+    elseif geo.parity == :nn
+        # All NN pairs: combines :odd and :even
+        # For L=12 periodic: 12 pairs covering all bonds
+        for i in 1:2:L-1  # Odd pairs: (1,2), (3,4), ...
+            push!(pairs, (i, i+1))
+        end
+        for i in 2:2:L-1  # Even pairs: (2,3), (4,5), ...
+            push!(pairs, (i, i+1))
+        end
+        if bc == :periodic
+            push!(pairs, (L, 1))  # Wrap: (12,1) for L=12
+        end
+    elseif geo.parity == :nnn
+        # All NNN pairs: combines 4 sublayers
+        # For L=12 periodic: 12 pairs covering all NNN bonds
+        # Sublayer 1: (1,3), (5,7), (9,11)
+        for i in 1:4:L-2
+            push!(pairs, (i, i+2))
+        end
+        # Sublayer 2: (3,5), (7,9)
+        for i in 3:4:L-2
+            push!(pairs, (i, i+2))
+        end
+        if bc == :periodic && L >= 4
+            push!(pairs, (L-1, 1))  # (11,1) for L=12
+        end
+        # Sublayer 3: (2,4), (6,8), (10,12)
+        for i in 2:4:L-2
+            push!(pairs, (i, i+2))
+        end
+        # Sublayer 4: (4,6), (8,10)
+        for i in 4:4:L-2
+            push!(pairs, (i, i+2))
+        end
+        if bc == :periodic && L >= 4
+            push!(pairs, (L, 2))  # (12,2) for L=12
+        end
     elseif geo.parity == :nnn_odd_1
         # NNN odd sublayer 1: (1,3), (5,7), (9,11), ... (stride 4, offset 1)
         for i in 1:4:L-2

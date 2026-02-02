@@ -137,8 +137,10 @@ function (obs::StringOrder)(state::SimulationState)
         end
     end
     
-    # Compute expectation value: ⟨ψ|O|ψ⟩ = inner(ψ', O|ψ⟩)
-    result = real(inner(prime(state.mps), psi_copy))
+    # Compute expectation value: ⟨ψ|O|ψ⟩
+    # Remove prime marks from site indices added by operator application
+    noprime!(psi_copy)
+    result = real(inner(state.mps, psi_copy))
     
     return result
 end
