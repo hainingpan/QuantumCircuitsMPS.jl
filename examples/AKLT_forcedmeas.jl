@@ -49,17 +49,15 @@ println()
 # | p_nn | p_nnn | Ground State | |SO|           | S (von Neumann) |
 # |------|-------|--------------|----------------|-----------------|
 # |  1   |   0   | NN AKLT      | 4/9 ≈ 0.444    |        2        |
-# |  0   |   1   | NNN AKLT     | ≈ 0.03*        |        4        |
+# |  0   |   1   | NNN AKLT     | (4/9)² ≈ 0.198 |        4        |
 #
-# * NNN string order is suppressed (~0.03) because the measurement operator
-#   exp(iπ Σ Sz) includes ALL intermediate sites, mixing both decoupled chains
 #
 # NOTE: NNN AKLT creates TWO decoupled chains (odd sites 1-3-5-7-9-11,
 # even sites 2-4-6-8-10-12), each behaving as an independent AKLT chain.
 # Total entropy: S = S₁ + S₂ = 2 + 2 = 4 (entropies add).
-# String order: |SO| ≈ 0.03 (NOT (4/9)²) because the measurement operator
-# exp(iπ Σ_{k} Sz[k]) includes ALL sites between endpoints, mixing both
-# chains and suppressing correlation. The string order does NOT factor.
+# String order with order=2: |SO| ≈ (4/9)² ≈ 0.198. This uses paired endpoints
+# Sz[n]·Sz[n+1] and Sz[m-1]·Sz[m] which correctly project onto both chains.
+# Using order=1 gives ~0.03 (WRONG formula for NNN physics).
 println()
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -99,35 +97,22 @@ println("─"^70)
 # - :nnn_even_1, :nnn_even_2 (pairs (2,4), (6,8), (10,12) and (4,6), (8,10), (12,2))
 # This covers all 12 NNN pairs on a 12-site periodic chain.
 circuit_A = Circuit(L=L, bc=bc, n_steps=1) do c
-    # First two sublayers (always applied)
+    # Single stochastic call: NN vs NNN with automatic pair coverage
+    # :nn parity auto-expands to all 12 NN pairs (combines :odd + :even)
+    # :nnn parity auto-expands to all 12 NNN pairs (combines 4 sublayers)
     apply_with_prob!(c; rng=:ctrl, outcomes=[
-        (probability=p_nn, gate=proj_gate, geometry=Bricklayer(:odd)),
-        (probability=1-p_nn, gate=proj_gate, geometry=Bricklayer(:nnn_odd_1))
+        (probability=p_nn, gate=proj_gate, geometry=Bricklayer(:nn)),
+        (probability=1-p_nn, gate=proj_gate, geometry=Bricklayer(:nnn))
     ])
-    apply_with_prob!(c; rng=:ctrl, outcomes=[
-        (probability=p_nn, gate=proj_gate, geometry=Bricklayer(:even)),
-        (probability=1-p_nn, gate=proj_gate, geometry=Bricklayer(:nnn_even_1))
-    ])
-    # For NNN: add second sublayers (static decision at circuit construction time)
-    if p_nn < 1.0
-        apply_with_prob!(c; rng=:ctrl, outcomes=[
-            (probability=p_nn, gate=proj_gate, geometry=Bricklayer(:odd)),  # placeholder
-            (probability=1-p_nn, gate=proj_gate, geometry=Bricklayer(:nnn_odd_2))
-        ])
-        apply_with_prob!(c; rng=:ctrl, outcomes=[
-            (probability=p_nn, gate=proj_gate, geometry=Bricklayer(:even)),  # placeholder
-            (probability=1-p_nn, gate=proj_gate, geometry=Bricklayer(:nnn_even_2))
-        ])
-    end
 end
 
 println("✓ Circuit defined with apply_with_prob! (p_nn=$p_nn)")
 if p_nn == 1.0
-    println("  - Pure NN: Bricklayer(:odd/:even) only")
+    println("  - Pure NN: Bricklayer(:nn) auto-expands to all 12 NN pairs")
 elseif p_nn == 0.0
-    println("  - Pure NNN: 4 sublayers (complete coverage of all 12 pairs)")
+    println("  - Pure NNN: Bricklayer(:nnn) auto-expands to all 12 NNN pairs")
 else
-    println("  - Mixed NN/NNN: p=$p_nn uses NN, p=$(1-p_nn) uses NNN 4-sublayers")
+    println("  - Mixed NN/NNN: p=$p_nn uses :nn, p=$(1-p_nn) uses :nnn")
 end
 
 # Initialize state with RNG for probabilistic decisions
@@ -138,7 +123,9 @@ println("✓ Initialized to |Z0⟩⊗$L (m=0 product state)")
 
 # Track observables
 track!(state_A, :entropy => EntanglementEntropy(cut=L÷2, order=1, base=2))
-track!(state_A, :string_order => StringOrder(1, L÷2+1))
+# Use order=2 for NNN regime (paired endpoints), order=1 for NN
+so_order = p_nn == 1.0 ? 1 : (p_nn == 0.0 ? 2 : 1)
+track!(state_A, :string_order => StringOrder(1, L÷2+1, order=so_order))
 println("✓ Tracking: entropy, string_order")
 
 # Run simulation
@@ -160,7 +147,7 @@ println("  Final entropy: $(round(S_final_A, digits=4))")
 println("  Final |string order|: $(round(abs(SO_final_A), digits=4))")
 
 # Expected physics based on p_nn
-expected_SO = p_nn == 1.0 ? 4/9 : (p_nn == 0.0 ? 0.032 : NaN)
+expected_SO = p_nn == 1.0 ? 4/9 : (p_nn == 0.0 ? 0.198 : NaN)
 expected_S = p_nn == 1.0 ? 2.0 : (p_nn == 0.0 ? 4.0 : NaN)
 
 println("  Expected for p_nn=$p_nn: |SO| ≈ $(isnan(expected_SO) ? "mixed" : round(expected_SO, digits=3)), S ≈ $(isnan(expected_S) ? "mixed" : round(expected_S, digits=1))")
