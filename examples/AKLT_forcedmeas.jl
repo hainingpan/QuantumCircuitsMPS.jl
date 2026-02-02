@@ -106,6 +106,17 @@ circuit_A = Circuit(L=L, bc=bc, n_steps=1) do c
     ])
 end
 
+# === Alternative: Parameterized Circuit API ===
+# Instead of closure-captured variables, store parameters in the circuit itself.
+# Access via c.params[:key] - makes circuits fully self-contained.
+circuit_A_params = Circuit(L=L, bc=bc, n_steps=1, p_nn=p_nn, proj_gate=proj_gate) do c
+    apply_with_prob!(c; rng=:ctrl, outcomes=[
+        (probability=c.params[:p_nn], gate=c.params[:proj_gate], geometry=Bricklayer(:nn)),
+        (probability=1-c.params[:p_nn], gate=c.params[:proj_gate], geometry=Bricklayer(:nnn))
+    ])
+end
+# Both circuit_A and circuit_A_params are equivalent.
+
 println("✓ Circuit defined with apply_with_prob! (p_nn=$p_nn)")
 if p_nn == 1.0
     println("  - Pure NN: Bricklayer(:nn) auto-expands to all 12 NN pairs")
