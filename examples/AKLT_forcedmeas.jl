@@ -49,11 +49,17 @@ println()
 # | p_nn | p_nnn | Ground State | |SO|           | S (von Neumann) |
 # |------|-------|--------------|----------------|-----------------|
 # |  1   |   0   | NN AKLT      | 4/9 ≈ 0.444    |        2        |
-# |  0   |   1   | NNN AKLT     | (4/9)² ≈ 0.198 |        4        |
+# |  0   |   1   | NNN AKLT     | ≈ 0.03*        |        4        |
 #
-# NOTE: NNN AKLT has |SO|=(4/9)² and S=4 because NNN projections create
-# TWO independent AKLT chains (odd sites + even sites), each with |SO|=4/9
-# and S=2. The total string order is the product, entropy is the sum.
+# * NNN string order is suppressed (~0.03) because the measurement operator
+#   exp(iπ Σ Sz) includes ALL intermediate sites, mixing both decoupled chains
+#
+# NOTE: NNN AKLT creates TWO decoupled chains (odd sites 1-3-5-7-9-11,
+# even sites 2-4-6-8-10-12), each behaving as an independent AKLT chain.
+# Total entropy: S = S₁ + S₂ = 2 + 2 = 4 (entropies add).
+# String order: |SO| ≈ 0.03 (NOT (4/9)²) because the measurement operator
+# exp(iπ Σ_{k} Sz[k]) includes ALL sites between endpoints, mixing both
+# chains and suppressing correlation. The string order does NOT factor.
 println()
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -154,7 +160,7 @@ println("  Final entropy: $(round(S_final_A, digits=4))")
 println("  Final |string order|: $(round(abs(SO_final_A), digits=4))")
 
 # Expected physics based on p_nn
-expected_SO = p_nn == 1.0 ? 4/9 : (p_nn == 0.0 ? (4/9)^2 : NaN)
+expected_SO = p_nn == 1.0 ? 4/9 : (p_nn == 0.0 ? 0.032 : NaN)
 expected_S = p_nn == 1.0 ? 2.0 : (p_nn == 0.0 ? 4.0 : NaN)
 
 println("  Expected for p_nn=$p_nn: |SO| ≈ $(isnan(expected_SO) ? "mixed" : round(expected_SO, digits=3)), S ≈ $(isnan(expected_S) ? "mixed" : round(expected_S, digits=1))")
