@@ -50,6 +50,10 @@ println()
 # |------|-------|--------------|----------------|-----------------|
 # |  1   |   0   | NN AKLT      | 4/9 ≈ 0.444    |        2        |
 # |  0   |   1   | NNN AKLT     | (4/9)² ≈ 0.198 |        4        |
+#
+# NOTE: NNN AKLT has |SO|=(4/9)² and S=4 because NNN projections create
+# TWO independent AKLT chains (odd sites + even sites), each with |SO|=4/9
+# and S=2. The total string order is the product, entropy is the sum.
 println()
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -83,20 +87,42 @@ println("─"^70)
 # Define circuit using declarative API
 # n_steps=1 means this circuit represents ONE layer
 # simulate!(circuit, state; n_circuits=n_layers) runs it n_layers times
+#
+# IMPORTANT: For complete NNN coverage, we need all 4 sublayers:
+# - :nnn_odd_1, :nnn_odd_2 (pairs (1,3), (5,7), (9,11) and (3,5), (7,9), (11,1))
+# - :nnn_even_1, :nnn_even_2 (pairs (2,4), (6,8), (10,12) and (4,6), (8,10), (12,2))
+# This covers all 12 NNN pairs on a 12-site periodic chain.
 circuit_A = Circuit(L=L, bc=bc, n_steps=1) do c
-    # Probabilistic: with probability p_nn apply NN, otherwise apply NNN
+    # First two sublayers (always applied)
     apply_with_prob!(c; rng=:ctrl, outcomes=[
         (probability=p_nn, gate=proj_gate, geometry=Bricklayer(:odd)),
-        (probability=1-p_nn, gate=proj_gate, geometry=Bricklayer(:nnn_odd))
+        (probability=1-p_nn, gate=proj_gate, geometry=Bricklayer(:nnn_odd_1))
     ])
     apply_with_prob!(c; rng=:ctrl, outcomes=[
         (probability=p_nn, gate=proj_gate, geometry=Bricklayer(:even)),
-        (probability=1-p_nn, gate=proj_gate, geometry=Bricklayer(:nnn_even))
+        (probability=1-p_nn, gate=proj_gate, geometry=Bricklayer(:nnn_even_1))
     ])
+    # For NNN: add second sublayers (static decision at circuit construction time)
+    if p_nn < 1.0
+        apply_with_prob!(c; rng=:ctrl, outcomes=[
+            (probability=p_nn, gate=proj_gate, geometry=Bricklayer(:odd)),  # placeholder
+            (probability=1-p_nn, gate=proj_gate, geometry=Bricklayer(:nnn_odd_2))
+        ])
+        apply_with_prob!(c; rng=:ctrl, outcomes=[
+            (probability=p_nn, gate=proj_gate, geometry=Bricklayer(:even)),  # placeholder
+            (probability=1-p_nn, gate=proj_gate, geometry=Bricklayer(:nnn_even_2))
+        ])
+    end
 end
+
 println("✓ Circuit defined with apply_with_prob! (p_nn=$p_nn)")
-println("  - p=$p_nn: NN projections via Bricklayer(:odd/:even)")
-println("  - p=$(1-p_nn): NNN projections via Bricklayer(:nnn_odd/:nnn_even)")
+if p_nn == 1.0
+    println("  - Pure NN: Bricklayer(:odd/:even) only")
+elseif p_nn == 0.0
+    println("  - Pure NNN: 4 sublayers (complete coverage of all 12 pairs)")
+else
+    println("  - Mixed NN/NNN: p=$p_nn uses NN, p=$(1-p_nn) uses NNN 4-sublayers")
+end
 
 # Initialize state with RNG for probabilistic decisions
 rng_reg_A = RNGRegistry(ctrl=42, proj=1, haar=2, born=3)
@@ -126,12 +152,21 @@ SO_final_A = state_A.observables[:string_order][end]
 println("\nProtocol A Results:")
 println("  Final entropy: $(round(S_final_A, digits=4))")
 println("  Final |string order|: $(round(abs(SO_final_A), digits=4))")
-println("  Expected AKLT: |SO| ≈ 0.444 (4/9), S ≈ 2 for bc=:periodic")
 
-if abs(abs(SO_final_A) - 4/9) < 0.1 && abs(S_final_A - 2) < 1.0
-    println("  ✅ CONVERGED to AKLT ground state!")
+# Expected physics based on p_nn
+expected_SO = p_nn == 1.0 ? 4/9 : (p_nn == 0.0 ? (4/9)^2 : NaN)
+expected_S = p_nn == 1.0 ? 2.0 : (p_nn == 0.0 ? 4.0 : NaN)
+
+println("  Expected for p_nn=$p_nn: |SO| ≈ $(isnan(expected_SO) ? "mixed" : round(expected_SO, digits=3)), S ≈ $(isnan(expected_S) ? "mixed" : round(expected_S, digits=1))")
+
+if !isnan(expected_SO) && !isnan(expected_S)
+    if abs(abs(SO_final_A) - expected_SO) < 0.1 && abs(S_final_A - expected_S) < 1.0
+        println("  ✅ CONVERGED to $(p_nn == 1.0 ? "NN" : "NNN") AKLT ground state!")
+    else
+        println("  ⚠️  Did not fully converge (try increasing n_layers)")
+    end
 else
-    println("  ⚠️  Did not fully converge (try increasing n_layers or p_nn=1.0)")
+    println("  ℹ️  Mixed NN/NNN regime - no simple analytical expectation")
 end
 println()
 
