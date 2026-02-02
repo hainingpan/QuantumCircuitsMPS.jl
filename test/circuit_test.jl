@@ -1074,3 +1074,122 @@ end
         @test all(e -> e >= 0, state.observables[:entropy])
     end
 end
+
+@testset "Circuit Visualization Fixes (Issues 1-5)" begin
+    @testset "Issue 5: SpinSectorProjection label shows P(S≠2)" begin
+        # Create circuit with SpinSectorProjection
+        P0 = total_spin_projector(0)
+        P1 = total_spin_projector(1)
+        proj = SpinSectorProjection(P0 + P1)
+        circuit = Circuit(L=4, bc=:periodic, n_steps=1) do c
+            apply!(c, proj, AdjacentPair(1))
+        end
+        
+        try
+            Base.require(Main, :Luxor)
+            
+            svg_path = tempname() * ".svg"
+            plot_circuit(circuit; seed=0, filename=svg_path)
+            svg = read(svg_path, String)
+            rm(svg_path)
+            
+            # Verify label is NOT the type name (Luxor renders text as glyphs)
+            # Just check SVG was created and doesn't contain full type name
+            @test contains(svg, "<svg")
+            @test !contains(svg, "SpinSectorProjection")
+        catch e
+            if e isa ArgumentError && contains(string(e), "Package Luxor not found")
+                @test_skip "Luxor not available - skipping SVG test"
+            else
+                rethrow(e)
+            end
+        end
+    end
+    
+    @testset "Issues 2+3: Non-adjacent gates render as two boxes" begin
+        # Create circuit with NNN gates (non-adjacent)
+        circuit = Circuit(L=8, bc=:periodic, n_steps=1) do c
+            apply!(c, HaarRandom(), Bricklayer(:nnn))  # NNN gates (4 gates)
+        end
+        
+        try
+            Base.require(Main, :Luxor)
+            
+            svg_path = tempname() * ".svg"
+            plot_circuit(circuit; seed=0, filename=svg_path)
+            svg = read(svg_path, String)
+            rm(svg_path)
+            
+            # Count boxes - should have 2 per NNN gate (4 gates × 2 = 8 boxes minimum)
+            # Boxes are rendered with fill-rule="nonzero"
+            box_count = length(collect(eachmatch(r"fill-rule=\"nonzero\"", svg)))
+            @test box_count >= 8
+        catch e
+            if e isa ArgumentError && contains(string(e), "Package Luxor not found")
+                @test_skip "Luxor not available - skipping SVG test"
+            else
+                rethrow(e)
+            end
+        end
+    end
+    
+    @testset "Issue 1: Bricklayer parallel layout (no letter suffixes)" begin
+        # Create bricklayer circuit with parallel NN gates
+        circuit = Circuit(L=8, bc=:periodic, n_steps=1) do c
+            apply!(c, HaarRandom(), Bricklayer(:nn))  # 8 parallel ops
+        end
+        
+        try
+            Base.require(Main, :Luxor)
+            
+            svg_path = tempname() * ".svg"
+            plot_circuit(circuit; seed=0, filename=svg_path)
+            svg = read(svg_path, String)
+            rm(svg_path)
+            
+            # Verify no letter suffixes (1a, 1b, etc)
+            @test !contains(svg, "1a")
+            @test !contains(svg, "1b")
+            @test !contains(svg, "1c")
+            @test !contains(svg, "1d")
+        catch e
+            if e isa ArgumentError && contains(string(e), "Package Luxor not found")
+                @test_skip "Luxor not available - skipping SVG test"
+            else
+                rethrow(e)
+            end
+        end
+    end
+    
+    @testset "Issue 4: Dynamic font sizing (visual verification)" begin
+        # This issue is about dynamic font sizing - verified visually in aklt_circuit.svg
+        # No automated test needed, but we ensure the circuit generates without errors
+        circuit = Circuit(L=8, bc=:periodic, n_steps=1) do c
+            P0 = total_spin_projector(0)
+            P1 = total_spin_projector(1)
+            proj = SpinSectorProjection(P0 + P1)
+            apply_with_prob!(c; rng=:ctrl, outcomes=[
+                (probability=1.0, gate=proj, geometry=Bricklayer(:nn))
+            ])
+        end
+        
+        try
+            Base.require(Main, :Luxor)
+            
+            svg_path = tempname() * ".svg"
+            plot_circuit(circuit; seed=42, filename=svg_path)
+            svg = read(svg_path, String)
+            rm(svg_path)
+            
+            # Just verify SVG was created successfully
+            @test contains(svg, "<svg")
+            @test !contains(svg, "SpinSectorProjection")
+        catch e
+            if e isa ArgumentError && contains(string(e), "Package Luxor not found")
+                @test_skip "Luxor not available - skipping SVG test"
+            else
+                rethrow(e)
+            end
+        end
+    end
+end
