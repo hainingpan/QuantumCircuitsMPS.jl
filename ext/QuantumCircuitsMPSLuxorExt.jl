@@ -145,27 +145,58 @@ function QuantumCircuitsMPS.plot_circuit(circuit::Circuit; seed::Int=0, filename
     # Expand circuit to get concrete operations
     expanded = expand_circuit(circuit; seed=seed)
     
-    # Build row list (was column list)
+    # Helper: check if two ops overlap (share any qubits)
+    function ops_overlap(op1, op2)
+        return !isempty(intersect(op1.sites, op2.sites))
+    end
+    
+    # Helper: check if any ops in the list overlap with each other
+    function any_ops_overlap(ops)
+        for i in 1:length(ops), j in (i+1):length(ops)
+            if ops_overlap(ops[i], ops[j])
+                return true
+            end
+        end
+        return false
+    end
+    
+    # Build row list with visual row position tracking
+    # Each row is: (step_idx, letter, op, row_pos)
+    # row_pos is the visual row index (1-based) for Y coordinate calculation
     rows = []
+    visual_row = 0  # Track current visual row position
     for (step_idx, step_ops) in enumerate(expanded)
         if isempty(step_ops)
             # Empty step - still render one row
-            push!(rows, (step_idx, "", nothing))
+            visual_row += 1
+            push!(rows, (step_idx, "", nothing, visual_row))
         elseif length(step_ops) == 1
             # Single op - no letter suffix
-            push!(rows, (step_idx, "", step_ops[1]))
+            visual_row += 1
+            push!(rows, (step_idx, "", step_ops[1], visual_row))
         else
-            # Multiple ops - letter suffix (a, b, c...)
-            for (substep_idx, op) in enumerate(step_ops)
-                letter = Char('a' + substep_idx - 1)
-                push!(rows, (step_idx, string(letter), op))
+            # Multiple ops - check for overlaps
+            if any_ops_overlap(step_ops)
+                # Overlapping ops: staggered layout with letter suffixes
+                for (substep_idx, op) in enumerate(step_ops)
+                    visual_row += 1
+                    letter = Char('a' + substep_idx - 1)
+                    push!(rows, (step_idx, string(letter), op, visual_row))
+                end
+            else
+                # Non-overlapping ops: parallel layout, same visual row, no letter suffixes
+                visual_row += 1
+                for op in step_ops
+                    push!(rows, (step_idx, "", op, visual_row))
+                end
             end
         end
     end
+    n_visual_rows = visual_row
     
     # Calculate canvas size (swapped dimensions)
     canvas_width = 2 * MARGIN + circuit.L * QUBIT_SPACING + 100  # qubit dimension
-    canvas_height = 2 * MARGIN + length(rows) * ROW_HEIGHT       # time dimension
+    canvas_height = 2 * MARGIN + n_visual_rows * ROW_HEIGHT      # time dimension
     
     # Conditional: in-memory mode vs file mode
     if filename === nothing
@@ -180,7 +211,7 @@ function QuantumCircuitsMPS.plot_circuit(circuit::Circuit; seed::Int=0, filename
     origin(Point(MARGIN, MARGIN))
     
     # Draw vertical qubit wires (was horizontal)
-    wire_length = length(rows) * ROW_HEIGHT
+    wire_length = n_visual_rows * ROW_HEIGHT
     for q in 1:circuit.L
         x = q * QUBIT_SPACING  # was y
         line(Point(x, 0), Point(x, wire_length), :stroke)
@@ -189,16 +220,21 @@ function QuantumCircuitsMPS.plot_circuit(circuit::Circuit; seed::Int=0, filename
     end
     
     # Draw step headers on left side (was top)
-    for (row_idx, (step, letter, _)) in enumerate(rows)
-        y = wire_length - (row_idx - 0.5) * ROW_HEIGHT  # was x
-        header = letter == "" ? string(step) : "$(step)$(letter)"
-        text(header, Point(-10, y + 5), halign=:right, valign=:center)
+    # For parallel ops (same row_pos), only render header once
+    rendered_headers = Set{Int}()
+    for (step, letter, _, row_pos) in rows
+        if row_pos ∉ rendered_headers
+            push!(rendered_headers, row_pos)
+            y = wire_length - (row_pos - 0.5) * ROW_HEIGHT  # was x
+            header = letter == "" ? string(step) : "$(step)$(letter)"
+            text(header, Point(-10, y + 5), halign=:right, valign=:center)
+        end
     end
     
     # Draw gate boxes with transposed coordinates
-    for (row_idx, (_, _, op)) in enumerate(rows)
+    for (_, _, op, row_pos) in rows
         if op !== nothing
-            y = wire_length - (row_idx - 0.5) * ROW_HEIGHT  # time position (was x)
+            y = wire_length - (row_pos - 0.5) * ROW_HEIGHT  # time position (was x)
             
             # Check if single-qubit or multi-qubit gate
             if length(op.sites) == 1
