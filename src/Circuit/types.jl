@@ -14,6 +14,7 @@ expands them to concrete gate applications only when passed to `simulate!`.
 - `bc::Symbol`: Boundary conditions (`:periodic` or `:open`)
 - `operations::Vector{NamedTuple}`: Internal symbolic operation list
 - `n_steps::Int`: Number of circuit timesteps (default: 1)
+- `params::Dict{Symbol,Any}`: User-defined parameters (default: empty Dict)
 
 # Operation Representation
 Operations are stored as NamedTuples with different formats:
@@ -55,4 +56,5 @@ Base.@kwdef struct Circuit
     bc::Symbol
     operations::Vector{NamedTuple} = NamedTuple[]
     n_steps::Int = 1
+    params::Dict{Symbol,Any} = Dict{Symbol,Any}()
 end
