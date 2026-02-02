@@ -147,30 +147,34 @@ function simulate!(circuit::Circuit, state::SimulationState;
                     has_compound = any(is_compound_geometry(o.geometry) for o in op.outcomes)
                     
                     if has_compound
-                        # Compound stochastic: per-element independent RNG draws
-                        # Use first compound geometry to determine elements
-                        compound_geo = first(o.geometry for o in op.outcomes if is_compound_geometry(o.geometry))
-                        elements = get_compound_elements(compound_geo, circuit.L, circuit.bc)
-                        
-                        for sites in elements
-                            r = rand(actual_rng)  # Independent draw per element
-                            cumulative = 0.0
-                            for outcome in op.outcomes
-                                cumulative += outcome.probability
-                                if r < cumulative
-                                    execute_gate!(state, outcome.gate, sites)
-                                    gate_idx += 1
-                                    is_step_boundary = (step == circuit.n_steps) && (op_idx == length(circuit.operations)) && (sites == elements[end])
-                                    ctx = RecordingContext(circuit_idx, gate_idx, outcome.gate, is_step_boundary)
-                                    
-                                    set_flag, record_now = _evaluate_recording(record_when, ctx, circuit_idx, n_circuits)
-                                    should_record_this_step |= set_flag
-                                    record_now && record!(state)
-                                    break
-                                end
+                        # Compound stochastic: draw RNG ONCE to select outcome, then apply to ALL elements of selected geometry
+                        r = rand(actual_rng)  # Single draw to select which outcome
+                        cumulative = 0.0
+                        selected_outcome = nothing
+                        for outcome in op.outcomes
+                            cumulative += outcome.probability
+                            if r < cumulative
+                                selected_outcome = outcome
+                                break
                             end
-                            # If no break: "do nothing" for this element
                         end
+                        
+                        if selected_outcome !== nothing
+                            # Get elements from the SELECTED outcome's geometry
+                            elements = get_compound_elements(selected_outcome.geometry, circuit.L, circuit.bc)
+                            
+                            for sites in elements
+                                execute_gate!(state, selected_outcome.gate, sites)
+                                gate_idx += 1
+                                is_step_boundary = (step == circuit.n_steps) && (op_idx == length(circuit.operations)) && (sites == elements[end])
+                                ctx = RecordingContext(circuit_idx, gate_idx, selected_outcome.gate, is_step_boundary)
+                                
+                                set_flag, record_now = _evaluate_recording(record_when, ctx, circuit_idx, n_circuits)
+                                should_record_this_step |= set_flag
+                                record_now && record!(state)
+                            end
+                        end
+                        # If no outcome selected: "do nothing" - no gates applied
                         
                         # For :every_step mode with compound geometry, always check step boundary
                         is_step_boundary = (step == circuit.n_steps) && (op_idx == length(circuit.operations))

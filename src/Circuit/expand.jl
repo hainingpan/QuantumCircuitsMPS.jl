@@ -258,16 +258,14 @@ function expand_circuit(circuit::Circuit; seed::Int=0)
                 has_compound = any(is_compound_geometry(o.geometry) for o in op.outcomes)
                 
                 if has_compound
-                    # Compound geometry → independent RNG per element
-                    compound_geo = first(o.geometry for o in op.outcomes if is_compound_geometry(o.geometry))
-                    elements = get_compound_elements(compound_geo, circuit.L, circuit.bc)
+                    # Compound geometry → single RNG draw, then expand selected geometry
+                    selected = select_branch(rng, op.outcomes)
                     
-                    for sites in elements
-                        # Independent RNG draw per element
-                        selected = select_branch(rng, op.outcomes)
+                    if selected !== nothing
+                        # Get elements from the SELECTED outcome's geometry
+                        elements = get_compound_elements(selected.geometry, circuit.L, circuit.bc)
                         
-                        if selected !== nothing
-                            # Branch selected for this element
+                        for sites in elements
                             push!(step_ops, ExpandedOp(
                                 step,
                                 selected.gate,
@@ -275,8 +273,8 @@ function expand_circuit(circuit::Circuit; seed::Int=0)
                                 gate_label(selected.gate)
                             ))
                         end
-                        # If nothing selected: "do nothing" for this element
                     end
+                    # If nothing selected: "do nothing" - no entries added
                 else
                     # Simple stochastic: single RNG draw
                     selected = select_branch(rng, op.outcomes)
