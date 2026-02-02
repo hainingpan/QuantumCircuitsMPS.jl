@@ -58,8 +58,12 @@ function (ee::EntanglementEntropy)(state)
     # Validate cut is in valid range
     1 <= ee.cut < state.L || throw(ArgumentError("cut must satisfy 1 <= cut < L"))
     
-    # Convert physical cut to RAM ordering
-    ram_cut = state.phy_ram[ee.cut]
+    # Determine RAM cut position based on boundary conditions
+    # For periodic BC with folded MPS [1,L,2,L-1,...], RAM cut at position k
+    # partitions into two contiguous arcs. The cut parameter directly specifies
+    # the RAM bond, giving a half-chain cut when cut=L÷2.
+    # For open BC, ram_phy is identity so this also works correctly.
+    ram_cut = ee.cut
     
     # Compute entropy using internal helper
     return _von_neumann_entropy(state.mps, ram_cut; n=ee.order, threshold=ee.threshold, base=ee.base)
