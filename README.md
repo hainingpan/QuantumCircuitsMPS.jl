@@ -195,6 +195,49 @@ end
 
 **Physics**: Control-induced feedback creates spatial structure in the entanglement. The staircase geometry moves deterministically, creating domain wall defects that track the effective entanglement boundary.
 
+### AKLT Example: Forced Measurement Protocol
+
+```julia
+using QuantumCircuitsMPS
+using ITensorMPS
+
+# System parameters
+L = 12                    # Chain length
+bc = :periodic            # Boundary conditions
+p_nn = 1.0               # Pure NN projections (set to 0.0 for NNN)
+
+# Create spin projection gate (projects out S=2 quintet sector)
+P0, P1 = total_spin_projector(0), total_spin_projector(1)
+proj_gate = SpinSectorProjection(P0 + P1)
+
+# Build circuit: apply projections to all NN pairs
+circuit = Circuit(L=L, bc=bc, n_steps=1) do c
+    apply_with_prob!(c; rng=:ctrl, outcomes=[
+        (probability=p_nn, gate=proj_gate, geometry=Bricklayer(:nn)),
+        (probability=1-p_nn, gate=proj_gate, geometry=Bricklayer(:nnn))
+    ])
+end
+
+# Initialize state and track observables
+state = SimulationState(L=L, bc=bc, site_type="S=1", maxdim=128,
+    rng=RNGRegistry(ctrl=42, proj=1, haar=2, born=3))
+state.mps = MPS(state.sites, ["Z0" for _ in 1:L])
+
+track!(state, :entropy => EntanglementEntropy(cut=L÷2, order=1, base=2))
+track!(state, :string_order => StringOrder(1, L÷2+1, order=1))
+
+# Run L layers of projections
+simulate!(circuit, state; n_circuits=L, record_when=:every_step)
+
+# Results: NN AKLT converges to S ≈ 2.0, |SO| ≈ 0.444
+println("Entropy: $(state.observables[:entropy][end])")
+println("|String Order|: $(abs(state.observables[:string_order][end]))")
+
+# See examples/AKLT_forcedmeas.jl for full version with NNN support
+```
+
+**Physics**: The AKLT (Affleck-Kennedy-Lieb-Tasaki) state is a paradigmatic example of symmetry-protected topological order. By projecting out the S=2 quintet sector from adjacent spin-1 pairs, the protocol converges to the AKLT ground state characterized by string order parameter |O| ≈ 4/9.
+
 **More Examples**: The `examples/` directory contains complete scripts with parameter sweeps, data export, and visualization. Additional tutorials coming soon.
 
 ---
@@ -205,10 +248,42 @@ end
 
 | Concept | Description | Examples |
 |---------|-------------|----------|
-| **Gates** | Quantum operations applied to qubits | `HaarRandom()`, `PauliX()`, `Reset()`, `Measurement(:Z)`, `Projection(:up)` |
-| **Geometry** | Which qubits to apply gates to | `Bricklayer(:odd)`, `Bricklayer(:even)`, `AllSites()`, `Site(3)`, `StaircaseLeft(1)` |
-| **Observables** | Quantities to measure during simulation | `EntanglementEntropy(; cut=L÷2)`, `DomainWall(order=1)`, `BornProbability()` |
+| **Gates** | Quantum operations applied to qubits | `HaarRandom()`, `PauliX()`, `Reset()`, `Measurement(:Z)`, `Projection(:up)`, `SpinSectorProjection()` |
+| **Geometry** | Which qubits to apply gates to | `Bricklayer(:odd)`, `Bricklayer(:even)`, `Bricklayer(:nn)`, `Bricklayer(:nnn)`, `AllSites()`, `Site(3)`, `StaircaseLeft(1)` |
+| **Observables** | Quantities to measure during simulation | `EntanglementEntropy(; cut=L÷2)`, `DomainWall(order=1)`, `BornProbability()`, `StringOrder(i, j; order=1)` |
 | **SimulationState** | The quantum state + tracking | Holds MPS, RNG streams, recorded observables |
+
+### Bricklayer Geometry Parities
+
+The `Bricklayer` geometry supports multiple parities for different gate application patterns:
+
+| Parity | Description | Pairs (L=12 periodic) |
+|--------|-------------|----------------------|
+| `:odd` | NN sublayer 1 | (1,2), (3,4), (5,6), (7,8), (9,10), (11,12) |
+| `:even` | NN sublayer 2 | (2,3), (4,5), (6,7), (8,9), (10,11), (12,1) |
+| **`:nn`** | All NN pairs (combines :odd + :even) | All 12 NN bonds |
+| `:nnn_odd_1` | NNN sublayer 1 | (1,3), (5,7), (9,11) |
+| `:nnn_odd_2` | NNN sublayer 2 | (3,5), (7,9), (11,1) |
+| `:nnn_even_1` | NNN sublayer 3 | (2,4), (6,8), (10,12) |
+| `:nnn_even_2` | NNN sublayer 4 | (4,6), (8,10), (12,2) |
+| **`:nnn`** | All NNN pairs (combines all 4 sublayers) | All 12 NNN bonds |
+
+The `:nn` and `:nnn` parities automatically expand to cover all bonds, eliminating the need to manually combine sublayers.
+
+### String Order Observable
+
+The `StringOrder` observable measures the non-local string order parameter for spin-1 chains:
+
+```julia
+StringOrder(i, j; order=1)  # order=1 (default) for NN AKLT, order=2 for NNN AKLT
+```
+
+| Parameter | Formula | Expected Value |
+|-----------|---------|----------------|
+| `order=1` | ⟨Sz[i] · exp(iπΣ) · Sz[j]⟩ | \|O¹\| ≈ 4/9 ≈ 0.444 |
+| `order=2` | ⟨Sz[n]·Sz[n+1] · exp(iπΣ) · Sz[m-1]·Sz[m]⟩ | \|O²\| ≈ (4/9)² ≈ 0.198 |
+
+Note: `order=2` requires `j >= i+4` for non-overlapping endpoint pairs.
 
 ### Key Functions
 
@@ -219,6 +294,8 @@ end
 | `simulate(; L, bc, init, ...)` | Functional simulation API | See CIPT example |
 | `track!(state, obs)` | Register observable for recording | `track!(state, :S => EntanglementEntropy())` |
 | `record!(state; kwargs...)` | Record current observable values | `record!(state; i1=5)` |
+| `plot_circuit(circuit; filename)` | Export circuit diagram to SVG | Requires `using Luxor` |
+| `print_circuit(circuit)` | ASCII circuit visualization | Prints to console |
 
 ### Simulation Workflow
 
