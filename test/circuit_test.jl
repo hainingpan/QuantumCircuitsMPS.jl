@@ -90,6 +90,34 @@ end
     end
 end
 
+@testset "Circuit params field" begin
+    @testset "Basic param storage" begin
+        circuit = Circuit(L=4, bc=:periodic, threshold=0.5, name="test") do c
+            apply!(c, Reset(), SingleSite(1))
+        end
+        
+        @test circuit.params[:threshold] == 0.5
+        @test circuit.params[:name] == "test"
+    end
+    
+    @testset "CircuitBuilder access in do-block" begin
+        accessed_value = Ref{Any}(nothing)
+        circuit = Circuit(L=4, bc=:periodic, my_param=42) do c
+            accessed_value[] = c.params[:my_param]
+        end
+        
+        @test accessed_value[] == 42
+    end
+    
+    @testset "Backward compatibility (empty params)" begin
+        circuit = Circuit(L=4, bc=:periodic) do c
+            apply!(c, Reset(), SingleSite(1))
+        end
+        
+        @test isempty(circuit.params)
+    end
+end
+
 @testset "CircuitBuilder Validation" begin
     @testset "Wrong RNG key" begin
         @test_throws ArgumentError Circuit(L=4, bc=:periodic) do c
