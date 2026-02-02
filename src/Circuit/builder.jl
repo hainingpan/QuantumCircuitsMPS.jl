@@ -23,14 +23,16 @@ The builder records operations as NamedTuples which are then passed to the Circu
 - `L::Int`: Number of physical sites
 - `bc::Symbol`: Boundary conditions (`:periodic` or `:open`)
 - `operations::Vector{NamedTuple}`: Accumulated operation records
+- `params::Dict{Symbol,Any}`: User-defined parameters passed from outer constructor
 """
 mutable struct CircuitBuilder
     L::Int
     bc::Symbol
     operations::Vector{NamedTuple}
+    params::Dict{Symbol,Any}
 end
 
-CircuitBuilder(L::Int, bc::Symbol) = CircuitBuilder(L, bc, NamedTuple[])
+CircuitBuilder(L::Int, bc::Symbol, params::Dict{Symbol,Any}=Dict{Symbol,Any}()) = CircuitBuilder(L, bc, NamedTuple[], params)
 
 """
     apply!(builder::CircuitBuilder, gate, geometry)
@@ -119,6 +121,7 @@ The function `f` receives a `CircuitBuilder` instance and can call:
 - `L::Int`: Number of physical sites
 - `bc::Symbol`: Boundary conditions (`:periodic` or `:open`)
 - `n_steps::Int`: Number of circuit timesteps (default: 1)
+- `kwargs...`: Additional keyword arguments stored in circuit.params Dict
 
 # Example
 ```julia
@@ -131,8 +134,9 @@ circuit = Circuit(L=10, bc=:periodic) do c
 end
 ```
 """
-function Circuit(f::Function; L::Int, bc::Symbol, n_steps::Int=1)
-    builder = CircuitBuilder(L, bc)
+function Circuit(f::Function; L::Int, bc::Symbol, n_steps::Int=1, kwargs...)
+    params = Dict{Symbol,Any}(kwargs)
+    builder = CircuitBuilder(L, bc, NamedTuple[], params)
     f(builder)
-    return Circuit(L=L, bc=bc, operations=builder.operations, n_steps=n_steps)
+    return Circuit(L=L, bc=bc, operations=builder.operations, n_steps=n_steps, params=params)
 end
