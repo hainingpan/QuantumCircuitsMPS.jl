@@ -116,6 +116,32 @@ function QuantumCircuitsMPS.plot_circuit(circuit::Circuit; seed::Int=0, filename
         return (MIN_FONT_SIZE, truncated * "...")
     end
     
+    # Helper: Draw a filled white box with black stroke at (x, y) position
+    function render_gate_box(x, y, width, height)
+        setcolor("white")
+        box(Point(x, y), width, height, :fill)
+        setcolor("black")
+        box(Point(x, y), width, height, :stroke)
+    end
+    
+    # Helper: Render label with dynamic font sizing, centered at (x, y)
+    function render_gate_label(x, y, label, max_width)
+        (font_sz, display_label) = calc_font_size(label, max_width)
+        fontsize(font_sz)
+        text(display_label, Point(x, y + 5), halign=:center, valign=:center)
+    end
+    
+    # Helper: Draw connecting line between two points (optional dashed style)
+    function render_connecting_line(pt1, pt2; dashed=false)
+        if dashed
+            setdash("dashed")
+        end
+        line(pt1, pt2, :stroke)
+        if dashed
+            setdash("solid")  # Reset to solid
+        end
+    end
+    
     # Expand circuit to get concrete operations
     expanded = expand_circuit(circuit; seed=seed)
     
@@ -179,33 +205,78 @@ function QuantumCircuitsMPS.plot_circuit(circuit::Circuit; seed::Int=0, filename
                 # Single-qubit gate
                 x = op.sites[1] * QUBIT_SPACING  # qubit position (was y)
                 
-                # Draw filled white box first, then black stroke
-                setcolor("white")
-                box(Point(x, y), GATE_WIDTH, GATE_HEIGHT, :fill)
-                setcolor("black")
-                box(Point(x, y), GATE_WIDTH, GATE_HEIGHT, :stroke)
-                
-                # Apply dynamic font sizing
-                (font_sz, display_label) = calc_font_size(op.label, GATE_WIDTH)
-                fontsize(font_sz)
-                text(display_label, Point(x, y + 5), halign=:center, valign=:center)
+                render_gate_box(x, y, GATE_WIDTH, GATE_HEIGHT)
+                render_gate_label(x, y, op.label, GATE_WIDTH)
             else
-                # Multi-qubit gate - render single spanning box
+                # Multi-qubit gate
                 min_site = minimum(op.sites)
                 max_site = maximum(op.sites)
-                center_x = ((min_site + max_site) / 2) * QUBIT_SPACING  # was center_y
-                span_width = (max_site - min_site) * QUBIT_SPACING + GATE_WIDTH  # was span_height
+                span = max_site - min_site
+                L = circuit.L
                 
-                # Draw one wide box spanning all sites
-                setcolor("white")
-                box(Point(center_x, y), span_width, GATE_HEIGHT, :fill)
-                setcolor("black")
-                box(Point(center_x, y), span_width, GATE_HEIGHT, :stroke)
+                # Calculate wrapped span (for periodic BC, adjacent pairs like [8,1] have span=L-1 not 1)
+                # wrapped_span is the "short way around" for periodic BC
+                wrapped_span = min(span, L - span)
                 
-                # Apply dynamic font sizing with span_width
-                (font_sz, display_label) = calc_font_size(op.label, span_width)
-                fontsize(font_sz)
-                text(display_label, Point(center_x, y + 5), halign=:center, valign=:center)
+                # Determine rendering mode:
+                # - Adjacent: wrapped_span == 1 (includes periodic wraps like [8,1] → [1,8] → span=7, L-span=1)
+                # - Spanning all qubits: length == L (render as single box)
+                # - Non-adjacent: wrapped_span > 1 (NNN or larger gaps)
+                is_adjacent = (wrapped_span == 1)
+                spans_all = (length(op.sites) == L)
+                
+                if is_adjacent || spans_all
+                    # Adjacent or all-spanning gate: render single spanning box
+                    # For adjacent wrapping gates like [8,1], center at wrap point
+                    if span == L - 1  # This is a wrapping adjacent pair
+                        # Render at the boundary - put box between max_site and 1
+                        # Use max_site position (right edge of chain)
+                        center_x = ((max_site + (L + 1)) / 2) * QUBIT_SPACING
+                        span_width = GATE_WIDTH + QUBIT_SPACING  # Same width as adjacent pair
+                        # Clamp to stay within canvas
+                        center_x = max_site * QUBIT_SPACING  # Just center on max_site for simplicity
+                    else
+                        center_x = ((min_site + max_site) / 2) * QUBIT_SPACING
+                        span_width = span * QUBIT_SPACING + GATE_WIDTH
+                    end
+                    
+                    render_gate_box(center_x, y, span_width, GATE_HEIGHT)
+                    render_gate_label(center_x, y, op.label, span_width)
+                else
+                    # Non-adjacent gate: render two boxes + connecting line
+                    x_min = min_site * QUBIT_SPACING
+                    x_max = max_site * QUBIT_SPACING
+                    
+                    # Draw boxes at both sites
+                    render_gate_box(x_min, y, GATE_WIDTH, GATE_HEIGHT)
+                    render_gate_box(x_max, y, GATE_WIDTH, GATE_HEIGHT)
+                    
+                    # Determine line style: dashed for periodic wrapping, solid for NNN
+                    # Periodic wrapping: span > L/2 (the "long way" around the chain)
+                    # e.g., [1, 7] on L=8: span=6 > 4, so it wraps (actual distance is 2 via boundary)
+                    # NNN like [1, 3]: span=2 <= 4, so not wrapping
+                    is_periodic_wrap = (span > L / 2)
+                    
+                    # Draw connecting line between boxes (from right edge of left box to left edge of right box)
+                    line_start_x = x_min + GATE_WIDTH / 2
+                    line_end_x = x_max - GATE_WIDTH / 2
+                    render_connecting_line(Point(line_start_x, y), Point(line_end_x, y); dashed=is_periodic_wrap)
+                    
+                    # Draw label centered between the two boxes
+                    center_x = (x_min + x_max) / 2
+                    label_width = x_max - x_min  # Distance between box centers
+                    (font_sz, display_label) = calc_font_size(op.label, label_width)
+                    fontsize(font_sz)
+                    
+                    # Draw white background for label (to make it readable over the line)
+                    extents = textextents(display_label)
+                    label_bg_width = extents[3] + 6
+                    label_bg_height = extents[4] + 4
+                    setcolor("white")
+                    box(Point(center_x, y), label_bg_width, label_bg_height, :fill)
+                    setcolor("black")
+                    text(display_label, Point(center_x, y + 5), halign=:center, valign=:center)
+                end
             end
         end
     end
