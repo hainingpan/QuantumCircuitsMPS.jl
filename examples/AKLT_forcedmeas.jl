@@ -37,7 +37,7 @@ function run_sim(cfg)
     state = SimulationState(L=L, bc=bc, site_type="S=1", maxdim=maxdim, rng=rng)
     initialize!(state, ProductState(spin_state="Z0"))
     
-    track!(state, :S => EntanglementEntropy(cut=L÷2, order=1, base=2))
+    track!(state, :S => EntanglementEntropy(cut=L÷2, renyi_index=1, base=2))
     track!(state, :SO_nn => StringOrder(1, L÷2+1, order=1))
     track!(state, :SO_nnn => StringOrder(1, L÷2+1, order=2))
     

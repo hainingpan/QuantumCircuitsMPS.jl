@@ -1091,7 +1091,7 @@ end
         rng = RNGRegistry(ctrl=42, proj=43, haar=44, born=45)
         state = SimulationState(L=4, bc=:open, rng=rng)
         initialize!(state, ProductState(binary_int=0))
-        track!(state, :entropy => EntanglementEntropy(cut=2, order=1))
+        track!(state, :entropy => EntanglementEntropy(cut=2, renyi_index=1))
         
         # Simulate with recording
         simulate!(circuit, state; n_circuits=3, record_when=:every_step)

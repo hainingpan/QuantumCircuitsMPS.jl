@@ -135,7 +135,7 @@ using ITensorMPS
         @test SO_magnitude < 0.6  # Should be less than 1
         
         # Verify entanglement is present
-        track!(state, :entropy => EntanglementEntropy(cut=L÷2, order=1))
+        track!(state, :entropy => EntanglementEntropy(cut=L÷2, renyi_index=1))
         record!(state)
         S = state.observables[:entropy][end]
         @test S > 0.5  # AKLT ground state should have non-trivial entanglement
