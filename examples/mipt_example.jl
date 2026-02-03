@@ -70,16 +70,17 @@ println("Building MIPT circuit...")
 println()
 
 # Build circuit with n_steps=1 (one timestep per circuit)
-circuit = Circuit(L=L, bc=bc, n_steps=1) do c
+# Using parameterized circuit API: parameters stored in c.params[:key]
+circuit = Circuit(L=L, bc=bc, n_steps=1, p=p) do c
     # Even pairs + measure
     apply!(c, HaarRandom(), Bricklayer(:even))
     apply_with_prob!(c; rng=:ctrl, outcomes=[
-        (probability=p, gate=Measurement(:Z), geometry=AllSites())
+        (probability=c.params[:p], gate=Measurement(:Z), geometry=AllSites())
     ])
     # Odd pairs + measure  
     apply!(c, HaarRandom(), Bricklayer(:odd))
     apply_with_prob!(c; rng=:ctrl, outcomes=[
-        (probability=p, gate=Measurement(:Z), geometry=AllSites())
+        (probability=c.params[:p], gate=Measurement(:Z), geometry=AllSites())
     ])
 end
 
