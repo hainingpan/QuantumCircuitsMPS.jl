@@ -8,26 +8,19 @@ using Printf
 using Statistics
 using Plots
 
-# ═══════════════════════════════════════════════════════════════════════════
 # Setup
-# ═══════════════════════════════════════════════════════════════════════════
-
 bc = :periodic
 maxdim = 128
-
-# Gate: project out S=2 sector
 P0 = total_spin_projector(0)
 P1 = total_spin_projector(1)
 proj_gate = SpinSectorProjection(P0 + P1)
 
-# ═══════════════════════════════════════════════════════════════════════════
-# Parameter Sweep: L × p × seed (parallel)
-# ═══════════════════════════════════════════════════════════════════════════
-
+# Parameter sweep: L × p × seed (parallel)
 L_list = [8, 16]
 p_list = 0:0.1:1.0 |> collect
 seeds = 1:10
 
+nL, np, ns = length(L_list), length(p_list), length(seeds)
 configs = [(L=L, p=p, seed=s) for L in L_list for p in p_list for s in seeds]
 
 function run_sim(cfg)
@@ -44,88 +37,71 @@ function run_sim(cfg)
     state = SimulationState(L=L, bc=bc, site_type="S=1", maxdim=maxdim, rng=rng)
     state.mps = MPS(state.sites, ["Z0" for _ in 1:L])
     
-    # Track all observables
     track!(state, :S => EntanglementEntropy(cut=L÷2, order=1, base=2))
     track!(state, :SO_nn => StringOrder(1, L÷2+1, order=1))
     track!(state, :SO_nnn => StringOrder(1, L÷2+1, order=2))
     
     simulate!(circuit, state; n_circuits=L, record_when=:final_only)
     
-    (L=L, p=p, seed=seed, 
-     S=state.observables[:S][end], 
-     SO_nn=abs(state.observables[:SO_nn][end]),
-     SO_nnn=abs(state.observables[:SO_nnn][end]))
+    (state.observables[:S][end], 
+     abs(state.observables[:SO_nn][end]),
+     abs(state.observables[:SO_nnn][end]))
 end
 
 println("Running $(length(configs)) configs on $(Threads.nthreads()) threads...")
 @time raw = fetch.([Threads.@spawn run_sim(cfg) for cfg in configs])
 
-# Aggregate
-results = Dict(
-    (L, p) => (
-        S_mean = mean(r.S for r in raw if r.L == L && r.p == p),
-        S_std = std(r.S for r in raw if r.L == L && r.p == p),
-        SO_nn_mean = mean(r.SO_nn for r in raw if r.L == L && r.p == p),
-        SO_nn_std = std(r.SO_nn for r in raw if r.L == L && r.p == p),
-        SO_nnn_mean = mean(r.SO_nnn for r in raw if r.L == L && r.p == p),
-        SO_nnn_std = std(r.SO_nnn for r in raw if r.L == L && r.p == p)
-    )
-    for L in L_list for p in p_list
-)
+# Reshape to 3D tensors: (seed, p, L) then aggregate over seeds
+S_raw = reshape([r[1] for r in raw], ns, np, nL)
+SO_nn_raw = reshape([r[2] for r in raw], ns, np, nL)
+SO_nnn_raw = reshape([r[3] for r in raw], ns, np, nL)
+
+S_mean = dropdims(mean(S_raw, dims=1), dims=1)         # (p, L)
+S_std = dropdims(std(S_raw, dims=1), dims=1)
+SO_nn_mean = dropdims(mean(SO_nn_raw, dims=1), dims=1)
+SO_nn_std = dropdims(std(SO_nn_raw, dims=1), dims=1)
+SO_nnn_mean = dropdims(mean(SO_nnn_raw, dims=1), dims=1)
+SO_nnn_std = dropdims(std(SO_nnn_raw, dims=1), dims=1)
+
 println("Done!")
 
-# ═══════════════════════════════════════════════════════════════════════════
-# Results Table
-# ═══════════════════════════════════════════════════════════════════════════
-
-for L in L_list
+# Results table
+for (iL, L) in enumerate(L_list)
     println("\nL=$L:")
     println("  p_nn    S          |SO_nn|     |SO_nnn|")
-    for p in p_list
-        r = results[(L, p)]
+    for (ip, p) in enumerate(p_list)
         @printf("  %.1f   %.2f±%.2f   %.3f±%.3f   %.3f±%.3f\n", 
-                p, r.S_mean, r.S_std, r.SO_nn_mean, r.SO_nn_std, r.SO_nnn_mean, r.SO_nnn_std)
+                p, S_mean[ip,iL], S_std[ip,iL], 
+                SO_nn_mean[ip,iL], SO_nn_std[ip,iL], 
+                SO_nnn_mean[ip,iL], SO_nnn_std[ip,iL])
     end
 end
 
-# ═══════════════════════════════════════════════════════════════════════════
 # Plots
-# ═══════════════════════════════════════════════════════════════════════════
-
-# Entanglement Entropy
-colors = cgrad(:viridis, length(L_list), categorical=true)
+colors = cgrad(:viridis, nL, categorical=true)
 p_ee = plot(xlabel="p_nn", ylabel="S", title="Entanglement Entropy", legend=:topright)
-for (i, L) in enumerate(L_list)
-    S_vals = [results[(L, p)].S_mean for p in p_list]
-    S_errs = [results[(L, p)].S_std for p in p_list]
-    plot!(p_ee, p_list, S_vals, ribbon=S_errs, fillalpha=0.2, 
-          label="L=$L", color=colors[i], lw=2, marker=:o, ms=4)
+for (iL, L) in enumerate(L_list)
+    plot!(p_ee, p_list, S_mean[:,iL], ribbon=S_std[:,iL], fillalpha=0.2, 
+          label="L=$L", color=colors[iL], lw=2, marker=:o, ms=4)
 end
 hline!(p_ee, [2.0, 4.0], ls=:dash, color=:gray, alpha=0.5, label="")
 
-# NN Order Parameter
-colors = cgrad(:plasma, length(L_list), categorical=true)
+colors = cgrad(:plasma, nL, categorical=true)
 p_so = plot(xlabel="p_nn", ylabel="|SO|", title="NN Order (order=1)", legend=:topright)
-for (i, L) in enumerate(L_list)
-    SO_vals = [results[(L, p)].SO_nn_mean for p in p_list]
-    SO_errs = [results[(L, p)].SO_nn_std for p in p_list]
-    plot!(p_so, p_list, SO_vals, ribbon=SO_errs, fillalpha=0.2,
-          label="L=$L", color=colors[i], lw=2, marker=:s, ms=4)
+for (iL, L) in enumerate(L_list)
+    plot!(p_so, p_list, SO_nn_mean[:,iL], ribbon=SO_nn_std[:,iL], fillalpha=0.2,
+          label="L=$L", color=colors[iL], lw=2, marker=:s, ms=4)
 end
 hline!(p_so, [4/9], ls=:dash, color=:gray, alpha=0.5, label="4/9")
 
-# NNN Order Parameter
-colors = cgrad(:inferno, length(L_list), categorical=true)
+colors = cgrad(:inferno, nL, categorical=true)
 p_nnn = plot(xlabel="p_nn", ylabel="|SO|", title="NNN Order (order=2)", legend=:topright)
-for (i, L) in enumerate(L_list)
-    SO_vals = [results[(L, p)].SO_nnn_mean for p in p_list]
-    SO_errs = [results[(L, p)].SO_nnn_std for p in p_list]
-    plot!(p_nnn, p_list, SO_vals, ribbon=SO_errs, fillalpha=0.2,
-          label="L=$L", color=colors[i], lw=2, marker=:d, ms=4)
+for (iL, L) in enumerate(L_list)
+    plot!(p_nnn, p_list, SO_nnn_mean[:,iL], ribbon=SO_nnn_std[:,iL], fillalpha=0.2,
+          label="L=$L", color=colors[iL], lw=2, marker=:d, ms=4)
 end
 hline!(p_nnn, [(4/9)^2], ls=:dash, color=:gray, alpha=0.5, label="(4/9)²")
 
-# Combined
 p_combined = plot(p_ee, p_so, p_nnn, layout=(1,3), size=(1500, 400))
 savefig(p_combined, "aklt_phase_diagram.png")
 println("\nSaved: aklt_phase_diagram.png")
