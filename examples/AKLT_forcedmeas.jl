@@ -35,7 +35,7 @@ function run_sim(cfg)
     
     rng = RNGRegistry(ctrl=seed, proj=seed+100, haar=seed+200, born=seed+300)
     state = SimulationState(L=L, bc=bc, site_type="S=1", maxdim=maxdim, rng=rng)
-    state.mps = MPS(state.sites, ["Z0" for _ in 1:L])
+    initialize!(state, ProductState(spin_state="Z0"))
     
     track!(state, :S => EntanglementEntropy(cut=L÷2, order=1, base=2))
     track!(state, :SO_nn => StringOrder(1, L÷2+1, order=1))
