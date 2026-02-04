@@ -66,6 +66,9 @@ which stochastic branches are displayed, matching the behavior of
 - [`expand_circuit`](@ref): Get the concrete operations being visualized
 """
 function QuantumCircuitsMPS.plot_circuit(circuit::Circuit; seed::Int=0, filename::Union{String, Nothing}=nothing)
+    # TODO: Known bug - non-adjacent gates (e.g., NNN gates) are not rendered correctly.
+    # The current implementation assumes gates act on adjacent or contiguous qubit ranges.
+    
     # Layout constants
     QUBIT_SPACING = 40.0
     ROW_HEIGHT = 60.0  # Height per time step (was COLUMN_WIDTH)
