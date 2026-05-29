@@ -29,7 +29,7 @@ function run_dw_t(L::Int, p_ctrl::Float64, p_proj::Float64, seed_C::Int, seed_m:
     results = simulate(
         L = L,
         bc = :periodic,
-        init = ProductState(x0 = 1//2^L),
+        init = ProductState(binary_int=1),
         rng = RNGRegistry(Val(:ct_compat), circuit=seed_C, measurement=seed_m),
         steps = 2 * L^2,
         circuit! = circuit_step!,
