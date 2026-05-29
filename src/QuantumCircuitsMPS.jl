@@ -64,12 +64,14 @@ export run_circuit!, simulate_circuits, CircuitSimulation
 export record_every, record_at_circuits, record_always
 export get_state, get_observables, circuits_run
 # Circuit (lazy mode API)
-export Circuit, expand_circuit, simulate!, ExpandedOp
+export Circuit, expand_circuit, expand_circuit_grouped, simulate!, ExpandedOp
 export RecordingContext, every_n_gates, every_n_steps
 # ASCII Plotting
 export print_circuit
 # Visualization (provided by Luxor extension)
+# _plot_circuit_impl is defined in ext/QuantumCircuitsMPSLuxorExt.jl when Luxor is loaded
 function plot_circuit end
+function _plot_circuit_impl end
 export plot_circuit
 
 # === INTERNAL EXPORTS (for CT.jl parity/debugging) ===

@@ -2,7 +2,8 @@ module QuantumCircuitsMPSLuxorExt
 
 using Luxor
 using QuantumCircuitsMPS
-using QuantumCircuitsMPS: Circuit, expand_circuit, ExpandedOp
+using QuantumCircuitsMPS: Circuit, expand_circuit_grouped, ExpandedOp,
+    gate_label, is_compound_geometry, get_compound_elements, compute_sites_dispatch
 
 """Wrapper type for SVG data that auto-displays in Jupyter notebooks."""
 struct SVGImage
@@ -44,7 +45,7 @@ using Luxor  # Load the extension
 
 circuit = Circuit(L=4, bc=:periodic, n_steps=5) do c
     apply!(c, Reset(), StaircaseRight(1))
-    apply_with_prob!(c; rng=:ctrl, outcomes=[
+    apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
         (probability=0.5, gate=HaarRandom(), geometry=StaircaseLeft(4))
     ])
 end
@@ -65,7 +66,7 @@ which stochastic branches are displayed, matching the behavior of
 - [`print_circuit`](@ref): ASCII visualization (no Luxor required)
 - [`expand_circuit`](@ref): Get the concrete operations being visualized
 """
-function QuantumCircuitsMPS.plot_circuit(circuit::Circuit; seed::Int=0, filename::Union{String, Nothing}=nothing)
+function QuantumCircuitsMPS._plot_circuit_impl(circuit::Circuit; seed::Int=0, filename::Union{String, Nothing}=nothing)
     # TODO: Known bug - non-adjacent gates (e.g., NNN gates) are not rendered correctly.
     # The current implementation assumes gates act on adjacent or contiguous qubit ranges.
     
@@ -145,8 +146,60 @@ function QuantumCircuitsMPS.plot_circuit(circuit::Circuit; seed::Int=0, filename
         end
     end
     
-    # Expand circuit to get concrete operations
-    expanded = expand_circuit(circuit; seed=seed)
+    # seed parameter is kept for backward compatibility but is no longer used;
+    # visualization always shows the circuit template (all operation layers unconditionally).
+
+    # Build template groups: steps → groups → ops (same format as expand_circuit_grouped,
+    # but ALL stochastic outcomes are included unconditionally instead of sampling with seed)
+    function build_template_groups(circ)
+        res = Vector{Vector{Vector{ExpandedOp}}}()
+
+        for step in 1:circ.n_steps
+            step_groups = Vector{Vector{ExpandedOp}}()
+
+            for op in circ.operations
+                if op.type == :deterministic
+                    group_ops = ExpandedOp[]
+                    if is_compound_geometry(op.geometry)
+                        elements = get_compound_elements(op.geometry, circ.L, circ.bc)
+                        for sites in elements
+                            push!(group_ops, ExpandedOp(step, op.gate, sites, gate_label(op.gate)))
+                        end
+                    else
+                        sites = compute_sites_dispatch(op.geometry, op.gate, step, circ.L, circ.bc)
+                        push!(group_ops, ExpandedOp(step, op.gate, sites, gate_label(op.gate)))
+                    end
+                    if !isempty(group_ops)
+                        push!(step_groups, group_ops)
+                    end
+
+                elseif op.type == :stochastic
+                    # Show ALL outcomes unconditionally — this is the circuit template
+                    for outcome in op.outcomes
+                        outcome_ops = ExpandedOp[]
+                        if is_compound_geometry(outcome.geometry)
+                            elements = get_compound_elements(outcome.geometry, circ.L, circ.bc)
+                            for sites in elements
+                                push!(outcome_ops, ExpandedOp(step, outcome.gate, sites, gate_label(outcome.gate)))
+                            end
+                        else
+                            sites = compute_sites_dispatch(outcome.geometry, outcome.gate, step, circ.L, circ.bc)
+                            push!(outcome_ops, ExpandedOp(step, outcome.gate, sites, gate_label(outcome.gate)))
+                        end
+                        if !isempty(outcome_ops)
+                            push!(step_groups, outcome_ops)
+                        end
+                    end
+                end
+            end
+
+            push!(res, step_groups)
+        end
+        return res
+    end
+
+    # Build groups from circuit template (all ops shown, no stochastic sampling)
+    expanded = build_template_groups(circuit)
     
     # Helper: check if two ops overlap (share any qubits)
     function ops_overlap(op1, op2)
@@ -164,33 +217,47 @@ function QuantumCircuitsMPS.plot_circuit(circuit::Circuit; seed::Int=0, filename
     end
     
     # Build row list with visual row position tracking
-    # Each row is: (step_idx, letter, op, row_pos)
-    # row_pos is the visual row index (1-based) for Y coordinate calculation
+    # Each row is: (step_idx, letter, ops_list, row_pos)
+    # ops_list is a Vector{ExpandedOp} of gates to render on the same visual row
     rows = []
-    visual_row = 0  # Track current visual row position
-    for (step_idx, step_ops) in enumerate(expanded)
-        if isempty(step_ops)
+    visual_row = 0
+    for (step_idx, step_groups) in enumerate(expanded)
+        if isempty(step_groups)
             # Empty step - still render one row
             visual_row += 1
-            push!(rows, (step_idx, "", nothing, visual_row))
-        elseif length(step_ops) == 1
-            # Single op - no letter suffix
-            visual_row += 1
-            push!(rows, (step_idx, "", step_ops[1], visual_row))
+            push!(rows, (step_idx, "", ExpandedOp[], visual_row))
         else
-            # Multiple ops - check for overlaps
-            if any_ops_overlap(step_ops)
-                # Overlapping ops: staggered layout with letter suffixes
-                for (substep_idx, op) in enumerate(step_ops)
-                    visual_row += 1
-                    letter = Char('a' + substep_idx - 1)
-                    push!(rows, (step_idx, string(letter), op, visual_row))
+            # Build batches: each batch is a set of ops on the same visual row.
+            # Within a group (same apply! call), non-overlapping ops share a row.
+            # Different groups always get separate rows.
+            batches = Vector{ExpandedOp}[]
+            for group_ops in step_groups
+                if isempty(group_ops)
+                    continue
+                elseif !any_ops_overlap(group_ops)
+                    # All ops in this group can share one row
+                    push!(batches, group_ops)
+                else
+                    # Overlapping within group - each op gets its own row
+                    for op in group_ops
+                        push!(batches, [op])
+                    end
                 end
-            else
-                # Non-overlapping ops: parallel layout, same visual row, no letter suffixes
+            end
+            
+            if isempty(batches)
                 visual_row += 1
-                for op in step_ops
-                    push!(rows, (step_idx, "", op, visual_row))
+                push!(rows, (step_idx, "", ExpandedOp[], visual_row))
+            elseif length(batches) == 1
+                # Single batch - no letter suffix
+                visual_row += 1
+                push!(rows, (step_idx, "", batches[1], visual_row))
+            else
+                # Multiple batches - letter suffixes
+                for (batch_idx, batch) in enumerate(batches)
+                    visual_row += 1
+                    letter = string(Char('a' + batch_idx - 1))
+                    push!(rows, (step_idx, letter, batch, visual_row))
                 end
             end
         end
@@ -235,14 +302,13 @@ function QuantumCircuitsMPS.plot_circuit(circuit::Circuit; seed::Int=0, filename
     end
     
     # Draw gate boxes with transposed coordinates
-    for (_, _, op, row_pos) in rows
-        if op !== nothing
-            y = wire_length - (row_pos - 0.5) * ROW_HEIGHT  # time position (was x)
-            
+    for (_, _, ops, row_pos) in rows
+        y = wire_length - (row_pos - 0.5) * ROW_HEIGHT  # time position
+        for op in ops
             # Check if single-qubit or multi-qubit gate
             if length(op.sites) == 1
                 # Single-qubit gate
-                x = op.sites[1] * QUBIT_SPACING  # qubit position (was y)
+                x = op.sites[1] * QUBIT_SPACING  # qubit position
                 
                 render_gate_box(x, y, GATE_WIDTH, GATE_HEIGHT)
                 render_gate_label(x, y, op.label, GATE_WIDTH)
@@ -265,22 +331,38 @@ function QuantumCircuitsMPS.plot_circuit(circuit::Circuit; seed::Int=0, filename
                 spans_all = (length(op.sites) == L)
                 
                 if is_adjacent || spans_all
-                    # Adjacent or all-spanning gate: render single spanning box
-                    # For adjacent wrapping gates like [8,1], center at wrap point
-                    if span == L - 1  # This is a wrapping adjacent pair
-                        # Render at the boundary - put box between max_site and 1
-                        # Use max_site position (right edge of chain)
-                        center_x = ((max_site + (L + 1)) / 2) * QUBIT_SPACING
-                        span_width = GATE_WIDTH + QUBIT_SPACING  # Same width as adjacent pair
-                        # Clamp to stay within canvas
-                        center_x = max_site * QUBIT_SPACING  # Just center on max_site for simplicity
+                    if span == L - 1  # Wrapping adjacent pair (e.g., [4,1] on L=4)
+                        # Render as two half-boxes (brackets) at the boundary qubits.
+                        # The open side faces the boundary edge, indicating the gate wraps.
+                        # No label — it would span empty space between the qubits.
+                        x_min = min_site * QUBIT_SPACING
+                        x_max = max_site * QUBIT_SPACING
+                        hw = GATE_WIDTH / 2
+                        hh = GATE_HEIGHT / 2
+                        
+                        # Half-box at min_site: open on LEFT (gate wraps in from left boundary)
+                        setcolor("white")
+                        box(Point(x_min, y), GATE_WIDTH, GATE_HEIGHT, :fill)
+                        setcolor("black")
+                        line(Point(x_min - hw, y - hh), Point(x_min + hw, y - hh), :stroke)  # top
+                        line(Point(x_min + hw, y - hh), Point(x_min + hw, y + hh), :stroke)  # right
+                        line(Point(x_min + hw, y + hh), Point(x_min - hw, y + hh), :stroke)  # bottom
+                        
+                        # Half-box at max_site: open on RIGHT (gate wraps out to right boundary)
+                        setcolor("white")
+                        box(Point(x_max, y), GATE_WIDTH, GATE_HEIGHT, :fill)
+                        setcolor("black")
+                        line(Point(x_max + hw, y - hh), Point(x_max - hw, y - hh), :stroke)  # top
+                        line(Point(x_max - hw, y - hh), Point(x_max - hw, y + hh), :stroke)  # left
+                        line(Point(x_max - hw, y + hh), Point(x_max + hw, y + hh), :stroke)  # bottom
                     else
+                        # Normal adjacent or all-spanning gate: single spanning box
                         center_x = ((min_site + max_site) / 2) * QUBIT_SPACING
                         span_width = span * QUBIT_SPACING + GATE_WIDTH
+                        
+                        render_gate_box(center_x, y, span_width, GATE_HEIGHT)
+                        render_gate_label(center_x, y, op.label, span_width)
                     end
-                    
-                    render_gate_box(center_x, y, span_width, GATE_HEIGHT)
-                    render_gate_label(center_x, y, op.label, span_width)
                 else
                     # Non-adjacent gate: render two boxes + connecting line
                     x_min = min_site * QUBIT_SPACING
@@ -291,23 +373,20 @@ function QuantumCircuitsMPS.plot_circuit(circuit::Circuit; seed::Int=0, filename
                     render_gate_box(x_max, y, GATE_WIDTH, GATE_HEIGHT)
                     
                     # Determine line style: dashed for periodic wrapping, solid for NNN
-                    # Periodic wrapping: span > L/2 (the "long way" around the chain)
-                    # e.g., [1, 7] on L=8: span=6 > 4, so it wraps (actual distance is 2 via boundary)
-                    # NNN like [1, 3]: span=2 <= 4, so not wrapping
                     is_periodic_wrap = (span > L / 2)
                     
-                    # Draw connecting line between boxes (from right edge of left box to left edge of right box)
+                    # Draw connecting line between boxes
                     line_start_x = x_min + GATE_WIDTH / 2
                     line_end_x = x_max - GATE_WIDTH / 2
                     render_connecting_line(Point(line_start_x, y), Point(line_end_x, y); dashed=is_periodic_wrap)
                     
                     # Draw label centered between the two boxes
                     center_x = (x_min + x_max) / 2
-                    label_width = x_max - x_min  # Distance between box centers
+                    label_width = x_max - x_min
                     (font_sz, display_label) = calc_font_size(op.label, label_width)
                     fontsize(font_sz)
                     
-                    # Draw white background for label (to make it readable over the line)
+                    # Draw white background for label
                     extents = textextents(display_label)
                     label_bg_width = extents[3] + 6
                     label_bg_height = extents[4] + 4
