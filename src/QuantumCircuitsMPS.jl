@@ -70,8 +70,10 @@ export RecordingContext, every_n_gates, every_n_steps
 export print_circuit
 # Visualization (provided by Luxor extension)
 # _plot_circuit_impl is defined in ext/QuantumCircuitsMPSLuxorExt.jl when Luxor is loaded
-function plot_circuit end
 function _plot_circuit_impl end
+function plot_circuit(circuit::Circuit; seed::Int=0, filename::Union{String,Nothing}=nothing)
+    Base.invokelatest(_plot_circuit_impl, circuit; seed=seed, filename=filename)
+end
 export plot_circuit
 
 # === INTERNAL EXPORTS (for CT.jl parity/debugging) ===
