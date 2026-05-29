@@ -71,8 +71,8 @@ export print_circuit
 # Visualization (provided by Luxor extension)
 # _plot_circuit_impl is defined in ext/QuantumCircuitsMPSLuxorExt.jl when Luxor is loaded
 function _plot_circuit_impl end
-function plot_circuit(circuit::Circuit; seed::Int=0, filename::Union{String,Nothing}=nothing)
-    Base.invokelatest(_plot_circuit_impl, circuit; seed=seed, filename=filename)
+function plot_circuit(circuit::Circuit; filename::Union{String,Nothing}=nothing)
+    Base.invokelatest(_plot_circuit_impl, circuit; filename=filename)
 end
 export plot_circuit
 

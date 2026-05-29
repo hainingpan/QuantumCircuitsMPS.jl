@@ -37,14 +37,18 @@ function build_template_groups_ascii(circuit)
                 # Template: show ALL outcomes unconditionally (no random selection)
                 for outcome in op.outcomes
                     outcome_ops = ExpandedOp[]
+                    # Annotate label with probability so template view distinguishes from deterministic ops
+                    p = outcome.probability
+                    base_label = gate_label(outcome.gate)
+                    label = p == 1.0 ? base_label : string(base_label, "(", round(p; digits=2), ")")
                     if is_compound_geometry(outcome.geometry)
                         elements = get_compound_elements(outcome.geometry, circuit.L, circuit.bc)
                         for sites in elements
-                            push!(outcome_ops, ExpandedOp(step, outcome.gate, sites, gate_label(outcome.gate)))
+                            push!(outcome_ops, ExpandedOp(step, outcome.gate, sites, label))
                         end
                     else
                         sites = compute_sites_dispatch(outcome.geometry, outcome.gate, step, circuit.L, circuit.bc)
-                        push!(outcome_ops, ExpandedOp(step, outcome.gate, sites, gate_label(outcome.gate)))
+                        push!(outcome_ops, ExpandedOp(step, outcome.gate, sites, label))
                     end
                     if !isempty(outcome_ops)
                         push!(step_groups, outcome_ops)
@@ -59,22 +63,21 @@ function build_template_groups_ascii(circuit)
 end
 
 """
-    print_circuit(circuit::Circuit; seed::Int=0, io::IO=stdout, unicode::Bool=true)
+    print_circuit(circuit::Circuit; io::IO=stdout, unicode::Bool=true)
 
 Print an ASCII visualization of the circuit TEMPLATE showing all operation layers.
 
 Renders the circuit as a grid with:
 - Qubit labels as column headers (q1, q2, q3...)
 - Time steps as rows (1:, 2a:, 2b:, 3:...)
-- Gate labels in boxes at operation sites
+- Gate labels in boxes at operation sites (stochastic ops annotated with probability)
 - Fixed-width columns for alignment
 
 Stochastic operations (apply_with_prob!) show ALL outcomes as separate rows,
-making the circuit structure visible regardless of which branch would be selected.
+with probability annotations (e.g., `Meas(0.15)`) to distinguish from deterministic ops.
 
 # Arguments
 - `circuit::Circuit`: Circuit to visualize
-- `seed::Int`: Kept for backward compatibility; visualization always shows the circuit template
 - `io::IO`: Output stream (default: stdout)
 - `unicode::Bool`: Use Unicode box-drawing characters (default: true)
 
@@ -118,8 +121,7 @@ print_circuit(circuit; unicode=false)
 - `expand_circuit`: Get a concrete stochastic realization
 - `ExpandedOp`: Concrete operation representation
 """
-function print_circuit(io::IO, circuit::Circuit; seed::Int=0, unicode::Bool=true)
-    # seed parameter kept for backward compatibility; visualization always shows circuit template
+function print_circuit(io::IO, circuit::Circuit; unicode::Bool=true)
     # Character sets
     WIRE = unicode ? '─' : '-'
     LEFT_BOX = unicode ? '┤' : '|'
@@ -189,7 +191,7 @@ function print_circuit(io::IO, circuit::Circuit; seed::Int=0, unicode::Bool=true
     COL_WIDTH = max_label_len + 2  # +2 for box characters
     
     # 4. Print header
-    println(io, "Circuit (L=$(circuit.L), bc=$(circuit.bc), seed=$seed)")
+    println(io, "Circuit (L=$(circuit.L), bc=$(circuit.bc))")
     println(io)
     
     # Calculate row label width (for alignment)
@@ -255,10 +257,10 @@ function print_circuit(io::IO, circuit::Circuit; seed::Int=0, unicode::Bool=true
 end
 
 """
-    print_circuit(circuit::Circuit; seed::Int=0, io::IO=stdout, unicode::Bool=true)
+    print_circuit(circuit::Circuit; io::IO=stdout, unicode::Bool=true)
 
-Backward-compatible keyword-argument form. Calls `print_circuit(io, circuit; ...)`.
+Convenience form. Calls `print_circuit(io, circuit; ...)`.
 """
-function print_circuit(circuit::Circuit; seed::Int=0, io::IO=stdout, unicode::Bool=true)
-    print_circuit(io, circuit; seed=seed, unicode=unicode)
+function print_circuit(circuit::Circuit; io::IO=stdout, unicode::Bool=true)
+    print_circuit(io, circuit; unicode=unicode)
 end

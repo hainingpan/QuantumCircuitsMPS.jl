@@ -16,9 +16,12 @@ function Base.show(io::IO, ::MIME"image/svg+xml", img::SVGImage)
 end
 
 """
-    plot_circuit(circuit::Circuit; seed::Int=0, filename::Union{String, Nothing}=nothing)
+    plot_circuit(circuit::Circuit; filename::Union{String, Nothing}=nothing)
 
-Export a quantum circuit diagram to SVG using Luxor.jl.
+Export the circuit TEMPLATE diagram to SVG using Luxor.jl.
+
+Shows all operation layers unconditionally — stochastic outcomes are annotated
+with their probability (e.g., `Meas(0.15)`) so the template view is clear.
 
 Renders the circuit as a wire diagram with:
 - Vertical lines representing qubit wires (labeled q1, q2, ...)
@@ -28,7 +31,6 @@ Renders the circuit as a wire diagram with:
 
 # Arguments
 - `circuit::Circuit`: The circuit to visualize
-- `seed::Int=0`: RNG seed for stochastic branch resolution (same seed = same diagram)
 - `filename::Union{String, Nothing}=nothing`: Output file path (SVG format). If `nothing`, returns `SVGImage` for auto-display in Jupyter.
 
 # Returns
@@ -51,22 +53,17 @@ circuit = Circuit(L=4, bc=:periodic, n_steps=5) do c
 end
 
 # Auto-display in Jupyter (returns SVGImage)
-plot_circuit(circuit; seed=42)
+plot_circuit(circuit)
 
 # Export to file
-plot_circuit(circuit; seed=42, filename="my_circuit.svg")
+plot_circuit(circuit; filename="my_circuit.svg")
 ```
-
-# Determinism
-Using the same `seed` value produces identical diagrams. The seed controls
-which stochastic branches are displayed, matching the behavior of
-`expand_circuit(circuit; seed=seed)`.
 
 # See Also
 - [`print_circuit`](@ref): ASCII visualization (no Luxor required)
-- [`expand_circuit`](@ref): Get the concrete operations being visualized
+- [`expand_circuit`](@ref): Get a concrete stochastic realization
 """
-function QuantumCircuitsMPS._plot_circuit_impl(circuit::Circuit; seed::Int=0, filename::Union{String, Nothing}=nothing)
+function QuantumCircuitsMPS._plot_circuit_impl(circuit::Circuit; filename::Union{String, Nothing}=nothing)
     # TODO: Known bug - non-adjacent gates (e.g., NNN gates) are not rendered correctly.
     # The current implementation assumes gates act on adjacent or contiguous qubit ranges.
     
@@ -146,9 +143,6 @@ function QuantumCircuitsMPS._plot_circuit_impl(circuit::Circuit; seed::Int=0, fi
         end
     end
     
-    # seed parameter is kept for backward compatibility but is no longer used;
-    # visualization always shows the circuit template (all operation layers unconditionally).
-
     # Build template groups: steps → groups → ops (same format as expand_circuit_grouped,
     # but ALL stochastic outcomes are included unconditionally instead of sampling with seed)
     function build_template_groups(circ)
@@ -177,14 +171,18 @@ function QuantumCircuitsMPS._plot_circuit_impl(circuit::Circuit; seed::Int=0, fi
                     # Show ALL outcomes unconditionally — this is the circuit template
                     for outcome in op.outcomes
                         outcome_ops = ExpandedOp[]
+                        # Annotate label with probability so template view distinguishes from deterministic ops
+                        p = outcome.probability
+                        base_label = gate_label(outcome.gate)
+                        label = p == 1.0 ? base_label : string(base_label, "(", round(p; digits=2), ")")
                         if is_compound_geometry(outcome.geometry)
                             elements = get_compound_elements(outcome.geometry, circ.L, circ.bc)
                             for sites in elements
-                                push!(outcome_ops, ExpandedOp(step, outcome.gate, sites, gate_label(outcome.gate)))
+                                push!(outcome_ops, ExpandedOp(step, outcome.gate, sites, label))
                             end
                         else
                             sites = compute_sites_dispatch(outcome.geometry, outcome.gate, step, circ.L, circ.bc)
-                            push!(outcome_ops, ExpandedOp(step, outcome.gate, sites, gate_label(outcome.gate)))
+                            push!(outcome_ops, ExpandedOp(step, outcome.gate, sites, label))
                         end
                         if !isempty(outcome_ops)
                             push!(step_groups, outcome_ops)
