@@ -24,7 +24,7 @@ using QuantumCircuitsMPS
     
     @testset "Track/record integration" begin
         # Test that track!/record! workflow works correctly
-        state = SimulationState(L=4, bc=:open; rng=RNGRegistry(ctrl=1, proj=2, haar=3, born=4))
+        state = SimulationState(L=4, bc=:open; rng=RNGRegistry(gates_spacetime=1, gates_realization=3, born_measurement=4))
         initialize!(state, ProductState(binary_int=0))
         
         # Track entanglement entropy at cut=2

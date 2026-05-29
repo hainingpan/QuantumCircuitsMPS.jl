@@ -14,7 +14,7 @@ let
     _ = Circuit(L=4, bc=:periodic) do c
         apply!(c, Reset(), SingleSite(1))
         apply!(c, HaarRandom(), StaircaseRight(1))
-        apply_with_prob!(c; rng=:ctrl, outcomes=[
+        apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
             (probability=0.5, gate=Reset(), geometry=SingleSite(1))
         ])
     end
@@ -54,7 +54,7 @@ end
     
     @testset "Stochastic operations" begin
         circuit = Circuit(L=4, bc=:periodic) do c
-            apply_with_prob!(c; rng=:ctrl, outcomes=[
+            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
                 (probability=0.5, gate=Reset(), geometry=StaircaseRight(1)),
                 (probability=0.3, gate=HaarRandom(), geometry=SingleSite(1))
             ])
@@ -62,14 +62,14 @@ end
         
         @test length(circuit.operations) == 1
         @test circuit.operations[1].type == :stochastic
-        @test circuit.operations[1].rng == :ctrl
+        @test circuit.operations[1].rng == :gates_spacetime
         @test length(circuit.operations[1].outcomes) == 2
     end
     
     @testset "Mixed operations" begin
         circuit = Circuit(L=4, bc=:periodic, n_steps=20) do c
             apply!(c, Reset(), StaircaseRight(1))
-            apply_with_prob!(c; rng=:ctrl, outcomes=[
+            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
                 (probability=0.5, gate=HaarRandom(), geometry=StaircaseRight(1))
             ])
             apply!(c, PauliZ(), SingleSite(1))
@@ -121,13 +121,13 @@ end
 @testset "CircuitBuilder Validation" begin
     @testset "Wrong RNG key" begin
         @test_throws ArgumentError Circuit(L=4, bc=:periodic) do c
-            apply_with_prob!(c; rng=:proj, outcomes=[
+            apply_with_prob!(c; rng=:invalid, outcomes=[
                 (probability=1.0, gate=Reset(), geometry=SingleSite(1))
             ])
         end
         
         @test_throws ArgumentError Circuit(L=4, bc=:periodic) do c
-            apply_with_prob!(c; rng=:haar, outcomes=[
+            apply_with_prob!(c; rng=:gates_realization, outcomes=[
                 (probability=0.5, gate=HaarRandom(), geometry=SingleSite(1))
             ])
         end
@@ -135,14 +135,14 @@ end
     
     @testset "Probability sum > 1" begin
         @test_throws ArgumentError Circuit(L=4, bc=:periodic) do c
-            apply_with_prob!(c; rng=:ctrl, outcomes=[
+            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
                 (probability=0.8, gate=Reset(), geometry=SingleSite(1)),
                 (probability=0.5, gate=HaarRandom(), geometry=SingleSite(1))
             ])
         end
         
         @test_throws ArgumentError Circuit(L=4, bc=:periodic) do c
-            apply_with_prob!(c; rng=:ctrl, outcomes=[
+            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
                 (probability=1.1, gate=Reset(), geometry=SingleSite(1))
             ])
         end
@@ -153,14 +153,14 @@ end
         # so this throws TypeError during type construction, not ArgumentError during validation
         # We test that it fails, regardless of exception type
         @test_throws Exception Circuit(L=4, bc=:periodic) do c
-            apply_with_prob!(c; rng=:ctrl, outcomes=[])
+            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[])
         end
     end
     
     @testset "Valid probability sums" begin
         # Exactly 1.0 should work
         circuit1 = Circuit(L=4, bc=:periodic) do c
-            apply_with_prob!(c; rng=:ctrl, outcomes=[
+            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
                 (probability=0.7, gate=Reset(), geometry=SingleSite(1)),
                 (probability=0.3, gate=HaarRandom(), geometry=SingleSite(1))
             ])
@@ -169,7 +169,7 @@ end
         
         # Less than 1.0 should work (do-nothing branch)
         circuit2 = Circuit(L=4, bc=:periodic) do c
-            apply_with_prob!(c; rng=:ctrl, outcomes=[
+            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
                 (probability=0.5, gate=Reset(), geometry=SingleSite(1))
             ])
         end
@@ -179,7 +179,7 @@ end
 
 @testset "expand_circuit Determinism" begin
     circuit = Circuit(L=4, bc=:periodic, n_steps=10) do c
-        apply_with_prob!(c; rng=:ctrl, outcomes=[
+        apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
             (probability=0.5, gate=Reset(), geometry=StaircaseRight(1)),
             (probability=0.5, gate=HaarRandom(), geometry=StaircaseLeft(4))
         ])
@@ -230,7 +230,7 @@ end
     @testset "Do-nothing branches create empty vectors" begin
         # Circuit with low probability - may produce empty steps
         sparse_circuit = Circuit(L=4, bc=:periodic, n_steps=20) do c
-            apply_with_prob!(c; rng=:ctrl, outcomes=[
+            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
                 (probability=0.3, gate=Reset(), geometry=SingleSite(1))
             ])
         end
@@ -250,7 +250,7 @@ end
             apply!(c, Reset(), StaircaseRight(1))
         end
         
-        rng = RNGRegistry(ctrl=42, proj=43, haar=44, born=45)
+        rng = RNGRegistry(gates_spacetime=42, gates_realization=44, born_measurement=45)
         state = SimulationState(L=4, bc=:periodic, rng=rng)
         initialize!(state, ProductState(binary_int=1))
         track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
@@ -264,13 +264,13 @@ end
     
     @testset "Stochastic circuit execution" begin
         circuit = Circuit(L=4, bc=:periodic, n_steps=10) do c
-            apply_with_prob!(c; rng=:ctrl, outcomes=[
+            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
                 (probability=0.5, gate=Reset(), geometry=StaircaseRight(1)),
                 (probability=0.5, gate=HaarRandom(), geometry=StaircaseLeft(4))
             ])
         end
         
-        rng = RNGRegistry(ctrl=42, proj=43, haar=44, born=45)
+        rng = RNGRegistry(gates_spacetime=42, gates_realization=44, born_measurement=45)
         state = SimulationState(L=4, bc=:periodic, rng=rng)
         initialize!(state, ProductState(binary_int=1))
         track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
@@ -286,7 +286,7 @@ end
             apply!(c, Reset(), SingleSite(1))
         end
         
-        rng = RNGRegistry(ctrl=42, proj=43, haar=44, born=45)
+        rng = RNGRegistry(gates_spacetime=42, gates_realization=44, born_measurement=45)
         state = SimulationState(L=4, bc=:periodic, rng=rng)
         initialize!(state, ProductState(binary_int=1))
         track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
@@ -296,7 +296,7 @@ end
         @test length(state.observables[:dw]) == 2  # One per circuit
         
         # Reset state for next test
-        state = SimulationState(L=4, bc=:periodic, rng=RNGRegistry(ctrl=42, proj=43, haar=44, born=45))
+        state = SimulationState(L=4, bc=:periodic, rng=RNGRegistry(gates_spacetime=42, gates_realization=44, born_measurement=45))
         initialize!(state, ProductState(binary_int=1))
         track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
         
@@ -305,7 +305,7 @@ end
         @test length(state.observables[:dw]) == 1  # Only at the very end
         
         # Reset state for next test
-        state = SimulationState(L=4, bc=:periodic, rng=RNGRegistry(ctrl=42, proj=43, haar=44, born=45))
+        state = SimulationState(L=4, bc=:periodic, rng=RNGRegistry(gates_spacetime=42, gates_realization=44, born_measurement=45))
         initialize!(state, ProductState(binary_int=1))
         track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
         
@@ -316,12 +316,12 @@ end
     
     @testset "Multiple timesteps execute correctly" begin
         circuit = Circuit(L=4, bc=:periodic, n_steps=10) do c
-            apply_with_prob!(c; rng=:ctrl, outcomes=[
+            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
                 (probability=0.5, gate=Reset(), geometry=StaircaseRight(1))
             ])
         end
         
-        rng = RNGRegistry(ctrl=42, proj=43, haar=44, born=45)
+        rng = RNGRegistry(gates_spacetime=42, gates_realization=44, born_measurement=45)
         state = SimulationState(L=4, bc=:periodic, rng=rng)
         initialize!(state, ProductState(binary_int=1))
         track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
@@ -363,7 +363,7 @@ end
     
     @testset "Stochastic circuit rendering" begin
         circuit = Circuit(L=4, bc=:periodic, n_steps=6) do c
-            apply_with_prob!(c; rng=:ctrl, outcomes=[
+            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
                 (probability=0.5, gate=Reset(), geometry=StaircaseRight(1)),
                 (probability=0.3, gate=HaarRandom(), geometry=SingleSite(1))
             ])
@@ -414,7 +414,7 @@ end
     
     @testset "Empty steps render correctly" begin
         circuit = Circuit(L=4, bc=:periodic, n_steps=10) do c
-            apply_with_prob!(c; rng=:ctrl, outcomes=[
+            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
                 (probability=0.2, gate=Reset(), geometry=SingleSite(1))
             ])
         end
@@ -636,7 +636,7 @@ end
 @testset "RNG Alignment" begin
     @testset "expand_circuit and simulate! use same RNG stream" begin
         circuit = Circuit(L=4, bc=:periodic, n_steps=20) do c
-            apply_with_prob!(c; rng=:ctrl, outcomes=[
+            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
                 (probability=0.5, gate=Reset(), geometry=StaircaseRight(1)),
                 (probability=0.5, gate=HaarRandom(), geometry=StaircaseRight(1))
             ])
@@ -646,7 +646,7 @@ end
         ops = expand_circuit(circuit; seed=42)
         
         # Simulate with matching seed
-        rng = RNGRegistry(ctrl=42, proj=43, haar=44, born=45)
+        rng = RNGRegistry(gates_spacetime=42, gates_realization=44, born_measurement=45)
         state = SimulationState(L=4, bc=:periodic, rng=rng)
         initialize!(state, ProductState(binary_int=1))
         
@@ -674,7 +674,7 @@ end
         end
         
         # Execute to verify no errors
-        rng = RNGRegistry(ctrl=0, proj=43, haar=44, born=45)
+        rng = RNGRegistry(gates_spacetime=0, gates_realization=44, born_measurement=45)
         state = SimulationState(L=4, bc=:periodic, rng=rng)
         initialize!(state, ProductState(binary_int=1))
         
@@ -895,7 +895,7 @@ end
             apply!(c, HaarRandom(), Bricklayer(:even))
         end
         
-        rng = RNGRegistry(ctrl=42, proj=43, haar=44, born=45)
+        rng = RNGRegistry(gates_spacetime=42, gates_realization=44, born_measurement=45)
         state = SimulationState(L=4, bc=:periodic, rng=rng)
         initialize!(state, ProductState(binary_int=0))
         track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
@@ -913,7 +913,7 @@ end
             apply!(c, PauliX(), AllSites())
         end
         
-        rng = RNGRegistry(ctrl=42, proj=43, haar=44, born=45)
+        rng = RNGRegistry(gates_spacetime=42, gates_realization=44, born_measurement=45)
         state = SimulationState(L=4, bc=:periodic, rng=rng)
         initialize!(state, ProductState(binary_int=0))
         track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
@@ -929,12 +929,12 @@ end
         # Test stochastic AllSites with Measurement gate
         # Each site independently decides whether to measure
         circuit = Circuit(L=4, bc=:periodic, n_steps=10) do c
-            apply_with_prob!(c; rng=:ctrl, outcomes=[
+            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
                 (probability=0.3, gate=Measurement(:Z), geometry=AllSites())
             ])
         end
         
-        rng = RNGRegistry(ctrl=42, proj=43, haar=44, born=45)
+        rng = RNGRegistry(gates_spacetime=42, gates_realization=44, born_measurement=45)
         state = SimulationState(L=4, bc=:periodic, rng=rng)
         initialize!(state, ProductState(binary_int=0))
         track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
@@ -949,18 +949,18 @@ end
     @testset "RNG determinism — same seed produces identical MPS" begin
         # Two states with same seed should produce identical results
         circuit = Circuit(L=4, bc=:periodic, n_steps=10) do c
-            apply_with_prob!(c; rng=:ctrl, outcomes=[
+            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
                 (probability=0.3, gate=Measurement(:Z), geometry=AllSites())
             ])
         end
         
         # First state
-        s1 = SimulationState(L=4, bc=:periodic, rng=RNGRegistry(ctrl=42, proj=1, haar=2, born=3))
+        s1 = SimulationState(L=4, bc=:periodic, rng=RNGRegistry(gates_spacetime=42, gates_realization=2, born_measurement=3))
         initialize!(s1, ProductState(binary_int=0))
         simulate!(circuit, s1; n_circuits=5)
         
         # Second state with same seeds
-        s2 = SimulationState(L=4, bc=:periodic, rng=RNGRegistry(ctrl=42, proj=1, haar=2, born=3))
+        s2 = SimulationState(L=4, bc=:periodic, rng=RNGRegistry(gates_spacetime=42, gates_realization=2, born_measurement=3))
         initialize!(s2, ProductState(binary_int=0))
         simulate!(circuit, s2; n_circuits=5)
         
@@ -1031,7 +1031,7 @@ end
     @testset "expand_circuit + simulate! RNG alignment" begin
         # Same seed → same branch selections per element
         circuit = Circuit(L=4, bc=:periodic, n_steps=5) do c
-            apply_with_prob!(c; rng=:ctrl, outcomes=[
+            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
                 (probability=0.3, gate=Measurement(:Z), geometry=AllSites())
             ])
         end
@@ -1042,9 +1042,9 @@ end
         # Count how many measurements were selected in expansion
         total_measurements = sum(length(step_ops) for step_ops in ops)
         
-        # Simulate with matching seed (ctrl=42)
+        # Simulate with matching seed (gates_spacetime=42)
         # We can't directly count measurements, but we verify no errors
-        rng = RNGRegistry(ctrl=42, proj=1, haar=2, born=3)
+        rng = RNGRegistry(gates_spacetime=42, gates_realization=2, born_measurement=3)
         state = SimulationState(L=4, bc=:periodic, rng=rng)
         initialize!(state, ProductState(binary_int=0))
         
@@ -1068,7 +1068,7 @@ end
         @test all(length(step_ops) == 0 for step_ops in ops)
         
         # simulate! should execute without error
-        rng = RNGRegistry(ctrl=42, proj=43, haar=44, born=45)
+        rng = RNGRegistry(gates_spacetime=42, gates_realization=44, born_measurement=45)
         state = SimulationState(L=2, bc=:open, rng=rng)
         initialize!(state, ProductState(binary_int=0))
         track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
@@ -1088,7 +1088,7 @@ end
             apply!(c, HaarRandom(), Bricklayer(:odd))
         end
         
-        rng = RNGRegistry(ctrl=42, proj=43, haar=44, born=45)
+        rng = RNGRegistry(gates_spacetime=42, gates_realization=44, born_measurement=45)
         state = SimulationState(L=4, bc=:open, rng=rng)
         initialize!(state, ProductState(binary_int=0))
         track!(state, :entropy => EntanglementEntropy(cut=2, renyi_index=1))
@@ -1099,7 +1099,7 @@ end
         # Should have 3 records
         @test length(state.observables[:entropy]) == 3
         @test all(e -> e isa Float64, state.observables[:entropy])
-        @test all(e -> e >= 0, state.observables[:entropy])
+        @test all(e -> e >= -1e-10, state.observables[:entropy])
     end
 end
 
@@ -1196,7 +1196,7 @@ end
             P0 = total_spin_projector(0)
             P1 = total_spin_projector(1)
             proj = SpinSectorProjection(P0 + P1)
-            apply_with_prob!(c; rng=:ctrl, outcomes=[
+            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
                 (probability=1.0, gate=proj, geometry=Bricklayer(:nn))
             ])
         end

@@ -7,7 +7,7 @@ using QuantumCircuitsMPS
 @testset "Recording API Tests" begin
     # Helper function to create fresh state for each test
     function make_state()
-        state = SimulationState(L=4, bc=:open; rng=RNGRegistry(ctrl=42, proj=43, haar=44, born=45))
+        state = SimulationState(L=4, bc=:open; rng=RNGRegistry(gates_spacetime=42, gates_realization=44, born_measurement=45))
         initialize!(state, ProductState(binary_int=1))
         track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
         return state
