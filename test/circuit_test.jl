@@ -926,24 +926,35 @@ end
     end
     
     @testset "Stochastic AllSites with Measurement — per-site independent" begin
-        # Test stochastic AllSites with Measurement gate
-        # Each site independently decides whether to measure
-        circuit = Circuit(L=4, bc=:periodic, n_steps=10) do c
-            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
-                (probability=0.3, gate=Measurement(:Z), geometry=AllSites())
+        L = 4
+        c = Circuit(L=L, bc=:open, n_steps=1) do b
+            apply_with_prob!(b; rng=:gates_spacetime, outcomes=[
+                (probability=0.5, gate=Measurement(:Z), geometry=AllSites())
             ])
         end
         
-        rng = RNGRegistry(gates_spacetime=42, gates_realization=44, born_measurement=45)
-        state = SimulationState(L=4, bc=:periodic, rng=rng)
+        # Run expand_circuit with many seeds, count Meas ops per seed
+        counts = [length([op for op in expand_circuit(c; seed=s)[1] if op.label == "Meas"]) 
+                  for s in 1:200]
+        
+        # Per-element independence means counts vary (not all-or-nothing)
+        @test minimum(counts) != maximum(counts)  # Must have variation
+        @test any(0 < x < L for x in counts)      # Some partial measurements
+        
+        # Mean should be near p*L = 0.5*4 = 2.0
+        mean_count = sum(counts) / length(counts)
+        @test 1.0 < mean_count < 3.0  # Loose bounds for 200 trials
+        
+        # If all-or-nothing: every count would be 0 or 4
+        # Per-element: should see counts 1, 2, 3 as well
+        @test any(x -> x ∉ [0, L], counts)  # NOT all-or-nothing
+        
+        # Also verify simulate! works without error
+        state = SimulationState(L=L, bc=:open, maxdim=16,
+            rng=RNGRegistry(gates_spacetime=42, gates_realization=2, born_measurement=3))
         initialize!(state, ProductState(binary_int=0))
-        track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
-        
-        # Should execute without error
-        simulate!(circuit, state; n_circuits=5, record_when=:every_step)
-        
-        # Should have 5 records (one per circuit)
-        @test length(state.observables[:dw]) == 5
+        simulate!(c, state; n_circuits=3, record_when=:every_step)
+        @test true  # No error
     end
     
     @testset "RNG determinism — same seed produces identical MPS" begin
@@ -1030,29 +1041,66 @@ end
     
     @testset "expand_circuit + simulate! RNG alignment" begin
         # Same seed → same branch selections per element
-        circuit = Circuit(L=4, bc=:periodic, n_steps=5) do c
+        L = 4
+        circuit = Circuit(L=L, bc=:periodic, n_steps=5) do c
             apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
                 (probability=0.3, gate=Measurement(:Z), geometry=AllSites())
             ])
         end
         
-        # Expand with seed 42
-        ops = expand_circuit(circuit; seed=42)
+        # expand_circuit with seed=42 should produce deterministic result
+        ops_run1 = expand_circuit(circuit; seed=42)
+        ops_run2 = expand_circuit(circuit; seed=42)
         
-        # Count how many measurements were selected in expansion
-        total_measurements = sum(length(step_ops) for step_ops in ops)
+        # Same seed → same expansion
+        for step in 1:5
+            sites1 = Set([op.sites for op in ops_run1[step]])
+            sites2 = Set([op.sites for op in ops_run2[step]])
+            @test sites1 == sites2
+        end
         
-        # Simulate with matching seed (gates_spacetime=42)
-        # We can't directly count measurements, but we verify no errors
-        rng = RNGRegistry(gates_spacetime=42, gates_realization=2, born_measurement=3)
-        state = SimulationState(L=4, bc=:periodic, rng=rng)
-        initialize!(state, ProductState(binary_int=0))
+        # Different seeds → different expansions (with high probability)
+        ops_run3 = expand_circuit(circuit; seed=99)
+        total_meas_42 = sum(length(step_ops) for step_ops in ops_run1)
+        total_meas_99 = sum(length(step_ops) for step_ops in ops_run3)
+        # Verify both run without error and produce reasonable counts
+        @test 0 <= total_meas_42 <= 5 * L  # At most L measurements per step
+        @test 0 <= total_meas_99 <= 5 * L
         
-        # Should execute without error (alignment is implicit)
-        simulate!(circuit, state; n_circuits=1, record_when=:final_only)
-        
-        @test true  # If we get here, no errors occurred
+    # RNG ALIGNMENT: expand_circuit(seed=42) and simulate!(gates_spacetime=42)
+    # must consume gates_spacetime RNG identically — same Meas ops fired per element.
+    # Both use MersenneTwister(42), same iteration order → same Bernoulli draws.
+    #
+    # State A: pre-selected ops from expand_circuit (no gates_spacetime draw at apply time)
+    state_align_A = SimulationState(L=L, bc=:periodic,
+        rng=RNGRegistry(gates_spacetime=42, gates_realization=2, born_measurement=3))
+    initialize!(state_align_A, ProductState(binary_int=0))
+    for step_ops in ops_run1          # ops_run1 was produced by expand_circuit(seed=42)
+        for op in step_ops
+            apply!(state_align_A, op.gate, SingleSite(op.sites[1]))
+        end
     end
+
+    # State B: simulate! selects gates via gates_spacetime=42 (same seed as expand)
+    state_align_B = SimulationState(L=L, bc=:periodic,
+        rng=RNGRegistry(gates_spacetime=42, gates_realization=2, born_measurement=3))
+    initialize!(state_align_B, ProductState(binary_int=0))
+    simulate!(circuit, state_align_B; n_circuits=1)
+
+    # If RNG alignment holds: same gates selected → same born_measurement draws → identical MPS
+    using ITensors: array
+    for i in 1:L
+        @test array(state_align_A.mps[i]) ≈ array(state_align_B.mps[i]) atol=1e-14
+    end
+
+    # Simulate with same seed should execute without error
+    rng = RNGRegistry(gates_spacetime=42, gates_realization=2, born_measurement=3)
+    state = SimulationState(L=L, bc=:periodic, rng=rng)
+    initialize!(state, ProductState(binary_int=0))
+    track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
+    simulate!(circuit, state; n_circuits=5, record_when=:every_step)
+    @test length(state.observables[:dw]) == 5
+end
     
     @testset "Empty Bricklayer (L=2, :open, :even) — no-op" begin
         # Edge case: L=2, :open, :even → no pairs
@@ -1219,5 +1267,158 @@ end
                 rethrow(e)
             end
         end
+    end
+end
+
+@testset "Per-element independent sampling statistics" begin
+
+    @testset "Test 1: Per-site frequency (p=0.3, N=1000, L=8)" begin
+        L = 8
+        p = 0.3
+        c = Circuit(L=L, bc=:open, n_steps=1) do b
+            apply_with_prob!(b; rng=:gates_spacetime, outcomes=[
+                (probability=p, gate=Measurement(:Z), geometry=AllSites())
+            ])
+        end
+
+        # Count per-site occurrences across 1000 seeds
+        site_counts = zeros(Int, L)
+        for s in 1:1000
+            ops = expand_circuit(c; seed=s)[1]
+            for op in ops
+                for site in op.sites
+                    site_counts[site] += 1
+                end
+            end
+        end
+
+        # Per-element independence: each site should have frequency ≈ p = 0.3
+        # Bounds [0.24, 0.36] are ±2 standard deviations wide for N=1000, p=0.3
+        for k in 1:L
+            freq = site_counts[k] / 1000
+            @test 0.24 <= freq <= 0.36
+        end
+    end
+
+    @testset "Test 2: Anti-correlation — P(site_i AND site_j) ≈ p², not p" begin
+        L = 8
+        p = 0.3
+        c = Circuit(L=L, bc=:open, n_steps=1) do b
+            apply_with_prob!(b; rng=:gates_spacetime, outcomes=[
+                (probability=p, gate=Measurement(:Z), geometry=AllSites())
+            ])
+        end
+
+        # Count joint firings of sites 1 AND 2 across N=200 seeds
+        N = 200
+        joint_count = 0
+        for s in 1:N
+            ops = expand_circuit(c; seed=s)[1]
+            sites_fired = Set(site for op in ops for site in op.sites)
+            if 1 ∈ sites_fired && 2 ∈ sites_fired
+                joint_count += 1
+            end
+        end
+
+        joint_prob = joint_count / N
+        # Per-element independence → P(1∩2) ≈ p² = 0.09
+        # All-or-nothing → P(1∩2) ≈ p = 0.3
+        @test joint_prob < 0.15   # Much less than p = 0.3
+        @test joint_prob > 0.03   # Sanity: p² = 0.09 is not too rare
+    end
+
+    @testset "Test 3: Edge cases — p=0.0 fires nothing, p=1.0 fires all" begin
+        L = 8
+
+        # p=0.0: rand() < 0.0 is always false → zero ops
+        c_zero = Circuit(L=L, bc=:open, n_steps=1) do b
+            apply_with_prob!(b; rng=:gates_spacetime, outcomes=[
+                (probability=0.0, gate=Measurement(:Z), geometry=AllSites())
+            ])
+        end
+        total_zero = sum(length(expand_circuit(c_zero; seed=s)[1]) for s in 1:10)
+        @test total_zero == 0
+
+        # p=1.0: rand() < 1.0 is always true → L ops every time
+        c_one = Circuit(L=L, bc=:open, n_steps=1) do b
+            apply_with_prob!(b; rng=:gates_spacetime, outcomes=[
+                (probability=1.0, gate=Measurement(:Z), geometry=AllSites())
+            ])
+        end
+        total_one = sum(length(expand_circuit(c_one; seed=s)[1]) for s in 1:10)
+        @test total_one == L * 10
+    end
+
+    @testset "Test 4: Multi-outcome Bricklayer(:odd)/(:even) fire independently" begin
+        L = 8
+        # Two independent compound outcomes
+        c = Circuit(L=L, bc=:periodic, n_steps=1) do b
+            apply_with_prob!(b; rng=:gates_spacetime, outcomes=[
+                (probability=0.5, gate=Measurement(:Z), geometry=Bricklayer(:odd)),
+                (probability=0.5, gate=Measurement(:Z), geometry=Bricklayer(:even))
+            ])
+        end
+
+        # Run 100 seeds; verify ops from both sublayers appear
+        # Bricklayer(:odd) L=8 :periodic → pairs (1,2),(3,4),(5,6),(7,8)
+        # Bricklayer(:even) L=8 :periodic → pairs (2,3),(4,5),(6,7),(8,1)
+        odd_seen = false   # pair [1,2] can only come from :odd
+        even_seen = false  # pair [2,3] can only come from :even
+
+        for s in 1:100
+            ops = expand_circuit(c; seed=s)[1]
+            for op in ops
+                if op.sites == [1, 2]
+                    odd_seen = true
+                elseif op.sites == [2, 3]
+                    even_seen = true
+                end
+            end
+            odd_seen && even_seen && break
+        end
+
+        @test odd_seen   # Bricklayer(:odd) fires independently
+        @test even_seen  # Bricklayer(:even) fires independently
+    end
+
+    @testset "Test 5: RNG alignment — expand_circuit(seed=X) ≡ simulate!(gates_spacetime=X)" begin
+        L = 4
+        circuit = Circuit(L=L, bc=:open, n_steps=1) do c
+            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+                (probability=0.5, gate=Measurement(:Z), geometry=AllSites())
+            ])
+        end
+
+        # expand_circuit(seed=42) is deterministic
+        meas_run1 = count(op -> op.label == "Meas", expand_circuit(circuit; seed=42)[1])
+        meas_run2 = count(op -> op.label == "Meas", expand_circuit(circuit; seed=42)[1])
+        @test meas_run1 == meas_run2
+
+        # RNG alignment: expand_circuit(seed=42) and simulate!(gates_spacetime=42)
+        # must consume MersenneTwister(42) in identical order → same Meas selections.
+        ops_exp = expand_circuit(circuit; seed=42)
+
+        # State A: manually apply ops selected by expand_circuit (no gates_spacetime draw)
+        state_a = SimulationState(L=L, bc=:open,
+            rng=RNGRegistry(gates_spacetime=99, gates_realization=2, born_measurement=3))
+        initialize!(state_a, ProductState(binary_int=0))
+        for op in ops_exp[1]
+            apply!(state_a, op.gate, SingleSite(op.sites[1]))
+        end
+
+        # State B: simulate! with gates_spacetime=42 (same seed used by expand_circuit)
+        state_b = SimulationState(L=L, bc=:open,
+            rng=RNGRegistry(gates_spacetime=42, gates_realization=2, born_measurement=3))
+        initialize!(state_b, ProductState(binary_int=0))
+        simulate!(circuit, state_b; n_circuits=1)
+
+        # Same gates fired in same order → same born_measurement draws → identical MPS
+        using ITensors: array
+        for i in 1:L
+            @test array(state_a.mps[i]) ≈ array(state_b.mps[i]) atol=1e-14
+        end
+
+        # Meas count from expand is in valid range
+        @test 0 <= meas_run1 <= L
     end
 end
