@@ -26,7 +26,7 @@ circuit = Circuit(L=4, bc=:periodic, n_steps=10) do c
     apply!(c, Reset(), StaircaseRight(1))
     
     # Stochastic branching
-    apply_with_prob!(c; rng=:ctrl, outcomes=[
+    apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
         (probability=0.3, gate=HaarRandom(), geometry=StaircaseLeft(4)),
         (probability=0.5, gate=Reset(), geometry=SingleSite(1))
         # Implicit 0.2 probability of "do nothing"

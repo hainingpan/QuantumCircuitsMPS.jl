@@ -213,7 +213,7 @@ Implements the Born rule measurement:
 - `gate`: SpinSectorMeasurement specifying allowed sectors
 - `sites`: ITensor site indices for the two sites
 - `local_dim`: Local Hilbert space dimension (must be 3 for spin-1)
-- `rng`: RNG registry for reproducible sampling (uses :born stream)
+- `rng`: RNG registry for reproducible sampling (uses :born_measurement stream)
 - `mps`: Current MPS state for computing Born probabilities
 - `ram_sites`: RAM indices of the two sites
 
@@ -246,9 +246,9 @@ function build_operator(gate::SpinSectorMeasurement, sites::Vector{<:Index}, loc
     probs ./= total_prob
     
     # === Step 3: Sample from the probability distribution ===
-    # Get the born RNG stream for reproducibility
-    born_rng = get_rng(rng, :born)
-    r = rand(born_rng)
+    # Get the born_measurement RNG stream for reproducibility
+    born_measurement_rng = get_rng(rng, :born_measurement)
+    r = rand(born_measurement_rng)
     
     cumprob = 0.0
     chosen_idx = length(probs)  # Default to last if rounding issues

@@ -26,7 +26,7 @@ Operations are stored as NamedTuples with different formats:
 
 **Stochastic outcomes (apply_with_prob!):**
 ```julia
-(type = :stochastic, rng = :ctrl, outcomes = [(probability=p, gate=g, geometry=geo), ...])
+(type = :stochastic, rng = :gates_spacetime, outcomes = [(probability=p, gate=g, geometry=geo), ...])
 ```
 
 # Construction
