@@ -11,21 +11,19 @@ MIPT (Measurement-Induced Phase Transition) and CIPT (Control-Induced Phase Tran
 
 ## What is QuantumCircuitsMPS.jl?
 
-**"PyTorch for Quantum Circuits"** — Physicists code as they speak, focusing on physics (Gates + Geometry) without touching MPS implementation details.
+- **"PyTorch for Quantum Circuits"** — Physicists code as they speak: focusing on physics without touching implementation details.
 
-QuantumCircuitsMPS.jl is a pure Julia library for simulating quantum circuits using Matrix Product State (MPS) methods. It's purpose-built for researchers studying measurement-induced and control-induced phase transitions in monitored quantum systems.
+- A pure Julia library for simulating quantum circuits using Matrix Product State (MPS) methods. It's purpose-built for researchers studying measurement-induced and control-induced phase transitions in monitored quantum systems.
 
 > ⚠️ **Note**: This package is under active development. APIs may change and bugs may exist. Please report issues on [GitHub](https://github.com/hainingpan/QuantumCircuitsMPS.jl/issues).
 
 **Why use this package?**
 
-1. **Pure Julia MPS simulation**: No Python dependencies. Native Julia performance with ITensors.jl backend, scaling to 100+ qubits.
+1. **Pure Julia MPS simulation**: Native Julia performance with ITensors.jl backend, scaling to 100+ qubits.
 
 2. **Physics-first API**: Write circuits using intuitive abstractions (Gates + Geometry) without managing MPS bond dimensions, index orderings, or truncation schemes. The library handles tensor network details internally.
 
-3. **Periodic boundary conditions**: Native PBC support via folded MPS indexing—standard MPS is naturally open boundary, but this package implements a novel folding trick (`ram_phy = [1, L, 2, L-1, ...]`) to support PBC efficiently without approximations or MPO tricks.
-
-4. **Reproducible randomness**: Independent RNG streams for each source (`:ctrl`, `:haar`, `:born`, `:proj`, `:state_init`) enable reproducible trajectories. Useful in cross entropy benchmark and study quantum flucutuations.
+3. **Reproducible randomness**: Independent RNG streams for each source (`:gates_spacetime`, `:gates_realization`, `:born_measurement`, `:state_init`) enable reproducible trajectories. Useful in cross entropy benchmark and study quantum flucutuations.
 
 **Philosophy**: Users write `apply!(state, HaarRandom(), Bricklayer(:odd))` and never see ITensor index objects, SVD calls, or orthogonalization centers. The package manages the gap between high-level physics intent and low-level tensor manipulations.
 
@@ -94,11 +92,22 @@ flowchart TB
 
 ## Installation
 
-QuantumCircuitsMPS.jl is not yet registered in the Julia General registry. Install directly from GitHub:
+`QuantumCircuitsMPS.jl` is not yet registered in the Julia General registry. Install directly from GitHub:
 
 ```julia
 using Pkg
 Pkg.add(url="https://github.com/hainingpan/QuantumCircuitsMPS.jl")
+```
+### Local development
+```bash
+cd /path/to/QuantumCircuitsMPS.jl
+julia --project=.
+```
+```julia
+using Pkg
+Pkg.instantiate()
+using QuantumCircuitsMPS
+using Revising
 ```
 
 ### Dependencies
@@ -126,11 +135,11 @@ n_steps = 50           # Time evolution steps
 circuit = Circuit(L=L, bc=:periodic, n_steps=1) do c
     # Even gates → measure → odd gates → measure per timestep
     apply!(c, HaarRandom(), Bricklayer(:even))
-    apply_with_prob!(c; rng=:ctrl, outcomes=[
+    apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
         (probability=p, gate=Measurement(:Z), geometry=AllSites())
     ])
     apply!(c, HaarRandom(), Bricklayer(:odd))
-    apply_with_prob!(c; rng=:ctrl, outcomes=[
+    apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
         (probability=p, gate=Measurement(:Z), geometry=AllSites())
     ])
 end
@@ -138,7 +147,7 @@ end
 # Initialize state and track entanglement entropy
 state = SimulationState(
     L=L, bc=:periodic, maxdim=64,
-    rng=RNGRegistry(ctrl=42, born=1, haar=2, proj=3)
+    rng=RNGRegistry(gates_spacetime=42, born_measurement=1, gates_realization=2)
 )
 initialize!(state, ProductState(binary_int=0))
 track!(state, :entropy => EntanglementEntropy(; cut=L÷2))
@@ -167,7 +176,7 @@ function run_cipt(L::Int, p_ctrl::Float64)
     
     # Circuit step: conditional branching based on control probability
     function circuit_step!(state, t)
-        apply_with_prob!(state; rng=:ctrl, outcomes=[
+        apply_with_prob!(state; rng=:gates_spacetime, outcomes=[
             (probability=p_ctrl, gate=Reset(), geometry=left),
             (probability=1-p_ctrl, gate=HaarRandom(), geometry=right)
         ])
@@ -212,7 +221,7 @@ proj_gate = SpinSectorProjection(P0 + P1)
 
 # Build circuit: apply projections to all NN pairs
 circuit = Circuit(L=L, bc=bc, n_steps=1) do c
-    apply_with_prob!(c; rng=:ctrl, outcomes=[
+    apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
         (probability=p_nn, gate=proj_gate, geometry=Bricklayer(:nn)),
         (probability=1-p_nn, gate=proj_gate, geometry=Bricklayer(:nnn))
     ])
@@ -220,7 +229,7 @@ end
 
 # Initialize state and track observables
 state = SimulationState(L=L, bc=bc, site_type="S=1", maxdim=128,
-    rng=RNGRegistry(ctrl=42, proj=1, haar=2, born=3))
+    rng=RNGRegistry(gates_spacetime=42, gates_realization=2, born_measurement=3))
 state.mps = MPS(state.sites, ["Z0" for _ in 1:L])
 
 track!(state, :entropy => EntanglementEntropy(cut=L÷2, order=1, base=2))
@@ -290,7 +299,7 @@ Note: `order=2` requires `j >= i+4` for non-overlapping endpoint pairs.
 | Function | Purpose | Example |
 |----------|---------|---------|
 | `apply!(state, gate, geometry)` | Apply a gate to specified sites | `apply!(state, HaarRandom(), Bricklayer(:odd))` |
-| `apply_with_prob!(state; rng, outcomes)` | Probabilistic gate application | `apply_with_prob!(state; rng=:ctrl, outcomes=[...])` |
+| `apply_with_prob!(state; rng, outcomes)` | Probabilistic gate application | `apply_with_prob!(state; rng=:gates_spacetime, outcomes=[...])` |
 | `simulate(; L, bc, init, ...)` | Functional simulation API | See CIPT example |
 | `track!(state, obs)` | Register observable for recording | `track!(state, :S => EntanglementEntropy())` |
 | `record!(state; kwargs...)` | Record current observable values | `record!(state; i1=5)` |
@@ -307,7 +316,7 @@ circuit = Circuit(L=12, bc=:periodic, n_steps=1) do c
 end
 
 # 2. Create and initialize state
-state = SimulationState(L=12, bc=:periodic, maxdim=64, rng=RNGRegistry(ctrl=42))
+state = SimulationState(L=12, bc=:periodic, maxdim=64, rng=RNGRegistry(gates_spacetime=42, gates_realization=1, born_measurement=2))
 initialize!(state, ProductState(binary_int=0))
 
 # 3. Track observables
