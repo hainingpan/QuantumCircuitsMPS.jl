@@ -74,12 +74,12 @@ println()
 circuit = Circuit(L=L, bc=bc, n_steps=1, p=p) do c
     # Even pairs + measure
     apply!(c, HaarRandom(), Bricklayer(:even))
-    apply_with_prob!(c; rng=:ctrl, outcomes=[
+    apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
         (probability=c.params[:p], gate=Measurement(:Z), geometry=AllSites())
     ])
     # Odd pairs + measure  
     apply!(c, HaarRandom(), Bricklayer(:odd))
-    apply_with_prob!(c; rng=:ctrl, outcomes=[
+    apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
         (probability=c.params[:p], gate=Measurement(:Z), geometry=AllSites())
     ])
 end
@@ -103,7 +103,7 @@ state = SimulationState(
     bc=bc,
     cutoff=1e-10,
     maxdim=maxdim,
-    rng = RNGRegistry(ctrl=42, born=1, haar=2, proj=3)
+    rng = RNGRegistry(gates_spacetime=42, born_measurement=1, gates_realization=2)
 )
 
 # Initialize to product state |0⟩⊗L

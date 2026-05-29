@@ -27,13 +27,13 @@ function run_sim(cfg)
     L, p, seed = cfg.L, cfg.p, cfg.seed
     
     circuit = Circuit(L=L, bc=bc, n_steps=1, p_nn=p, proj_gate=proj_gate) do c
-        apply_with_prob!(c; rng=:ctrl, outcomes=[
+        apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
             (probability=c.params[:p_nn], gate=c.params[:proj_gate], geometry=Bricklayer(:nn)),
             (probability=1-c.params[:p_nn], gate=c.params[:proj_gate], geometry=Bricklayer(:nnn))
         ])
     end
     
-    rng = RNGRegistry(ctrl=seed, proj=seed+100, haar=seed+200, born=seed+300)
+    rng = RNGRegistry(gates_spacetime=seed, gates_realization=seed+200, born_measurement=seed+300)
     state = SimulationState(L=L, bc=bc, site_type="S=1", maxdim=maxdim, rng=rng)
     initialize!(state, ProductState(spin_state="Z0"))
     
