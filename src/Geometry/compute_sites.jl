@@ -212,7 +212,7 @@ Compute sites for StaircaseRight geometry based on gate support.
 - For two-site gates (support == 2): `[pos, pos+1]` with PBC wrapping
 """
 function compute_sites(geo::StaircaseRight, step::Int, L::Int, bc::Symbol, gate::AbstractGate)
-    pos = compute_site_staircase_right(geo._position, step, L, bc)
+    pos = geo._position  # Read current position directly (step ignored; advance! manages progression)
     if support(gate) == 1
         return [pos]
     else  # support(gate) == 2
@@ -237,7 +237,7 @@ Compute sites for StaircaseLeft geometry based on gate support.
 - For two-site gates (support == 2): `[pos, pos+1]` with PBC wrapping
 """
 function compute_sites(geo::StaircaseLeft, step::Int, L::Int, bc::Symbol, gate::AbstractGate)
-    pos = compute_site_staircase_left(geo._position, step, L, bc)
+    pos = geo._position  # Read current position directly (step ignored; advance! manages progression)
     if support(gate) == 1
         return [pos]
     else  # support(gate) == 2
