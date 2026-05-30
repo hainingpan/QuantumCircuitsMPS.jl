@@ -244,6 +244,82 @@ end
     end
 end
 
+@testset "CIPT staircase: only selected staircase advances" begin
+    @testset "Deterministic staircase positions match step-based computation" begin
+        # StaircaseRight(1), L=4, PBC, 4 steps → positions 1→2→3→4 with wrap
+        circuit = Circuit(L=4, bc=:periodic, n_steps=4) do c
+            apply!(c, HaarRandom(), StaircaseRight(1))
+        end
+        ops = expand_circuit(circuit; seed=0)
+        @test ops[1][1].sites == [1, 2]
+        @test ops[2][1].sites == [2, 3]
+        @test ops[3][1].sites == [3, 4]
+        @test ops[4][1].sites == [4, 1]  # PBC wrap
+    end
+    
+    @testset "StaircaseLeft deterministic positions" begin
+        # StaircaseLeft(1), L=4, PBC, 4 steps → positions 1→4→3→2 (moves left)
+        circuit = Circuit(L=4, bc=:periodic, n_steps=4) do c
+            apply!(c, Reset(), StaircaseLeft(1))
+        end
+        ops = expand_circuit(circuit; seed=0)
+        @test ops[1][1].sites == [1]   # position 1 (single-site Reset)
+        @test ops[2][1].sites == [4]   # position 4 (moved left, PBC wrap)
+        @test ops[3][1].sites == [3]   # position 3
+        @test ops[4][1].sites == [2]   # position 2
+    end
+    
+    @testset "Stochastic CIPT: unselected staircase does not advance" begin
+        # With seed=42, step 1 selects Haar (right), steps 2-5 select Reset (left)
+        # After step 1: right at position 2, left still at 1
+        # After step 2: right at 2, left at 8 (moved left from 1)
+        left = StaircaseLeft(1)
+        right = StaircaseRight(1)
+        circuit = Circuit(L=8, bc=:periodic, n_steps=5) do c
+            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+                (probability=0.5, gate=Reset(), geometry=left),
+                (probability=0.5, gate=HaarRandom(), geometry=right)
+            ])
+        end
+        ops = expand_circuit(circuit; seed=42)
+        
+        # Step 1: Haar selected → right staircase at position 1 (initial)
+        @test !isempty(ops[1])
+        @test ops[1][1].label == "Haar"
+        @test ops[1][1].sites == [1, 2]  # right at position 1
+        
+        # Step 2: Reset selected → left staircase at position 1 (initial, never advanced)
+        @test !isempty(ops[2])
+        @test ops[2][1].label == "Rst"
+        @test ops[2][1].sites == [1]  # left at position 1 (initial)
+        
+        # Step 3: Reset selected → left staircase at position 8 (advanced once from 1)
+        @test !isempty(ops[3])
+        @test ops[3][1].label == "Rst"
+        @test ops[3][1].sites == [8]  # left moved left: 1 → 8 (PBC)
+    end
+    
+    @testset "expand_circuit determinism with stochastic staircases" begin
+        # Same seed → same expansion (reset ensures determinism)
+        left = StaircaseLeft(1)
+        right = StaircaseRight(1)
+        circuit = Circuit(L=8, bc=:periodic, n_steps=10) do c
+            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+                (probability=0.5, gate=Reset(), geometry=left),
+                (probability=0.5, gate=HaarRandom(), geometry=right)
+            ])
+        end
+        ops1 = expand_circuit(circuit; seed=42)
+        ops2 = expand_circuit(circuit; seed=42)
+        for i in 1:10
+            @test length(ops1[i]) == length(ops2[i])
+            if !isempty(ops1[i])
+                @test ops1[i][1].sites == ops2[i][1].sites
+            end
+        end
+    end
+end
+
 @testset "simulate! Execution" begin
     @testset "Basic execution without error" begin
         circuit = Circuit(L=4, bc=:periodic, n_steps=10) do c
