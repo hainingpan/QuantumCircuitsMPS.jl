@@ -144,3 +144,19 @@ end
 No-op base method for reset! on general geometries.
 """
 reset!(::AbstractGeometry) = nothing
+
+"""
+    sync_staircase_positions!(outcomes, selected_geo::AbstractStaircase)
+
+After advancing the selected staircase in a stochastic group, sync all other
+AbstractStaircase geometries in the group to the selected geometry's new position.
+This implements shared random-walk position for CIPT circuits.
+"""
+function sync_staircase_positions!(outcomes, selected_geo::AbstractStaircase)
+    for outcome in outcomes
+        geo = outcome.geometry
+        if geo isa AbstractStaircase && geo !== selected_geo
+            geo._position = selected_geo._position
+        end
+    end
+end

@@ -231,6 +231,7 @@ function simulate!(circuit::Circuit, state::SimulationState;
                                 # Advance only the SELECTED staircase
                                 if outcome.geometry isa AbstractStaircase
                                     advance!(outcome.geometry, circuit.L, circuit.bc)
+                                    sync_staircase_positions!(op.outcomes, outcome.geometry)
                                 end
                                 gate_executed = true
                                 current_gate = outcome.gate

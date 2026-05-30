@@ -250,6 +250,7 @@ function expand_circuit_grouped(circuit::Circuit; seed::Int=0)
                         push!(group_ops, ExpandedOp(step, selected.gate, sites, gate_label(selected.gate)))
                         if selected.geometry isa AbstractStaircase
                             advance!(selected.geometry, circuit.L, circuit.bc)
+                            sync_staircase_positions!(op.outcomes, selected.geometry)
                         end
                     end
                 end
