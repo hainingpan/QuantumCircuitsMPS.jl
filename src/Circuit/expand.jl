@@ -187,6 +187,8 @@ function expand_circuit_grouped(circuit::Circuit; seed::Int=0)
         end
     end
     
+    # Reset staircase positions before expansion
+    _reset_circuit_geometries!(circuit)
     rng = MersenneTwister(seed)
     result = Vector{Vector{Vector{ExpandedOp}}}()
     
@@ -205,6 +207,9 @@ function expand_circuit_grouped(circuit::Circuit; seed::Int=0)
                 else
                     sites = compute_sites_dispatch(op.geometry, op.gate, step, circuit.L, circuit.bc)
                     push!(group_ops, ExpandedOp(step, op.gate, sites, gate_label(op.gate)))
+                    if op.geometry isa AbstractStaircase
+                        advance!(op.geometry, circuit.L, circuit.bc)
+                    end
                 end
                 
              elseif op.type == :stochastic
@@ -227,6 +232,9 @@ function expand_circuit_grouped(circuit::Circuit; seed::Int=0)
                             if r < outcome.probability
                                 sites = compute_sites_dispatch(outcome.geometry, outcome.gate, step, circuit.L, circuit.bc)
                                 push!(outcome_ops, ExpandedOp(step, outcome.gate, sites, gate_label(outcome.gate)))
+                                if outcome.geometry isa AbstractStaircase
+                                    advance!(outcome.geometry, circuit.L, circuit.bc)
+                                end
                             end
                         end
 
@@ -240,6 +248,9 @@ function expand_circuit_grouped(circuit::Circuit; seed::Int=0)
                     if selected !== nothing
                         sites = compute_sites_dispatch(selected.geometry, selected.gate, step, circuit.L, circuit.bc)
                         push!(group_ops, ExpandedOp(step, selected.gate, sites, gate_label(selected.gate)))
+                        if selected.geometry isa AbstractStaircase
+                            advance!(selected.geometry, circuit.L, circuit.bc)
+                        end
                     end
                 end
             end

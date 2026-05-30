@@ -2,6 +2,24 @@
 # Executes Circuit objects on SimulationState with stochastic branch resolution
 
 """
+    _reset_circuit_geometries!(circuit::Circuit)
+
+Reset all staircase geometry positions to their initial values.
+Called at the start of each circuit replay to ensure deterministic behavior.
+"""
+function _reset_circuit_geometries!(circuit::Circuit)
+    for op in circuit.operations
+        if op.type == :deterministic
+            reset!(op.geometry)
+        elseif op.type == :stochastic
+            for outcome in op.outcomes
+                reset!(outcome.geometry)
+            end
+        end
+    end
+end
+
+"""
     simulate!(circuit::Circuit, state::SimulationState; n_circuits::Int=1, record_when::Union{Symbol,Function}=:every_step)
 
 Execute a circuit on a simulation state, applying gates and recording observables.
@@ -108,6 +126,8 @@ function simulate!(circuit::Circuit, state::SimulationState;
     
     # Execute n_circuits repetitions
     for circuit_idx in 1:n_circuits
+        # Reset staircase positions at start of each circuit replay
+        _reset_circuit_geometries!(circuit)
         should_record_this_step = false  # Flag for this circuit
         
         # Execute all n_steps of this circuit
@@ -137,6 +157,10 @@ function simulate!(circuit::Circuit, state::SimulationState;
                         # Simple geometry: existing path
                         sites = compute_sites_dispatch(op.geometry, op.gate, step, circuit.L, circuit.bc)
                         execute_gate!(state, op.gate, sites)
+                        # Advance staircase after deterministic application
+                        if op.geometry isa AbstractStaircase
+                            advance!(op.geometry, circuit.L, circuit.bc)
+                        end
                         gate_executed = true
                         current_gate = op.gate
                     end
@@ -171,6 +195,10 @@ function simulate!(circuit::Circuit, state::SimulationState;
                                 if r < outcome.probability
                                     sites = compute_sites_dispatch(outcome.geometry, outcome.gate, step, circuit.L, circuit.bc)
                                     execute_gate!(state, outcome.gate, sites)
+                                    # Advance staircase if this non-compound outcome was selected
+                                    if outcome.geometry isa AbstractStaircase
+                                        advance!(outcome.geometry, circuit.L, circuit.bc)
+                                    end
                                     gate_idx += 1
                                     is_step_boundary = (step == circuit.n_steps) &&
                                                        (op_idx == length(circuit.operations)) &&
@@ -200,6 +228,10 @@ function simulate!(circuit::Circuit, state::SimulationState;
                             if r < cumulative
                                 sites = compute_sites_dispatch(outcome.geometry, outcome.gate, step, circuit.L, circuit.bc)
                                 execute_gate!(state, outcome.gate, sites)
+                                # Advance only the SELECTED staircase
+                                if outcome.geometry isa AbstractStaircase
+                                    advance!(outcome.geometry, circuit.L, circuit.bc)
+                                end
                                 gate_executed = true
                                 current_gate = outcome.gate
                                 break
