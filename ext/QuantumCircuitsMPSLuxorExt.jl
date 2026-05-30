@@ -16,54 +16,40 @@ function Base.show(io::IO, ::MIME"image/svg+xml", img::SVGImage)
 end
 
 """
-    plot_circuit(circuit::Circuit; filename::Union{String, Nothing}=nothing)
+    plot_circuit(circuit::Circuit; gates_spacetime::Int=0, filename=nothing)
 
-Export the circuit TEMPLATE diagram to SVG using Luxor.jl.
+Export a quantum circuit diagram to SVG using Luxor.jl.
 
-Shows all operation layers unconditionally — stochastic outcomes are annotated
-with their probability (e.g., `Meas(0.15)`) so the template view is clear.
-
-Renders the circuit as a wire diagram with:
-- Vertical lines representing qubit wires (labeled q1, q2, ...)
-- Boxes with gate labels at sites where gates act
-- Row headers showing step numbers (with letter suffixes for multi-op steps)
-- Time axis goes upward, qubits spread horizontally
+Shows a specific stochastic realization determined by the `gates_spacetime` RNG seed,
+matching what `expand_circuit(circuit; seed=gates_spacetime)` produces.
 
 # Arguments
 - `circuit::Circuit`: The circuit to visualize
-- `filename::Union{String, Nothing}=nothing`: Output file path (SVG format). If `nothing`, returns `SVGImage` for auto-display in Jupyter.
-
-# Returns
-- If `filename === nothing`: Returns `SVGImage` wrapper (auto-displays in Jupyter notebooks)
-- If `filename` provided: Writes to file and returns `nothing`
-
-# Requirements
-Requires `Luxor` to be loaded (`using Luxor` before calling).
+- `gates_spacetime::Int=0`: RNG seed controlling which stochastic branches fire.
+  Same seed = same diagram = same realization as `simulate!`.
+- `filename::Union{String, Nothing}=nothing`: Output file path (SVG format).
+  If `nothing`, returns `SVGImage` for auto-display in Jupyter.
 
 # Example
 ```julia
-using QuantumCircuitsMPS
-using Luxor  # Load the extension
+using QuantumCircuitsMPS, Luxor
 
-circuit = Circuit(L=4, bc=:periodic, n_steps=5) do c
-    apply!(c, Reset(), StaircaseRight(1))
+circuit = Circuit(L=8, bc=:periodic, n_steps=1) do c
+    apply!(c, HaarRandom(), Bricklayer(:even))
     apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
-        (probability=0.5, gate=HaarRandom(), geometry=StaircaseLeft(4))
+        (probability=0.15, gate=Measurement(:Z), geometry=AllSites())
     ])
 end
 
-# Auto-display in Jupyter (returns SVGImage)
-plot_circuit(circuit)
-
-# Export to file
-plot_circuit(circuit; filename="my_circuit.svg")
+plot_circuit(circuit; gates_spacetime=42)
+plot_circuit(circuit; gates_spacetime=42, filename="my_circuit.svg")
 ```
 
 # See Also
 - [`print_circuit`](@ref): ASCII visualization (no Luxor required)
-- [`expand_circuit`](@ref): Get a concrete stochastic realization
+- [`expand_circuit`](@ref): Get the concrete operations being visualized
 """
-function QuantumCircuitsMPS._plot_circuit_impl(circuit::Circuit; filename::Union{String, Nothing}=nothing)
+function QuantumCircuitsMPS._plot_circuit_impl(circuit::Circuit; gates_spacetime::Int=0, filename::Union{String, Nothing}=nothing)
     # TODO: Known bug - non-adjacent gates (e.g., NNN gates) are not rendered correctly.
     # The current implementation assumes gates act on adjacent or contiguous qubit ranges.
     
@@ -143,61 +129,7 @@ function QuantumCircuitsMPS._plot_circuit_impl(circuit::Circuit; filename::Union
         end
     end
     
-    # Build template groups: steps → groups → ops (same format as expand_circuit_grouped,
-    # but ALL stochastic outcomes are included unconditionally instead of sampling with seed)
-    function build_template_groups(circ)
-        res = Vector{Vector{Vector{ExpandedOp}}}()
-
-        for step in 1:circ.n_steps
-            step_groups = Vector{Vector{ExpandedOp}}()
-
-            for op in circ.operations
-                if op.type == :deterministic
-                    group_ops = ExpandedOp[]
-                    if is_compound_geometry(op.geometry)
-                        elements = get_compound_elements(op.geometry, circ.L, circ.bc)
-                        for sites in elements
-                            push!(group_ops, ExpandedOp(step, op.gate, sites, gate_label(op.gate)))
-                        end
-                    else
-                        sites = compute_sites_dispatch(op.geometry, op.gate, step, circ.L, circ.bc)
-                        push!(group_ops, ExpandedOp(step, op.gate, sites, gate_label(op.gate)))
-                    end
-                    if !isempty(group_ops)
-                        push!(step_groups, group_ops)
-                    end
-
-                elseif op.type == :stochastic
-                    # Show ALL outcomes unconditionally — this is the circuit template
-                    for outcome in op.outcomes
-                        outcome_ops = ExpandedOp[]
-                        # Annotate label with probability so template view distinguishes from deterministic ops
-                        p = outcome.probability
-                        base_label = gate_label(outcome.gate)
-                        label = p == 1.0 ? base_label : string(base_label, "(", round(p; digits=2), ")")
-                        if is_compound_geometry(outcome.geometry)
-                            elements = get_compound_elements(outcome.geometry, circ.L, circ.bc)
-                            for sites in elements
-                                push!(outcome_ops, ExpandedOp(step, outcome.gate, sites, label))
-                            end
-                        else
-                            sites = compute_sites_dispatch(outcome.geometry, outcome.gate, step, circ.L, circ.bc)
-                            push!(outcome_ops, ExpandedOp(step, outcome.gate, sites, label))
-                        end
-                        if !isempty(outcome_ops)
-                            push!(step_groups, outcome_ops)
-                        end
-                    end
-                end
-            end
-
-            push!(res, step_groups)
-        end
-        return res
-    end
-
-    # Build groups from circuit template (all ops shown, no stochastic sampling)
-    expanded = build_template_groups(circuit)
+    expanded = expand_circuit_grouped(circuit; seed=gates_spacetime)
     
     # Helper: check if two ops overlap (share any qubits)
     function ops_overlap(op1, op2)

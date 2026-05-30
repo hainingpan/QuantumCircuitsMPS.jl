@@ -20,8 +20,8 @@ circuit = Circuit(L=4, bc=:periodic, n_steps=4) do c
     apply!(c, Reset(), StaircaseRight(1))
 end
 
-print_circuit(circuit)  # Terminal output
-print_circuit(circuit; unicode=false)  # ASCII mode
+print_circuit(circuit; gates_spacetime=42)  # Terminal output
+print_circuit(circuit; gates_spacetime=42, unicode=false)  # ASCII mode
 ```
 
 # SVG Visualization
@@ -30,12 +30,12 @@ Files can be embedded in documentation, presentations, or papers.
 
 ```julia
 using Luxor  # Load extension
-plot_circuit(circuit; filename="diagram.svg")
+plot_circuit(circuit; gates_spacetime=42, filename="diagram.svg")
 ```
 
-# Template Rendering
-Both visualization methods show the circuit TEMPLATE — all stochastic outcomes
-are displayed unconditionally with probability annotations (e.g., `Meas(0.15)`).
+# Deterministic Rendering
+Both methods use the `gates_spacetime` RNG seed for stochastic branch resolution,
+matching `expand_circuit(circuit; seed=gates_spacetime)`.
 
 # See Also
 - [`Circuit`](@ref): Build circuits for visualization

@@ -344,7 +344,7 @@ end
         end
         
         io = IOBuffer()
-        print_circuit(circuit; io=io)
+        print_circuit(circuit; gates_spacetime=0, io=io)
         output = String(take!(io))
         
         # Check for expected content (transposed layout: qubits as columns, time as rows)
@@ -370,7 +370,7 @@ end
         end
         
         io = IOBuffer()
-        print_circuit(circuit; io=io)
+        print_circuit(circuit; gates_spacetime=0, io=io)
         output = String(take!(io))
         
         # Should render without error and contain circuit structure
@@ -385,7 +385,7 @@ end
         end
         
         io = IOBuffer()
-        print_circuit(circuit; io=io)
+        print_circuit(circuit; gates_spacetime=0, io=io)
         output = String(take!(io))
         
         # CZ label should appear (spanning box shows it once)
@@ -400,7 +400,7 @@ end
         end
         
         io = IOBuffer()
-        print_circuit(circuit; io=io, unicode=false)
+        print_circuit(circuit; gates_spacetime=0, io=io, unicode=false)
         output = String(take!(io))
         
         # Should use ASCII characters (-, |) instead of Unicode
@@ -420,7 +420,7 @@ end
         end
         
         io = IOBuffer()
-        print_circuit(circuit; io=io)
+        print_circuit(circuit; gates_spacetime=0, io=io)
         output = String(take!(io))
         
         # Should handle empty steps (do-nothing branches) without error
@@ -437,7 +437,7 @@ end
         end
         
         io = IOBuffer()
-        print_circuit(circuit; io=io)
+        print_circuit(circuit; gates_spacetime=0, io=io)
         output = String(take!(io))
         
         # Verify structure (transposed: qubits as columns, time as rows)
@@ -463,7 +463,7 @@ end
         end
         
         io = IOBuffer()
-        print_circuit(circuit; io=io)
+        print_circuit(circuit; gates_spacetime=0, io=io)
         output = String(take!(io))
         
         # Verify structure and gate labels
@@ -488,7 +488,7 @@ end
         end
         
         io = IOBuffer()
-        print_circuit(circuit; io=io)
+        print_circuit(circuit; gates_spacetime=0, io=io)
         output = String(take!(io))
         
         # Verify structure
@@ -509,7 +509,7 @@ end
         end
         
         io = IOBuffer()
-        print_circuit(circuit; io=io)
+        print_circuit(circuit; gates_spacetime=0, io=io)
         output = String(take!(io))
         
         # Verify structure
@@ -532,7 +532,7 @@ end
         end
         
         io = IOBuffer()
-        print_circuit(circuit; io=io)
+        print_circuit(circuit; gates_spacetime=0, io=io)
         output = String(take!(io))
         
         # Verify structure
@@ -554,7 +554,7 @@ end
         end
         
         io = IOBuffer()
-        print_circuit(circuit; io=io)
+        print_circuit(circuit; gates_spacetime=0, io=io)
         output = String(take!(io))
         
         # Verify structure
@@ -575,7 +575,7 @@ end
         end
         
         io = IOBuffer()
-        print_circuit(circuit; io=io)
+        print_circuit(circuit; gates_spacetime=0, io=io)
         output = String(take!(io))
         
         # Verify structure
@@ -598,7 +598,7 @@ end
         end
         
         io = IOBuffer()
-        print_circuit(circuit; io=io, unicode=false)
+        print_circuit(circuit; gates_spacetime=0, io=io, unicode=false)
         output = String(take!(io))
         
         # Verify ASCII characters
@@ -691,7 +691,7 @@ end
             apply!(c, HaarRandom(), AdjacentPair(1))
         end
         
-        ascii = sprint((io) -> print_circuit(circuit; io=io))
+        ascii = sprint((io) -> print_circuit(circuit; gates_spacetime=0, io=io))
         
         # Label "Haar" should appear exactly once in the output
         @test count("Haar", ascii) == 1
@@ -713,7 +713,7 @@ end
             apply!(c, CZ(), AdjacentPair(2))
         end
         
-        ascii = sprint((io) -> print_circuit(circuit; io=io))
+        ascii = sprint((io) -> print_circuit(circuit; gates_spacetime=0, io=io))
         
         # Label "CZ" should appear exactly once
         @test count("CZ", ascii) == 1
@@ -725,7 +725,7 @@ end
             apply!(c, PauliX(), SingleSite(2))
         end
         
-        ascii = sprint((io) -> print_circuit(circuit; io=io))
+        ascii = sprint((io) -> print_circuit(circuit; gates_spacetime=0, io=io))
         
         # Label "X" should appear exactly once
         @test count("X", ascii) == 1
@@ -765,7 +765,7 @@ end
             apply!(c, PauliY(), SingleSite(2))
         end
         
-        ascii = sprint((io) -> print_circuit(circuit; io=io))
+        ascii = sprint((io) -> print_circuit(circuit; gates_spacetime=0, io=io))
         lines = split(ascii, "\n")
         
         # Find non-empty lines after header
@@ -797,7 +797,7 @@ end
             apply!(c, HaarRandom(), AdjacentPair(1))
         end
         
-        ascii = sprint((io) -> print_circuit(circuit; io=io))
+        ascii = sprint((io) -> print_circuit(circuit; gates_spacetime=0, io=io))
         
         # Label "Haar" should appear exactly once (spanning box preserved)
         @test count("Haar", ascii) == 1
@@ -824,7 +824,7 @@ end
             
             # Generate SVG to temporary file
             svg_path = tempname() * ".svg"
-            plot_circuit(circuit; filename=svg_path)
+            plot_circuit(circuit; gates_spacetime=0, filename=svg_path)
             
             # Read SVG content
             svg_content = read(svg_path, String)
@@ -865,7 +865,7 @@ end
             Base.require(Main, :Luxor)
             
             svg_path = tempname() * ".svg"
-            plot_circuit(circuit; filename=svg_path)
+            plot_circuit(circuit; gates_spacetime=0, filename=svg_path)
             
             svg_content = read(svg_path, String)
             
@@ -1165,7 +1165,7 @@ end
             Base.require(Main, :Luxor)
             
             svg_path = tempname() * ".svg"
-            plot_circuit(circuit; filename=svg_path)
+            plot_circuit(circuit; gates_spacetime=0, filename=svg_path)
             svg = read(svg_path, String)
             rm(svg_path)
             
@@ -1192,7 +1192,7 @@ end
             Base.require(Main, :Luxor)
             
             svg_path = tempname() * ".svg"
-            plot_circuit(circuit; filename=svg_path)
+            plot_circuit(circuit; gates_spacetime=0, filename=svg_path)
             svg = read(svg_path, String)
             rm(svg_path)
             
@@ -1219,7 +1219,7 @@ end
             Base.require(Main, :Luxor)
             
             svg_path = tempname() * ".svg"
-            plot_circuit(circuit; filename=svg_path)
+            plot_circuit(circuit; gates_spacetime=0, filename=svg_path)
             svg = read(svg_path, String)
             rm(svg_path)
             
@@ -1253,7 +1253,7 @@ end
             Base.require(Main, :Luxor)
             
             svg_path = tempname() * ".svg"
-            plot_circuit(circuit; filename=svg_path)
+            plot_circuit(circuit; gates_spacetime=0, filename=svg_path)
             svg = read(svg_path, String)
             rm(svg_path)
             

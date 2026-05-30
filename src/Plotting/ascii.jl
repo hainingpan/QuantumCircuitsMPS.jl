@@ -63,21 +63,16 @@ function build_template_groups_ascii(circuit)
 end
 
 """
-    print_circuit(circuit::Circuit; io::IO=stdout, unicode::Bool=true)
+    print_circuit(circuit::Circuit; gates_spacetime::Int=0, io::IO=stdout, unicode::Bool=true)
 
-Print an ASCII visualization of the circuit TEMPLATE showing all operation layers.
+Print an ASCII visualization of a quantum circuit realization.
 
-Renders the circuit as a grid with:
-- Qubit labels as column headers (q1, q2, q3...)
-- Time steps as rows (1:, 2a:, 2b:, 3:...)
-- Gate labels in boxes at operation sites (stochastic ops annotated with probability)
-- Fixed-width columns for alignment
-
-Stochastic operations (apply_with_prob!) show ALL outcomes as separate rows,
-with probability annotations (e.g., `Meas(0.15)`) to distinguish from deterministic ops.
+Shows the stochastic realization determined by `gates_spacetime` RNG seed,
+matching what `expand_circuit(circuit; seed=gates_spacetime)` produces.
 
 # Arguments
 - `circuit::Circuit`: Circuit to visualize
+- `gates_spacetime::Int=0`: RNG seed controlling which stochastic branches fire.
 - `io::IO`: Output stream (default: stdout)
 - `unicode::Bool`: Use Unicode box-drawing characters (default: true)
 
@@ -121,7 +116,7 @@ print_circuit(circuit; unicode=false)
 - `expand_circuit`: Get a concrete stochastic realization
 - `ExpandedOp`: Concrete operation representation
 """
-function print_circuit(io::IO, circuit::Circuit; unicode::Bool=true)
+function print_circuit(io::IO, circuit::Circuit; gates_spacetime::Int=0, unicode::Bool=true)
     # Character sets
     WIRE = unicode ? '─' : '-'
     LEFT_BOX = unicode ? '┤' : '|'
@@ -142,8 +137,8 @@ function print_circuit(io::IO, circuit::Circuit; unicode::Bool=true)
         return false
     end
     
-    # 1. Build circuit template groups (ALL outcomes shown unconditionally)
-    expanded = build_template_groups_ascii(circuit)
+    # 1. Expand circuit with the given RNG seed
+    expanded = expand_circuit_grouped(circuit; seed=gates_spacetime)
     
     # 2. Build row list: (step_idx, substep_letter, ops_list)
     # ops_list is a Vector{ExpandedOp} of gates rendered on the same row
@@ -257,10 +252,10 @@ function print_circuit(io::IO, circuit::Circuit; unicode::Bool=true)
 end
 
 """
-    print_circuit(circuit::Circuit; io::IO=stdout, unicode::Bool=true)
+    print_circuit(circuit::Circuit; gates_spacetime::Int=0, io::IO=stdout, unicode::Bool=true)
 
 Convenience form. Calls `print_circuit(io, circuit; ...)`.
 """
-function print_circuit(circuit::Circuit; io::IO=stdout, unicode::Bool=true)
-    print_circuit(io, circuit; unicode=unicode)
+function print_circuit(circuit::Circuit; gates_spacetime::Int=0, io::IO=stdout, unicode::Bool=true)
+    print_circuit(io, circuit; gates_spacetime=gates_spacetime, unicode=unicode)
 end
