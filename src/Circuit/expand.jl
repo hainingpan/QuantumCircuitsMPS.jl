@@ -155,7 +155,7 @@ function compute_sites_dispatch(geo::AbstractGeometry, gate::AbstractGate, step:
 end
 
 """
-    expand_circuit_grouped(circuit::Circuit; seed::Int=0) -> Vector{Vector{Vector{ExpandedOp}}}
+    expand_circuit_grouped(circuit::Circuit; n_steps::Int=1, seed::Int=0) -> Vector{Vector{Vector{ExpandedOp}}}
 
 Expand a symbolic circuit to concrete gate operations, preserving operation groups.
 
@@ -163,6 +163,11 @@ Each `apply!` or `apply_with_prob!` call in the circuit definition becomes one g
 This grouping is essential for visualization: gates within the same group (e.g., all
 pairs in a `Bricklayer`) can be rendered on the same row, while different groups
 (e.g., a Bricklayer followed by AllSites measurements) get separate rows.
+
+# Arguments
+- `circuit::Circuit`: The circuit to expand (one time step)
+- `n_steps::Int`: Number of times to repeat the circuit step (default: 1)
+- `seed::Int`: RNG seed for stochastic branch selection (default: 0)
 
 # Returns
 - `Vector{Vector{Vector{ExpandedOp}}}`: steps → groups → ops.
@@ -175,7 +180,7 @@ Groups with no operations (stochastic "do nothing" branches) are omitted.
 # See Also
 - [`expand_circuit`](@ref): Flat version (no grouping) for backward compatibility
 """
-function expand_circuit_grouped(circuit::Circuit; seed::Int=0)
+function expand_circuit_grouped(circuit::Circuit; n_steps::Int=1, seed::Int=0)
     # Validate all geometries upfront
     for op in circuit.operations
         if op.type == :deterministic
@@ -192,7 +197,7 @@ function expand_circuit_grouped(circuit::Circuit; seed::Int=0)
     rng = MersenneTwister(seed)
     result = Vector{Vector{Vector{ExpandedOp}}}()
     
-    for step in 1:circuit.n_steps
+    for step in 1:n_steps
         step_groups = Vector{Vector{ExpandedOp}}()
         
         for op in circuit.operations
@@ -268,12 +273,17 @@ function expand_circuit_grouped(circuit::Circuit; seed::Int=0)
 end
 
 """
-    expand_circuit(circuit::Circuit; seed::Int=0) -> Vector{Vector{ExpandedOp}}
+    expand_circuit(circuit::Circuit; n_steps::Int=1, seed::Int=0) -> Vector{Vector{ExpandedOp}}
 
 Expand a symbolic circuit to a flat list of concrete gate operations per timestep.
 
 This is the backward-compatible flat version. For visualization, prefer
 [`expand_circuit_grouped`](@ref) which preserves operation group boundaries.
+
+# Arguments
+- `circuit::Circuit`: The circuit to expand (one time step)
+- `n_steps::Int`: Number of times to repeat the circuit step (default: 1)
+- `seed::Int`: RNG seed for stochastic branch selection (default: 0)
 
 # Returns
 - `Vector{Vector{ExpandedOp}}`: Outer vector has length `n_steps`, inner vectors contain
@@ -283,7 +293,7 @@ This is the backward-compatible flat version. For visualization, prefer
 # See Also
 - [`expand_circuit_grouped`](@ref): Grouped version for visualization
 """
-function expand_circuit(circuit::Circuit; seed::Int=0)
-    grouped = expand_circuit_grouped(circuit; seed=seed)
+function expand_circuit(circuit::Circuit; n_steps::Int=1, seed::Int=0)
+    grouped = expand_circuit_grouped(circuit; n_steps=n_steps, seed=seed)
     return [reduce(vcat, groups; init=ExpandedOp[]) for groups in grouped]
 end

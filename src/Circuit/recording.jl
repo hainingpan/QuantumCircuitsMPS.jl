@@ -4,7 +4,7 @@
 Context information passed to recording predicate functions during circuit execution.
 
 # Fields
-- `step_idx::Int`: Current circuit execution index (1 to n_circuits)
+- `step_idx::Int`: Current step index (1 to n_steps passed to simulate!)
 - `gate_idx::Int`: Cumulative gate count across all steps (never resets)
 - `gate_type::Any`: The gate being applied
 - `is_step_boundary::Bool`: True when at the last gate of the current step
@@ -70,7 +70,7 @@ end
 # === Recording Evaluation Helpers (used by simulate!) ===
 
 """
-    _evaluate_recording(record_when, ctx, circuit_idx, n_circuits) -> (set_flag::Bool, record_now::Bool)
+    _evaluate_recording(record_when, ctx, step_idx, n_steps) -> (set_flag::Bool, record_now::Bool)
 
 Evaluate recording criteria and return whether to set the recording flag and/or record immediately.
 
@@ -81,21 +81,21 @@ Returns a tuple:
 - `set_flag`: Whether to set `should_record_this_step = true`
 - `record_now`: Whether to call `record!(state)` immediately
 """
-function _evaluate_recording(record_when::Symbol, ctx::RecordingContext, circuit_idx::Int, n_circuits::Int)
+function _evaluate_recording(record_when::Symbol, ctx::RecordingContext, step_idx::Int, n_steps::Int)
     is_step_boundary = ctx.is_step_boundary
     
     if record_when == :every_step && is_step_boundary
         return (true, false)
     elseif record_when == :every_gate
         return (false, true)  # Record immediately for compound geometry case
-    elseif record_when == :final_only && is_step_boundary && circuit_idx == n_circuits
+    elseif record_when == :final_only && is_step_boundary && step_idx == n_steps
         return (true, false)
     else
         return (false, false)
     end
 end
 
-function _evaluate_recording(record_when::Function, ctx::RecordingContext, circuit_idx::Int, n_circuits::Int)
+function _evaluate_recording(record_when::Function, ctx::RecordingContext, step_idx::Int, n_steps::Int)
     if record_when(ctx)
         return (true, false)
     else
@@ -104,13 +104,13 @@ function _evaluate_recording(record_when::Function, ctx::RecordingContext, circu
 end
 
 """
-    _should_record_at_step_boundary(record_when, circuit_idx, n_circuits) -> Bool
+    _should_record_at_step_boundary(record_when, step_idx, n_steps) -> Bool
 
 Check if recording should occur at a step boundary (simplified check without gate context).
 Used after compound geometry loops where step boundary may need to be handled.
 """
-function _should_record_at_step_boundary(record_when::Symbol, circuit_idx::Int, n_circuits::Int)
-    record_when == :every_step || (record_when == :final_only && circuit_idx == n_circuits)
+function _should_record_at_step_boundary(record_when::Symbol, step_idx::Int, n_steps::Int)
+    record_when == :every_step || (record_when == :final_only && step_idx == n_steps)
 end
 
-_should_record_at_step_boundary(record_when::Function, circuit_idx::Int, n_circuits::Int) = false
+_should_record_at_step_boundary(record_when::Function, step_idx::Int, n_steps::Int) = false

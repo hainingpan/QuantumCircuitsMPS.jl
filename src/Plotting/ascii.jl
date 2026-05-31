@@ -1,7 +1,7 @@
 # === ASCII Circuit Visualization ===
 
 """
-    build_template_groups_ascii(circuit) -> Vector{Vector{Vector{ExpandedOp}}}
+    build_template_groups_ascii(circuit; n_steps::Int=1) -> Vector{Vector{Vector{ExpandedOp}}}
 
 Build operation groups for ASCII rendering by iterating `circuit.operations` directly,
 showing ALL outcomes of stochastic operations unconditionally (circuit template).
@@ -11,10 +11,10 @@ For stochastic ops: one group per outcome (ALL outcomes shown, no random selecti
 
 Returns the same steps → groups → ops structure as expand_circuit_grouped.
 """
-function build_template_groups_ascii(circuit)
+function build_template_groups_ascii(circuit; n_steps::Int=1)
     result = Vector{Vector{Vector{ExpandedOp}}}()
 
-    for step in 1:circuit.n_steps
+    for step in 1:n_steps
         step_groups = Vector{Vector{ExpandedOp}}()
 
         for op in circuit.operations
@@ -63,7 +63,7 @@ function build_template_groups_ascii(circuit)
 end
 
 """
-    print_circuit(circuit::Circuit; gates_spacetime::Int=0, io::IO=stdout, unicode::Bool=true)
+    print_circuit(circuit::Circuit; n_steps::Int=1, gates_spacetime::Int=0, io::IO=stdout, unicode::Bool=true)
 
 Print an ASCII visualization of a quantum circuit realization.
 
@@ -72,6 +72,7 @@ matching what `expand_circuit(circuit; seed=gates_spacetime)` produces.
 
 # Arguments
 - `circuit::Circuit`: Circuit to visualize
+- `n_steps::Int=1`: Number of circuit steps to visualize (default: 1)
 - `gates_spacetime::Int=0`: RNG seed controlling which stochastic branches fire.
 - `io::IO`: Output stream (default: stdout)
 - `unicode::Bool`: Use Unicode box-drawing characters (default: true)
@@ -98,25 +99,25 @@ For gates spanning multiple sites (e.g., CZ on sites [2, 3]):
 # Examples
 ```julia
 # Basic usage
-circuit = Circuit(L=4, bc=:periodic, n_steps=4) do c
+circuit = Circuit(L=4, bc=:periodic) do c
     apply!(c, Reset(), StaircaseRight(1))
 end
-print_circuit(circuit)
+print_circuit(circuit; n_steps=4)
 
 # Output to file
 open("circuit.txt", "w") do io
-    print_circuit(io, circuit)
+    print_circuit(io, circuit; n_steps=4)
 end
 
 # ASCII mode (no Unicode)
-print_circuit(circuit; unicode=false)
+print_circuit(circuit; n_steps=4, unicode=false)
 ```
 
 # See Also
 - `expand_circuit`: Get a concrete stochastic realization
 - `ExpandedOp`: Concrete operation representation
 """
-function print_circuit(io::IO, circuit::Circuit; gates_spacetime::Int=0, unicode::Bool=true)
+function print_circuit(io::IO, circuit::Circuit; n_steps::Int=1, gates_spacetime::Int=0, unicode::Bool=true)
     # Character sets
     WIRE = unicode ? '─' : '-'
     LEFT_BOX = unicode ? '┤' : '|'
@@ -138,7 +139,7 @@ function print_circuit(io::IO, circuit::Circuit; gates_spacetime::Int=0, unicode
     end
     
     # 1. Expand circuit with the given RNG seed
-    expanded = expand_circuit_grouped(circuit; seed=gates_spacetime)
+    expanded = expand_circuit_grouped(circuit; n_steps=n_steps, seed=gates_spacetime)
     
     # 2. Build row list: (step_idx, substep_letter, ops_list)
     # ops_list is a Vector{ExpandedOp} of gates rendered on the same row
@@ -252,10 +253,10 @@ function print_circuit(io::IO, circuit::Circuit; gates_spacetime::Int=0, unicode
 end
 
 """
-    print_circuit(circuit::Circuit; gates_spacetime::Int=0, io::IO=stdout, unicode::Bool=true)
+    print_circuit(circuit::Circuit; n_steps::Int=1, gates_spacetime::Int=0, io::IO=stdout, unicode::Bool=true)
 
 Convenience form. Calls `print_circuit(io, circuit; ...)`.
 """
-function print_circuit(circuit::Circuit; gates_spacetime::Int=0, io::IO=stdout, unicode::Bool=true)
-    print_circuit(io, circuit; gates_spacetime=gates_spacetime, unicode=unicode)
+function print_circuit(circuit::Circuit; n_steps::Int=1, gates_spacetime::Int=0, io::IO=stdout, unicode::Bool=true)
+    print_circuit(io, circuit; n_steps=n_steps, gates_spacetime=gates_spacetime, unicode=unicode)
 end

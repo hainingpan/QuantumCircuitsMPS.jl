@@ -65,7 +65,7 @@ println("  p_ctrl = $p_ctrl (control probability)")
 left = StaircaseLeft(1)
 right = StaircaseRight(1)
 
-circuit = Circuit(L=L, bc=bc, n_steps=n_steps, p_ctrl=p_ctrl) do c
+circuit = Circuit(L=L, bc=bc, p_ctrl=p_ctrl) do c
     apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
         (probability=c.params[:p_ctrl], gate=Reset(), geometry=left),
         (probability=1-c.params[:p_ctrl], gate=HaarRandom(), geometry=right)
@@ -73,7 +73,6 @@ circuit = Circuit(L=L, bc=bc, n_steps=n_steps, p_ctrl=p_ctrl) do c
 end
 
 println("Circuit built successfully")
-println("  Total timesteps: $(circuit.n_steps)")
 println("  System size: $(circuit.L) qubits")
 println("  Boundary conditions: $(circuit.bc)")
 
@@ -102,9 +101,9 @@ initialize!(state, ProductState(binary_int=0))
 # Track magnetization
 track!(state, :Mz => Magnetization(:Z))
 
-# Run simulation: n_circuits=1 since n_steps is already inside the circuit
+# Run simulation: n_steps controls how many times the circuit do-block runs
 # record_when=:every_gate records after each gate (1 gate per step)
-simulate!(circuit, state; n_circuits=1, record_when=:every_gate)
+simulate!(circuit, state; n_steps=n_steps, record_when=:every_gate)
 
 # Extract magnetization values
 mz_vals = state.observables[:Mz]
@@ -129,7 +128,7 @@ function run_cipt(; L, p_ctrl, seed, bc=:periodic, n_steps=L^2, maxdim=1024)
     left = StaircaseLeft(1)
     right = StaircaseRight(1)
 
-    circuit = Circuit(L=L, bc=bc, n_steps=n_steps, p_ctrl=p_ctrl) do c
+    circuit = Circuit(L=L, bc=bc, p_ctrl=p_ctrl) do c
         apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
             (probability=c.params[:p_ctrl], gate=Reset(), geometry=left),
             (probability=1-c.params[:p_ctrl], gate=HaarRandom(), geometry=right)
@@ -141,7 +140,7 @@ function run_cipt(; L, p_ctrl, seed, bc=:periodic, n_steps=L^2, maxdim=1024)
     initialize!(state, ProductState(binary_int=0))
     track!(state, :Mz => Magnetization(:Z))
 
-    simulate!(circuit, state; n_circuits=1, record_when=:final_only)
+    simulate!(circuit, state; n_steps=n_steps, record_when=:final_only)
     return state.observables[:Mz][end]
 end
 

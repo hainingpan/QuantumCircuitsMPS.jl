@@ -132,7 +132,7 @@ p = 0.15               # Measurement probability (near critical point)
 n_steps = 50           # Time evolution steps
 
 # Build circuit: Haar random unitaries + stochastic measurements
-circuit = Circuit(L=L, bc=:periodic, n_steps=1) do c
+circuit = Circuit(L=L, bc=:periodic) do c
     # Even gates → measure → odd gates → measure per timestep
     apply!(c, HaarRandom(), Bricklayer(:even))
     apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
@@ -153,7 +153,7 @@ initialize!(state, ProductState(binary_int=0))
 track!(state, :entropy => EntanglementEntropy(; cut=L÷2))
 
 # Run simulation
-simulate!(circuit, state; n_circuits=n_steps, record_when=:every_step)
+simulate!(circuit, state; n_steps=n_steps, record_when=:every_step)
 
 # Extract entropy trajectory
 entropies = state.observables[:entropy]
@@ -220,7 +220,7 @@ P0, P1 = total_spin_projector(0), total_spin_projector(1)
 proj_gate = SpinSectorProjection(P0 + P1)
 
 # Build circuit: apply projections to all NN pairs
-circuit = Circuit(L=L, bc=bc, n_steps=1) do c
+circuit = Circuit(L=L, bc=bc) do c
     apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
         (probability=p_nn, gate=proj_gate, geometry=Bricklayer(:nn)),
         (probability=1-p_nn, gate=proj_gate, geometry=Bricklayer(:nnn))
@@ -236,7 +236,7 @@ track!(state, :entropy => EntanglementEntropy(cut=L÷2, order=1, base=2))
 track!(state, :string_order => StringOrder(1, L÷2+1, order=1))
 
 # Run L layers of projections
-simulate!(circuit, state; n_circuits=L, record_when=:every_step)
+simulate!(circuit, state; n_steps=L, record_when=:every_step)
 
 # Results: NN AKLT converges to S ≈ 2.0, |SO| ≈ 0.444
 println("Entropy: $(state.observables[:entropy][end])")
@@ -310,7 +310,7 @@ Note: `order=2` requires `j >= i+4` for non-overlapping endpoint pairs.
 
 ```julia
 # 1. Define circuit (declarative)
-circuit = Circuit(L=12, bc=:periodic, n_steps=1) do c
+circuit = Circuit(L=12, bc=:periodic) do c
     apply!(c, HaarRandom(), Bricklayer(:even))
     apply!(c, HaarRandom(), Bricklayer(:odd))
 end
@@ -323,7 +323,7 @@ initialize!(state, ProductState(binary_int=0))
 track!(state, :entropy => EntanglementEntropy(; cut=6))
 
 # 4. Simulate (circuit + state)
-simulate!(circuit, state; n_circuits=50, record_when=:every_step)
+simulate!(circuit, state; n_steps=50, record_when=:every_step)
 
 # 5. Access results
 state.observables[:entropy]

@@ -34,10 +34,10 @@ using QuantumCircuitsMPS
         record!(state)
         
         # Apply entangling gate and record again
-        circuit = Circuit(L=4, bc=:open, n_steps=1) do c
+        circuit = Circuit(L=4, bc=:open) do c
             apply!(c, HaarRandom(), StaircaseRight(1))
         end
-        simulate!(circuit, state; n_circuits=1, record_when=:final_only)
+        simulate!(circuit, state; n_steps=1, record_when=:final_only)
         
         # Should have 2 records now
         @test length(state.observables[:ee]) == 2

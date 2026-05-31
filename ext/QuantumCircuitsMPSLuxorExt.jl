@@ -49,7 +49,7 @@ plot_circuit(circuit; gates_spacetime=42, filename="my_circuit.svg")
 - [`print_circuit`](@ref): ASCII visualization (no Luxor required)
 - [`expand_circuit`](@ref): Get the concrete operations being visualized
 """
-function QuantumCircuitsMPS._plot_circuit_impl(circuit::Circuit; gates_spacetime::Int=0, filename::Union{String, Nothing}=nothing)
+function QuantumCircuitsMPS._plot_circuit_impl(circuit::Circuit; n_steps::Int=1, gates_spacetime::Int=0, filename::Union{String, Nothing}=nothing)
     # TODO: Known bug - non-adjacent gates (e.g., NNN gates) are not rendered correctly.
     # The current implementation assumes gates act on adjacent or contiguous qubit ranges.
     
@@ -129,7 +129,7 @@ function QuantumCircuitsMPS._plot_circuit_impl(circuit::Circuit; gates_spacetime
         end
     end
     
-    expanded = expand_circuit_grouped(circuit; seed=gates_spacetime)
+    expanded = expand_circuit_grouped(circuit; n_steps=n_steps, seed=gates_spacetime)
     
     # Helper: check if two ops overlap (share any qubits)
     function ops_overlap(op1, op2)

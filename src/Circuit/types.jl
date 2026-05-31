@@ -2,18 +2,20 @@
 # Lazy/symbolic representation of quantum circuit operations
 
 """
-    Circuit(; L::Int, bc::Symbol, operations=NamedTuple[], n_steps::Int=1)
+    Circuit(; L::Int, bc::Symbol, operations=NamedTuple[])
 
 Lazy representation of a quantum circuit as a sequence of symbolic operations.
 
 A `Circuit` does NOT execute immediately - it stores operations symbolically and
 expands them to concrete gate applications only when passed to `simulate!`.
 
+A `Circuit` always represents ONE time step. Repeat execution is controlled by
+`simulate!(circuit, state; n_steps=...)`.
+
 # Fields
 - `L::Int`: Number of physical sites in the system
 - `bc::Symbol`: Boundary conditions (`:periodic` or `:open`)
 - `operations::Vector{NamedTuple}`: Internal symbolic operation list
-- `n_steps::Int`: Number of circuit timesteps (default: 1)
 - `params::Dict{Symbol,Any}`: User-defined parameters (default: empty Dict)
 
 # Operation Representation
@@ -44,7 +46,7 @@ Pass the circuit to `simulate!` to execute:
 
 ```julia
 state = SimulationState(...)
-simulate!(state, circuit)  # Expands and executes all operations
+simulate!(circuit, state; n_steps=50)  # Runs the circuit 50 times
 ```
 
 # See Also
@@ -55,6 +57,5 @@ Base.@kwdef struct Circuit
     L::Int
     bc::Symbol
     operations::Vector{NamedTuple} = NamedTuple[]
-    n_steps::Int = 1
     params::Dict{Symbol,Any} = Dict{Symbol,Any}()
 end

@@ -26,7 +26,7 @@ configs = [(L=L, p=p, seed=s) for L in L_list for p in p_list for s in seeds]
 function run_sim(cfg)
     L, p, seed = cfg.L, cfg.p, cfg.seed
     
-    circuit = Circuit(L=L, bc=bc, n_steps=1, p_nn=p, proj_gate=proj_gate) do c
+    circuit = Circuit(L=L, bc=bc, p_nn=p, proj_gate=proj_gate) do c
         apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
             (probability=c.params[:p_nn], gate=c.params[:proj_gate], geometry=Bricklayer(:nn)),
             (probability=1-c.params[:p_nn], gate=c.params[:proj_gate], geometry=Bricklayer(:nnn))
@@ -41,7 +41,7 @@ function run_sim(cfg)
     track!(state, :SO_nn => StringOrder(1, L÷2+1, order=1))
     track!(state, :SO_nnn => StringOrder(1, L÷2+1, order=2))
     
-    simulate!(circuit, state; n_circuits=L, record_when=:final_only)
+    simulate!(circuit, state; n_steps=L, record_when=:final_only)
     
     (state.observables[:S][end], 
      abs(state.observables[:SO_nn][end]),

@@ -108,9 +108,12 @@ function apply_with_prob!(
 end
 
 """
-    Circuit(f::Function; L::Int, bc::Symbol, n_steps::Int=1)
+    Circuit(f::Function; L::Int, bc::Symbol, kwargs...)
 
 Construct a Circuit using do-block syntax with a CircuitBuilder.
+
+A `Circuit` represents ONE time step. To repeat execution, pass `n_steps` to
+`simulate!(circuit, state; n_steps=...)`.
 
 The function `f` receives a `CircuitBuilder` instance and can call:
 - `apply!(builder, gate, geometry)` - for deterministic operations
@@ -120,8 +123,11 @@ The function `f` receives a `CircuitBuilder` instance and can call:
 - `f::Function`: Builder function that receives CircuitBuilder
 - `L::Int`: Number of physical sites
 - `bc::Symbol`: Boundary conditions (`:periodic` or `:open`)
-- `n_steps::Int`: Number of circuit timesteps (default: 1)
 - `kwargs...`: Additional keyword arguments stored in circuit.params Dict
+
+# Deprecated
+Passing `n_steps` to the constructor is no longer supported. Use
+`simulate!(circuit, state; n_steps=...)` instead.
 
 # Example
 ```julia
@@ -134,9 +140,12 @@ circuit = Circuit(L=10, bc=:periodic) do c
 end
 ```
 """
-function Circuit(f::Function; L::Int, bc::Symbol, n_steps::Int=1, kwargs...)
+function Circuit(f::Function; L::Int, bc::Symbol, kwargs...)
+    haskey(kwargs, :n_steps) && throw(ArgumentError(
+        "Circuit no longer accepts n_steps. Pass it to simulate!(circuit, state; n_steps=...) instead."
+    ))
     params = Dict{Symbol,Any}(kwargs)
     builder = CircuitBuilder(L, bc, NamedTuple[], params)
     f(builder)
-    return Circuit(L=L, bc=bc, operations=builder.operations, n_steps=n_steps, params=params)
+    return Circuit(L=L, bc=bc, operations=builder.operations, params=params)
 end
