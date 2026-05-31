@@ -1,22 +1,35 @@
 #!/usr/bin/env julia
 
-# CIPT (Control-Induced Phase Transition) Example
+# CIPT Tutorial - Control-Induced Phase Transition
 # =================================================
-# This example demonstrates the control-induced phase transition (CIPT) in a
-# 1D quantum circuit with conditional Reset/Haar gates on staircase geometries.
+# This tutorial demonstrates the **Control-Induced Phase Transition (CIPT)**
+# in a 1D quantum circuit with conditional Reset/Haar gates on staircase geometries.
 #
-# CIPT Physics Background:
-# =========================
-# The Control-Induced Phase Transition arises from competition between:
-# - Reset gates (probability p_ctrl): Project qubit to |0⟩, moving LEFT
-# - Haar random unitaries (probability 1-p_ctrl): Entangle neighboring qubits, moving RIGHT
+# ## What is CIPT?
 #
-# At each timestep, a coin flip determines which operation is applied.
-# The staircase geometry creates a "sweep" across the chain.
+# The CIPT arises from a competition between two processes:
+# 1. Reset gates (probability p_ctrl): Project qubit to |0> following Born rule, moving LEFT
+# 2. Haar random unitaries (probability 1-p_ctrl): Entangle neighboring qubits, moving RIGHT
 #
-# Observable: Magnetization Mz = (1/L) Σᵢ ⟨Zᵢ⟩
-# - Large p_ctrl: Mz → +1 (resets dominate, qubits in |0⟩)
-# - Small p_ctrl: Mz → 0 (unitaries dominate, random state)
+# - Reset-dominated phase (p_ctrl>0.5): Magnetization Mz -> +1 (qubits reset to |0>)
+# - Unitary-dominated phase (p_ctrl<0.5): Magnetization Mz -> 0 (random state)
+#
+# ## Observable: Magnetization
+#
+# We track the average magnetization: Mz = (1/L) Σ_i ⟨Z_i⟩
+#
+# ## Circuit Structure
+#
+# Each timestep consists of one stochastic operation:
+# - With probability p_ctrl: Apply Reset() on StaircaseLeft(1) (moves left)
+# - With probability 1-p_ctrl: Apply HaarRandom() on StaircaseRight(1) (moves right)
+#
+# The two staircases sweep in opposite directions, creating the spatial competition
+# that drives the phase transition.
+
+# ═══════════════════════════════════════════════════════════════════
+# Setup
+# ═══════════════════════════════════════════════════════════════════
 
 using Pkg; Pkg.activate(dirname(@__DIR__))
 using QuantumCircuitsMPS
@@ -24,37 +37,33 @@ using Printf
 using Statistics
 using Plots
 using ProgressMeter
+using Luxor
 
 # ═══════════════════════════════════════════════════════════════════
-# SECTION 1: Parameters
+# Section 1: Setup and Parameters
 # ═══════════════════════════════════════════════════════════════════
 
-L = 8                      # System size (number of qubits)
-bc = :periodic             # Boundary conditions
-n_steps = 2 * L^2          # Total timesteps (staircase sweeps)
-p_ctrl = 0.5               # Control probability
+# Define system parameters
+const L = 8                    # System size (number of qubits)
+const bc = :periodic           # Boundary conditions
+const n_steps = 2 * L^2        # Total timesteps (staircase sweeps)
+const p_ctrl = 0.5             # Control probability
 
 println("Parameters:")
 println("  L = $L (system size)")
 println("  bc = $bc (boundary conditions)")
 println("  n_steps = $n_steps (circuit timesteps)")
 println("  p_ctrl = $p_ctrl (control probability)")
-println()
 
 # ═══════════════════════════════════════════════════════════════════
-# SECTION 2: Build Circuit
+# Section 2: Building the CIPT Circuit
 # ═══════════════════════════════════════════════════════════════════
-# The circuit uses declarative do-block syntax.
-# n_steps defines how many timesteps the staircase sweeps through.
-# Each timestep: coin flip → apply Reset (left staircase) OR Haar (right staircase).
-#
-# IMPORTANT: n_steps must equal the total number of timesteps, NOT 1.
-# The staircase position is computed from the step number — with n_steps=1,
-# the staircase would never advance. We run n_circuits=1 with the full
-# n_steps inside the circuit.
+# The circuit implements the CIPT protocol with stochastic Reset/Haar gates
+# on opposing staircase geometries.
 
-left = StaircaseLeft(L)
-right = StaircaseRight(L)
+# Build circuit: at each step, coin flip decides Reset (left) or Haar (right)
+left = StaircaseLeft(1)
+right = StaircaseRight(1)
 
 circuit = Circuit(L=L, bc=bc, n_steps=n_steps, p_ctrl=p_ctrl) do c
     apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
@@ -63,37 +72,62 @@ circuit = Circuit(L=L, bc=bc, n_steps=n_steps, p_ctrl=p_ctrl) do c
     ])
 end
 
-println("Circuit built: $(circuit.n_steps) steps, $(circuit.L) qubits")
+println("Circuit built successfully")
+println("  Total timesteps: $(circuit.n_steps)")
+println("  System size: $(circuit.L) qubits")
+println("  Boundary conditions: $(circuit.bc)")
+
+# Circuit visualization
+plot_circuit(circuit; gates_spacetime=0)
+
+# ═══════════════════════════════════════════════════════════════════
+# Section 3: Simulation with Magnetization Tracking
+# ═══════════════════════════════════════════════════════════════════
+# We track the magnetization Mz = (1/L) Σ_i ⟨Z_i⟩
+
+println("Running simulation...")
 println()
 
-# ═══════════════════════════════════════════════════════════════════
-# SECTION 3: Run Simulation with Magnetization
-# ═══════════════════════════════════════════════════════════════════
+# Create simulation state with RNG registry
+state = SimulationState(
+    L=L,
+    bc=bc,
+    maxdim=64,
+    rng=RNGRegistry(gates_spacetime=42, born_measurement=1, gates_realization=2)
+)
 
-state = SimulationState(L=L, bc=bc, maxdim=64,
-    rng=RNGRegistry(gates_spacetime=42, born_measurement=1, gates_realization=2))
+# Initialize to product state |0>^L
 initialize!(state, ProductState(binary_int=0))
+
+# Track magnetization
 track!(state, :Mz => Magnetization(:Z))
 
-# n_circuits=1: the circuit already contains all n_steps internally
+# Run simulation: n_circuits=1 since n_steps is already inside the circuit
+# record_when=:every_gate records after each gate (1 gate per step)
 simulate!(circuit, state; n_circuits=1, record_when=:every_gate)
 
+# Extract magnetization values
 mz_vals = state.observables[:Mz]
-println("Magnetization time series: $(length(mz_vals)) points")
+
+println("Simulation complete")
+println("  Recorded $(length(mz_vals)) magnetization values")
 println("  Initial Mz = $(Printf.@sprintf("%.4f", mz_vals[1]))")
 println("  Final   Mz = $(Printf.@sprintf("%.4f", mz_vals[end]))")
-println()
+
+plot(mz_vals, xlabel="Step", ylabel="Mz", title="CIPT Magnetization (p_ctrl=$p_ctrl)",
+     legend=false, lw=1.5)
 
 # ═══════════════════════════════════════════════════════════════════
-# SECTION 4: Steady-State Phase Diagram
+# Section 4: Steady-State Phase Diagram
 # ═══════════════════════════════════════════════════════════════════
-# Sweep p_ctrl to map out the phase diagram: Mz(p_ctrl) for multiple L.
+# Sweep p_ctrl to map out the phase diagram: steady-state Mz as a function
+# of control probability for multiple system sizes.
+#
 # Each point is averaged over `ensemble_size` random seeds.
-# Run with `julia -t auto` for multithreaded execution.
 
-function run_cipt(; L, p_ctrl, seed, bc=:periodic, n_steps=2*L^2, maxdim=64)
-    left = StaircaseLeft(L)
-    right = StaircaseRight(L)
+function run_cipt(; L, p_ctrl, seed, bc=:periodic, n_steps=L^2, maxdim=1024)
+    left = StaircaseLeft(1)
+    right = StaircaseRight(1)
 
     circuit = Circuit(L=L, bc=bc, n_steps=n_steps, p_ctrl=p_ctrl) do c
         apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
@@ -112,13 +146,14 @@ function run_cipt(; L, p_ctrl, seed, bc=:periodic, n_steps=2*L^2, maxdim=64)
 end
 
 # Sweep parameters
-L_list = [4, 6]
-p_list = 0.05:0.05:0.95 |> collect
-ensemble_size = 100
+L_list = [4, 6, 8]
+p_list = 0.1:0.1:0.9 |> collect
+ensemble_size = 500
 
 configs = [(L=L, p=p, seed=s) for L in L_list for p in p_list for s in 1:ensemble_size]
 raw = Vector{Float64}(undef, length(configs))
 
+# Run with `julia -t auto` for multithreaded execution
 println("Running $(length(configs)) configs on $(Threads.nthreads()) threads...")
 @time @showprogress Threads.@threads for i in eachindex(configs)
     c = configs[i]
@@ -129,15 +164,13 @@ end
 ns, np, nL = ensemble_size, length(p_list), length(L_list)
 Mz_raw = reshape(raw, ns, np, nL)
 Mz_mean = dropdims(mean(Mz_raw, dims=1), dims=1)
-Mz_std  = dropdims(std(Mz_raw, dims=1), dims=1)
+Mz_sem  = dropdims(std(Mz_raw, dims=1), dims=1) ./ sqrt(size(Mz_raw, 1))
 
 println("Done!")
 
-# Plot
-p_fig = plot(xlabel="p_ctrl", ylabel="⟨Mz⟩", title="CIPT Steady-State Magnetization", legend=:topleft)
+p_fig = plot(xlabel="p_ctrl", ylabel=raw"$\langle Mz \rangle$", title=raw"CIPT Steady-State (t=$L^2$) Magnetization", legend=:topleft)
 for (iL, L) in enumerate(L_list)
-    plot!(p_fig, p_list, Mz_mean[:, iL], ribbon=Mz_std[:, iL], fillalpha=0.2,
+    plot!(p_fig, p_list, Mz_mean[:, iL], ribbon=Mz_sem[:, iL], fillalpha=0.2,
           label="L=$L", lw=2, marker=:o, ms=4)
 end
-savefig(p_fig, "cipt_phase_diagram.png")
-println("Saved: cipt_phase_diagram.png")
+p_fig
