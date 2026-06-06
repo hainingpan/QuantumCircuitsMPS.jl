@@ -22,5 +22,4 @@ examples/output/
 *.bin
 .sisyphus
 .opencode
-AGENTS.md
-
+*.md
