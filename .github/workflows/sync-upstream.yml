@@ -1,0 +1,48 @@
+name: Sync with Upstream
+
+permissions:
+  contents: write
+
+on:
+  schedule:
+    - cron: "0 * * * *" # Runs every hour
+  workflow_dispatch:      # Allows manual trigger
+
+jobs:
+  sync_with_upstream:
+    runs-on: ubuntu-latest
+    name: Sync main with upstream
+    
+    # Only run this if we are inside the Pixley Fork
+    if: github.repository == 'Pixley-Research-Group-in-CMT/QuantumCircuitsMPS.jl'
+
+    steps:
+      # 1. Use the official Checkout action (Allowed by default)
+      - name: Checkout target repo
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      # 2. Manually merge using standard Git (Bypasses the 3rd party block)
+      - name: Merge Upstream
+        run: |
+          git config user.name "GitHub Action"
+          git config user.email "action@github.com"
+          
+          git remote add upstream https://github.com/hainingpan/QuantumCircuitsMPS.jl.git
+          git fetch upstream
+          git merge upstream/main --ff-only
+          git push origin main
+
+      # 3. Simple Anti-Hibernation Script
+      - name: Anti-Hibernation Ping
+        run: |
+          last_commit=$(git log -1 --format=%ct)
+          now=$(date +%s)
+          days_diff=$(( ($now - $last_commit) / 86400 ))
+          if [ $days_diff -gt 50 ]; then
+            git commit --allow-empty -m "Keepalive ping"
+            git push origin main
+          fi
