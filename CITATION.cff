@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "QuantumCircuitsMPS.jl: MPS-based Quantum Circuit Simulation"
+authors:
+  - family-names: Pan
+    given-names: Haining
+    email: haining.pan.physics@gmail.com
+    affiliation: Rutgers University
+  - family-names: Pixley
+    given-names: Jedediah H
+    email: jed.pixley@physics.rutgers.edu
+    affiliation: Rutgers University
+repository-code: "https://github.com/hainingpan/QuantumCircuitsMPS.jl"
+url: "https://github.com/hainingpan/QuantumCircuitsMPS.jl"
+license: BSD-3-Clause
+version: 0.1.0
+date-released: 2026-01-31

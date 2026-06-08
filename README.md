@@ -350,7 +350,7 @@ If you use QuantumCircuitsMPS.jl in your research, please cite:
 
 ```bibtex
 @software{quantumcircuitsmps,
-  author = {Pan, Haining},
+  author = {Pan, Haining and Pixley, Jedediah H},
   title = {QuantumCircuitsMPS.jl: MPS-based Quantum Circuit Simulation},
   url = {https://github.com/hainingpan/QuantumCircuitsMPS.jl},
   year = {2026}
