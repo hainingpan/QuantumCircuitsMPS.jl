@@ -24,7 +24,7 @@ using QuantumCircuitsMPS
     
     @testset "Track/record integration" begin
         # Test that track!/record! workflow works correctly
-        state = SimulationState(L=4, bc=:open; rng=RNGRegistry(ctrl=1, proj=2, haar=3, born=4))
+        state = SimulationState(L=4, bc=:open; rng=RNGRegistry(gates_spacetime=1, gates_realization=3, born_measurement=4))
         initialize!(state, ProductState(binary_int=0))
         
         # Track entanglement entropy at cut=2
@@ -34,10 +34,10 @@ using QuantumCircuitsMPS
         record!(state)
         
         # Apply entangling gate and record again
-        circuit = Circuit(L=4, bc=:open, n_steps=1) do c
+        circuit = Circuit(L=4, bc=:open) do c
             apply!(c, HaarRandom(), StaircaseRight(1))
         end
-        simulate!(circuit, state; n_circuits=1, record_when=:final_only)
+        simulate!(circuit, state; n_steps=1, record_when=:final_only)
         
         # Should have 2 records now
         @test length(state.observables[:ee]) == 2

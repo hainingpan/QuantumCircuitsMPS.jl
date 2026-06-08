@@ -6,10 +6,9 @@ using Random
 Container for named RNG streams for reproducible randomness.
 
 Streams:
-- :ctrl - decisions about whether to apply control operations (p_ctrl)
-- :proj - decisions about whether to apply projections (p_proj)  
-- :haar - Haar random unitary generation
-- :born - Born rule measurement outcomes
+- :gates_spacetime - decisions about whether to apply control operations (p_ctrl)
+- :gates_realization - Haar random unitary generation
+- :born_measurement - Born rule measurement outcomes
 - :state_init - random initial state generation (optional)
 """
 struct RNGRegistry
@@ -17,23 +16,21 @@ struct RNGRegistry
 end
 
 """
-    RNGRegistry(; ctrl, proj, haar, born, state_init=0)
+    RNGRegistry(; gates_spacetime, gates_realization, born_measurement, state_init=0)
 
 Create RNG registry with seeds for each stream.
-First 4 arguments (ctrl, proj, haar, born) are REQUIRED.
+First 3 arguments (gates_spacetime, gates_realization, born_measurement) are REQUIRED.
 """
 function RNGRegistry(;
-    ctrl::Int,
-    proj::Int,
-    haar::Int,
-    born::Int,
+    gates_spacetime::Int,
+    gates_realization::Int,
+    born_measurement::Int,
     state_init::Int = 0
 )
     streams = Dict{Symbol, AbstractRNG}(
-        :ctrl => MersenneTwister(ctrl),
-        :proj => MersenneTwister(proj),
-        :haar => MersenneTwister(haar),
-        :born => MersenneTwister(born),
+        :gates_spacetime => MersenneTwister(gates_spacetime),
+        :gates_realization => MersenneTwister(gates_realization),
+        :born_measurement => MersenneTwister(born_measurement),
         :state_init => MersenneTwister(state_init)
     )
     return RNGRegistry(streams)
@@ -42,7 +39,7 @@ end
 """
     RNGRegistry(::Val{:ct_compat}; circuit, measurement)
 
-Create CT.jl-compatible RNG registry where :ctrl, :proj, :haar share the SAME RNG.
+Create CT.jl-compatible RNG registry where :gates_spacetime, :gates_realization share the SAME RNG.
 This matches CT.jl's interleaved consumption pattern for verification.
 
 Used ONLY for Task 8 CT.jl verification with p_proj=0.
@@ -52,10 +49,9 @@ function RNGRegistry(::Val{:ct_compat}; circuit::Int, measurement::Int)
     shared_circuit_rng = MersenneTwister(circuit)
     
     streams = Dict{Symbol, AbstractRNG}(
-        :ctrl => shared_circuit_rng,      # ALIAS - same RNG object
-        :proj => shared_circuit_rng,      # ALIAS
-        :haar => shared_circuit_rng,      # ALIAS
-        :born => MersenneTwister(measurement),
+        :gates_spacetime => shared_circuit_rng,      # ALIAS - same RNG object
+        :gates_realization => shared_circuit_rng,     # ALIAS
+        :born_measurement => MersenneTwister(measurement),
         :state_init => MersenneTwister(0)
     )
     return RNGRegistry(streams)
@@ -110,7 +106,7 @@ Draw a random number from the specified RNG stream.
 Convenience wrapper that hides rng_registry internals.
 
 Example:
-    if rand(state, :ctrl) < p_ctrl
+    if rand(state, :gates_spacetime) < p_ctrl
         # control branch
     end
 """

@@ -24,17 +24,17 @@ support(::CZ) = 2
 Build Haar random unitary operator.
 Uses exact CT.jl algorithm for reproducibility (from CT.jl U() function lines 585-592).
 """
-function build_operator(gate::HaarRandom, sites::Vector{<:Index}, local_dim::Int; rng)
+function build_operator(gate::HaarRandom, sites::Vector{<:Index}, local_dim::Int; rng, kwargs...)
     length(sites) == 2 || throw(ArgumentError("HaarRandom requires exactly 2 sites"))
     
-    # Get the Haar RNG stream
-    haar_rng = get_rng(rng, :haar)
+    # Get the gates_realization RNG stream
+    gates_realization_rng = get_rng(rng, :gates_realization)
     
     # CT.jl U(n, rng) algorithm - EXACT reproduction
     n = local_dim^2  # 4 for qubits
     
     # Generate complex Gaussian matrix: real + imag parts separately
-    z = randn(haar_rng, n, n) + randn(haar_rng, n, n) * im
+    z = randn(gates_realization_rng, n, n) + randn(gates_realization_rng, n, n) * im
     
     # QR decomposition
     Q, R = qr(z)
@@ -58,7 +58,7 @@ end
 
 Build CZ gate operator.
 """
-function build_operator(gate::CZ, sites::Vector{<:Index}, local_dim::Int; rng=nothing)
+function build_operator(gate::CZ, sites::Vector{<:Index}, local_dim::Int; rng=nothing, kwargs...)
     length(sites) == 2 || throw(ArgumentError("CZ requires exactly 2 sites"))
     
     s1, s2 = sites[1], sites[2]

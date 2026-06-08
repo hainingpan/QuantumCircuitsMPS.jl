@@ -10,7 +10,7 @@
 # Part of the Probabilistic API (Contract 4.4)
 
 """
-    apply_with_prob!(state; rng=:ctrl, outcomes)
+    apply_with_prob!(state; rng=:gates_spacetime, outcomes)
 
 Execute one action from outcomes with fully named parameters.
 Probabilities may sum to ≤ 1 (implicit "do nothing" branch for remainder).
@@ -23,7 +23,7 @@ Each outcome is a NamedTuple with fields:
 
 Example:
     apply_with_prob!(state;
-        rng = :ctrl,
+        rng = :gates_spacetime,
         outcomes = [
             (probability=p_ctrl, gate=Reset(), geometry=left),
             (probability=1-p_ctrl, gate=HaarRandom(), geometry=right)
@@ -41,7 +41,7 @@ Example (sum < 1):
 """
 function apply_with_prob!(
     state::SimulationState;
-    rng::Symbol = :ctrl,
+    rng::Symbol = :gates_spacetime,
     outcomes::Vector{<:NamedTuple{(:probability, :gate, :geometry)}}
 )
     probs = [o.probability for o in outcomes]
@@ -52,10 +52,33 @@ function apply_with_prob!(
         error("Probabilities sum to $total_prob (must be ≤ 1)")
     end
     
+    has_compound = any(is_compound_geometry(o.geometry) for o in outcomes)
+
+    if has_compound
+        for outcome in outcomes
+            actual_rng = get_rng(state.rng_registry, rng)
+            if is_compound_geometry(outcome.geometry)
+                elements = get_compound_elements(outcome.geometry, state.L, state.bc)
+                for sites in elements
+                    r = rand(actual_rng)
+                    if r < outcome.probability
+                        execute_gate!(state, outcome.gate, sites)
+                    end
+                end
+            else
+                r = rand(actual_rng)
+                if r < outcome.probability
+                    apply!(state, outcome.gate, outcome.geometry)
+                end
+            end
+        end
+        return nothing
+    end
+
     # CRITICAL: Draw BEFORE checking (Contract 4.4)
     actual_rng = get_rng(state.rng_registry, rng)
     r = rand(actual_rng)
-    
+
     # Check each outcome
     cumulative = 0.0
     for outcome in outcomes

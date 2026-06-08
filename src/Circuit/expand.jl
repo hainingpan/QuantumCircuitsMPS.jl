@@ -155,59 +155,32 @@ function compute_sites_dispatch(geo::AbstractGeometry, gate::AbstractGate, step:
 end
 
 """
-    expand_circuit(circuit::Circuit; seed::Int=0) -> Vector{Vector{ExpandedOp}}
+    expand_circuit_grouped(circuit::Circuit; n_steps::Int=1, seed::Int=0) -> Vector{Vector{Vector{ExpandedOp}}}
 
-Expand a symbolic circuit to concrete gate operations with deterministic RNG sampling.
+Expand a symbolic circuit to concrete gate operations, preserving operation groups.
 
-Converts Circuit's lazy operations into explicit gate applications at specific sites
-for each timestep. Stochastic branches are resolved using a seeded RNG.
+Each `apply!` or `apply_with_prob!` call in the circuit definition becomes one group.
+This grouping is essential for visualization: gates within the same group (e.g., all
+pairs in a `Bricklayer`) can be rendered on the same row, while different groups
+(e.g., a Bricklayer followed by AllSites measurements) get separate rows.
 
 # Arguments
-- `circuit::Circuit`: Symbolic circuit to expand
-- `seed::Int`: Random seed for stochastic branch selection (default: 0)
+- `circuit::Circuit`: The circuit to expand (one time step)
+- `n_steps::Int`: Number of times to repeat the circuit step (default: 1)
+- `seed::Int`: RNG seed for stochastic branch selection (default: 0)
 
 # Returns
-- `Vector{Vector{ExpandedOp}}`: Outer vector has length `n_steps`, inner vectors contain
-  operations for that timestep. Inner vectors may be empty if "do nothing" is selected
-  for all stochastic operations.
+- `Vector{Vector{Vector{ExpandedOp}}}`: steps → groups → ops.
+  - Outer vector: one entry per timestep (length `n_steps`)
+  - Middle vector: one entry per `apply!`/`apply_with_prob!` call that produced ops
+  - Inner vector: concrete gate operations from that call
 
-# RNG Alignment
-The `seed` parameter creates a `MersenneTwister` that consumes randomness in this order:
-1. For each step (1 to `circuit.n_steps`)
-2. For each operation in `circuit.operations`
-3. If `op.type == :stochastic`: consume ONE `rand()` to select branch
-
-This matches `simulate!` behavior when the RNG registry stream for the operation's
-`rng` field is seeded with the same value.
-
-# Determinism
-Same seed → same expansion. This enables:
-- Reproducible visualizations
-- Verification that simulation matches expansion
-- Debugging stochastic circuits
-
-# Examples
-```julia
-circuit = Circuit(L=4, bc=:periodic, n_steps=4) do c
-    apply_with_prob!(c; rng=:ctrl, outcomes=[
-        (probability=0.5, gate=Reset(), geometry=StaircaseRight(1)),
-        (probability=0.5, gate=HaarRandom(), geometry=StaircaseLeft(4))
-    ])
-end
-
-ops = expand_circuit(circuit; seed=42)
-length(ops) == 4  # Always n_steps outer vectors
-
-# Determinism check
-ops2 = expand_circuit(circuit; seed=42)
-all(length(ops[i]) == length(ops2[i]) for i in 1:4)  # true
-```
+Groups with no operations (stochastic "do nothing" branches) are omitted.
 
 # See Also
-- `ExpandedOp`: Concrete operation representation
-- `simulate!`: Execute circuit (uses same RNG pattern)
+- [`expand_circuit`](@ref): Flat version (no grouping) for backward compatibility
 """
-function expand_circuit(circuit::Circuit; seed::Int=0)
+function expand_circuit_grouped(circuit::Circuit; n_steps::Int=1, seed::Int=0)
     # Validate all geometries upfront
     for op in circuit.operations
         if op.type == :deterministic
@@ -219,84 +192,108 @@ function expand_circuit(circuit::Circuit; seed::Int=0)
         end
     end
     
-    # Create seeded RNG for stochastic branch selection
+    # Reset staircase positions before expansion
+    _reset_circuit_geometries!(circuit)
     rng = MersenneTwister(seed)
+    result = Vector{Vector{Vector{ExpandedOp}}}()
     
-    # Result: Vector{Vector{ExpandedOp}} with length n_steps
-    result = Vector{Vector{ExpandedOp}}()
-    
-    # Expand each timestep
-    for step in 1:circuit.n_steps
-        step_ops = ExpandedOp[]
+    for step in 1:n_steps
+        step_groups = Vector{Vector{ExpandedOp}}()
         
-        # Process each operation in the circuit
         for op in circuit.operations
+            group_ops = ExpandedOp[]
+            
             if op.type == :deterministic
-    if is_compound_geometry(op.geometry)
-        # Expand compound geometries into individual elements
-        elements = get_compound_elements(op.geometry, circuit.L, circuit.bc)
+                if is_compound_geometry(op.geometry)
+                    elements = get_compound_elements(op.geometry, circuit.L, circuit.bc)
                     for sites in elements
-                        push!(step_ops, ExpandedOp(
-                            step,
-                            op.gate,
-                            sites,
-                            gate_label(op.gate)
-                        ))
+                        push!(group_ops, ExpandedOp(step, op.gate, sites, gate_label(op.gate)))
                     end
                 else
-                    # Simple geometry: single ExpandedOp
                     sites = compute_sites_dispatch(op.geometry, op.gate, step, circuit.L, circuit.bc)
-                    push!(step_ops, ExpandedOp(
-                        step,
-                        op.gate,
-                        sites,
-                        gate_label(op.gate)
-                    ))
+                    push!(group_ops, ExpandedOp(step, op.gate, sites, gate_label(op.gate)))
+                    if op.geometry isa AbstractStaircase
+                        advance!(op.geometry, circuit.L, circuit.bc)
+                    end
                 end
                 
-            elseif op.type == :stochastic
-                # Check if ANY outcome has compound geometry
-                has_compound = any(is_compound_geometry(o.geometry) for o in op.outcomes)
-                
-                if has_compound
-                    # Compound geometry → single RNG draw, then expand selected geometry
-                    selected = select_branch(rng, op.outcomes)
-                    
-                    if selected !== nothing
-                        # Get elements from the SELECTED outcome's geometry
-                        elements = get_compound_elements(selected.geometry, circuit.L, circuit.bc)
-                        
-                        for sites in elements
-                            push!(step_ops, ExpandedOp(
-                                step,
-                                selected.gate,
-                                sites,
-                                gate_label(selected.gate)
-                            ))
+             elseif op.type == :stochastic
+                 has_compound = any(is_compound_geometry(o.geometry) for o in op.outcomes)
+                 
+                 if has_compound
+                    for outcome in op.outcomes
+                        outcome_ops = ExpandedOp[]
+
+                        if is_compound_geometry(outcome.geometry)
+                            elements = get_compound_elements(outcome.geometry, circuit.L, circuit.bc)
+                            for sites in elements
+                                r = rand(rng)
+                                if r < outcome.probability
+                                    push!(outcome_ops, ExpandedOp(step, outcome.gate, sites, gate_label(outcome.gate)))
+                                end
+                            end
+                        else
+                            r = rand(rng)
+                            if r < outcome.probability
+                                sites = compute_sites_dispatch(outcome.geometry, outcome.gate, step, circuit.L, circuit.bc)
+                                push!(outcome_ops, ExpandedOp(step, outcome.gate, sites, gate_label(outcome.gate)))
+                                if outcome.geometry isa AbstractStaircase
+                                    advance!(outcome.geometry, circuit.L, circuit.bc)
+                                end
+                            end
+                        end
+
+                        if !isempty(outcome_ops)
+                            push!(step_groups, outcome_ops)
                         end
                     end
-                    # If nothing selected: "do nothing" - no entries added
+                    continue
                 else
-                    # Simple stochastic: single RNG draw
                     selected = select_branch(rng, op.outcomes)
-                    
                     if selected !== nothing
-                        # Branch was selected - compute sites and add operation
                         sites = compute_sites_dispatch(selected.geometry, selected.gate, step, circuit.L, circuit.bc)
-                        push!(step_ops, ExpandedOp(
-                            step,
-                            selected.gate,
-                            sites,
-                            gate_label(selected.gate)
-                        ))
+                        push!(group_ops, ExpandedOp(step, selected.gate, sites, gate_label(selected.gate)))
+                        if selected.geometry isa AbstractStaircase
+                            advance!(selected.geometry, circuit.L, circuit.bc)
+                            sync_staircase_positions!(op.outcomes, selected.geometry)
+                        end
                     end
-                    # If nothing selected: "do nothing", no entry added
                 end
+            end
+            
+            if !isempty(group_ops)
+                push!(step_groups, group_ops)
             end
         end
         
-        push!(result, step_ops)
+        push!(result, step_groups)
     end
     
     return result
+end
+
+"""
+    expand_circuit(circuit::Circuit; n_steps::Int=1, seed::Int=0) -> Vector{Vector{ExpandedOp}}
+
+Expand a symbolic circuit to a flat list of concrete gate operations per timestep.
+
+This is the backward-compatible flat version. For visualization, prefer
+[`expand_circuit_grouped`](@ref) which preserves operation group boundaries.
+
+# Arguments
+- `circuit::Circuit`: The circuit to expand (one time step)
+- `n_steps::Int`: Number of times to repeat the circuit step (default: 1)
+- `seed::Int`: RNG seed for stochastic branch selection (default: 0)
+
+# Returns
+- `Vector{Vector{ExpandedOp}}`: Outer vector has length `n_steps`, inner vectors contain
+  all operations for that timestep (flattened across groups). Inner vectors may be empty
+  if "do nothing" is selected for all stochastic operations.
+
+# See Also
+- [`expand_circuit_grouped`](@ref): Grouped version for visualization
+"""
+function expand_circuit(circuit::Circuit; n_steps::Int=1, seed::Int=0)
+    grouped = expand_circuit_grouped(circuit; n_steps=n_steps, seed=seed)
+    return [reduce(vcat, groups; init=ExpandedOp[]) for groups in grouped]
 end

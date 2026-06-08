@@ -11,7 +11,7 @@ Users never see this type directly - they interact via:
 ```julia
 circuit = Circuit(L=4, bc=:periodic) do c
     apply!(c, Reset(), SingleSite(1))
-    apply_with_prob!(c; rng=:ctrl, outcomes=[
+    apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
         (probability=0.5, gate=PauliX(), geometry=SingleSite(1))
     ])
 end
@@ -55,25 +55,25 @@ function apply!(builder::CircuitBuilder, gate, geometry)
 end
 
 """
-    apply_with_prob!(builder::CircuitBuilder; rng::Symbol=:ctrl, outcomes)
+    apply_with_prob!(builder::CircuitBuilder; rng::Symbol=:gates_spacetime, outcomes)
 
 Record a stochastic operation in the circuit builder.
 
 Stores operation as: `(type=:stochastic, rng=rng, outcomes=collect(outcomes))`
 
 # Arguments
-- `rng::Symbol`: RNG source identifier (must be `:ctrl` in Phase 1)
+- `rng::Symbol`: RNG source identifier (must be `:gates_spacetime` in Phase 1)
 - `outcomes`: Vector of NamedTuples with keys `(:probability, :gate, :geometry)`
 
 # Validations
-- Throws if `rng != :ctrl` (Phase 1 constraint)
+- Throws if `rng != :gates_spacetime` (Phase 1 constraint)
 - Throws if `outcomes` is empty
 - Throws if probabilities sum to > 1.0
 
 # Example
 ```julia
 Circuit(L=4, bc=:periodic) do c
-    apply_with_prob!(c; rng=:ctrl, outcomes=[
+    apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
         (probability=0.3, gate=PauliX(), geometry=SingleSite(1)),
         (probability=0.2, gate=PauliZ(), geometry=SingleSite(1))
     ])
@@ -82,12 +82,12 @@ end
 """
 function apply_with_prob!(
     builder::CircuitBuilder;
-    rng::Symbol = :ctrl,
+    rng::Symbol = :gates_spacetime,
     outcomes::Vector{<:NamedTuple{(:probability, :gate, :geometry)}}
 )
-    # Phase 1 constraint: only :ctrl RNG supported
-    if rng != :ctrl
-        throw(ArgumentError("Only rng=:ctrl is supported in Phase 1 (got: $rng)"))
+    # Phase 1 constraint: only :gates_spacetime RNG supported
+    if rng != :gates_spacetime
+        throw(ArgumentError("Only rng=:gates_spacetime is supported in Phase 1 (got: $rng)"))
     end
     
     # Must provide at least one outcome
@@ -108,9 +108,12 @@ function apply_with_prob!(
 end
 
 """
-    Circuit(f::Function; L::Int, bc::Symbol, n_steps::Int=1)
+    Circuit(f::Function; L::Int, bc::Symbol, kwargs...)
 
 Construct a Circuit using do-block syntax with a CircuitBuilder.
+
+A `Circuit` represents ONE time step. To repeat execution, pass `n_steps` to
+`simulate!(circuit, state; n_steps=...)`.
 
 The function `f` receives a `CircuitBuilder` instance and can call:
 - `apply!(builder, gate, geometry)` - for deterministic operations
@@ -120,23 +123,29 @@ The function `f` receives a `CircuitBuilder` instance and can call:
 - `f::Function`: Builder function that receives CircuitBuilder
 - `L::Int`: Number of physical sites
 - `bc::Symbol`: Boundary conditions (`:periodic` or `:open`)
-- `n_steps::Int`: Number of circuit timesteps (default: 1)
 - `kwargs...`: Additional keyword arguments stored in circuit.params Dict
+
+# Deprecated
+Passing `n_steps` to the constructor is no longer supported. Use
+`simulate!(circuit, state; n_steps=...)` instead.
 
 # Example
 ```julia
 circuit = Circuit(L=10, bc=:periodic) do c
     apply!(c, Hadamard(), SingleSite(1))
     apply!(c, CNOT(), StaircaseRight(1))
-    apply_with_prob!(c; rng=:ctrl, outcomes=[
+    apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
         (probability=0.5, gate=PauliX(), geometry=SingleSite(2))
     ])
 end
 ```
 """
-function Circuit(f::Function; L::Int, bc::Symbol, n_steps::Int=1, kwargs...)
+function Circuit(f::Function; L::Int, bc::Symbol, kwargs...)
+    haskey(kwargs, :n_steps) && throw(ArgumentError(
+        "Circuit no longer accepts n_steps. Pass it to simulate!(circuit, state; n_steps=...) instead."
+    ))
     params = Dict{Symbol,Any}(kwargs)
     builder = CircuitBuilder(L, bc, NamedTuple[], params)
     f(builder)
-    return Circuit(L=L, bc=bc, operations=builder.operations, n_steps=n_steps, params=params)
+    return Circuit(L=L, bc=bc, operations=builder.operations, params=params)
 end

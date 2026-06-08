@@ -7,85 +7,84 @@ using QuantumCircuitsMPS
 @testset "Recording API Tests" begin
     # Helper function to create fresh state for each test
     function make_state()
-        state = SimulationState(L=4, bc=:open; rng=RNGRegistry(ctrl=42, proj=43, haar=44, born=45))
+        state = SimulationState(L=4, bc=:open; rng=RNGRegistry(gates_spacetime=42, gates_realization=44, born_measurement=45))
         initialize!(state, ProductState(binary_int=1))
         track!(state, :dw => DomainWall(order=1, i1_fn=() -> 1))
         return state
     end
     
-    # Standard test circuit (4 gates per circuit)
-    # Operations per timestep: 2 (HaarRandom+StaircaseRight, Reset+SingleSite)
-    # Total gates per circuit: 2 steps × 2 ops = 4 gates
+    # Standard test circuit (2 gates per step)
+    # Operations per step: 2 (HaarRandom+StaircaseRight, Reset+SingleSite)
+    # Total gates per n_steps: n_steps × 2 ops
     function make_circuit()
-        Circuit(L=4, bc=:open, n_steps=2) do c
+        Circuit(L=4, bc=:open) do c
             apply!(c, HaarRandom(), StaircaseRight(1))
             apply!(c, Reset(), SingleSite(2))
         end
     end
     
     @testset "Test 1: :every_step" begin
-        # Records once per circuit (at step boundary of last step)
-        # With n_circuits=2: expect 2 records
+        # Records once per step (at step boundary)
+        # With n_steps=4: expect 4 records (one per do-block execution)
         state = make_state()
         circuit = make_circuit()
-        simulate!(circuit, state; n_circuits=2, record_when=:every_step)
-        @test length(state.observables[:dw]) == 2
+        simulate!(circuit, state; n_steps=4, record_when=:every_step)
+        @test length(state.observables[:dw]) == 4
     end
     
     @testset "Test 2: :every_gate" begin
         # Records after each gate
-        # With n_circuits=2 and 4 gates per circuit: expect 8 records
+        # With n_steps=4 and 2 gates per step: expect 8 records
         state = make_state()
         circuit = make_circuit()
-        simulate!(circuit, state; n_circuits=2, record_when=:every_gate)
-        @test length(state.observables[:dw]) == 8  # 2 circuits × 4 gates
+        simulate!(circuit, state; n_steps=4, record_when=:every_gate)
+        @test length(state.observables[:dw]) == 8  # 4 steps × 2 gates
     end
     
     @testset "Test 3: :final_only" begin
         # Records once at the very end
-        # With n_circuits=2: expect 1 record
+        # With n_steps=4: expect 1 record (always exactly 1)
         state = make_state()
         circuit = make_circuit()
-        simulate!(circuit, state; n_circuits=2, record_when=:final_only)
+        simulate!(circuit, state; n_steps=4, record_when=:final_only)
         @test length(state.observables[:dw]) == 1
     end
     
     @testset "Test 4: every_n_gates(4)" begin
         # Records at gate indices divisible by 4
-        # With n_circuits=3 and 4 gates per circuit: 12 total gates
+        # With n_steps=6 and 2 gates per step: 12 total gates
         # Triggers at gates 4, 8, 12 → 3 records
         state = make_state()
         circuit = make_circuit()
-        simulate!(circuit, state; n_circuits=3, record_when=every_n_gates(4))
+        simulate!(circuit, state; n_steps=6, record_when=every_n_gates(4))
         @test length(state.observables[:dw]) == 3
     end
     
     @testset "Test 5: every_n_steps(2)" begin
         # Records at step boundaries where step_idx % 2 == 0
-        # With n_circuits=4: steps complete at circuit ends (circuits 1, 2, 3, 4)
-        # Divisible by 2: circuits 2, 4 → 2 records
+        # With n_steps=8: step_idx goes 1..8, fires at 2, 4, 6, 8 → 4 records
         state = make_state()
         circuit = make_circuit()
-        simulate!(circuit, state; n_circuits=4, record_when=every_n_steps(2))
-        @test length(state.observables[:dw]) == 2
+        simulate!(circuit, state; n_steps=8, record_when=every_n_steps(2))
+        @test length(state.observables[:dw]) == 4
     end
     
     @testset "Test 6: Custom lambda" begin
         # Custom lambda: records only when gate_idx == 1
-        # With n_circuits=2: gate_idx=1 happens once → 1 record
+        # gate_idx is cumulative and never resets; fires once → 1 record
         state = make_state()
         circuit = make_circuit()
-        simulate!(circuit, state; n_circuits=2, record_when=ctx -> ctx.gate_idx == 1)
+        simulate!(circuit, state; n_steps=4, record_when=ctx -> ctx.gate_idx == 1)
         @test length(state.observables[:dw]) == 1
     end
     
     @testset "Test 7: DEFAULT (no kwarg)" begin
         # When record_when not provided, defaults to :every_step
-        # With n_circuits=2: expect 2 records (same as :every_step)
+        # With n_steps=4: expect 4 records (one per step)
         state = make_state()
         circuit = make_circuit()
-        simulate!(circuit, state; n_circuits=2)  # No record_when - uses default
-        @test length(state.observables[:dw]) == 2
+        simulate!(circuit, state; n_steps=4)  # No record_when - uses default
+        @test length(state.observables[:dw]) == 4
     end
     
     @testset "RecordingContext struct" begin

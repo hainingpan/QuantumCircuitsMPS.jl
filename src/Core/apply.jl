@@ -78,14 +78,14 @@ Returns the measurement outcome (0 or 1).
 
 This is the FUNDAMENTAL measurement operation:
 1. Compute Born probability P(0|ψ)
-2. Sample outcome using :born RNG stream
+2. Sample outcome using :born_measurement RNG stream
 3. Apply Projection operator
 4. Return outcome (for conditional logic in Reset)
 """
 function _measure_single_site!(state::SimulationState, site::Int)
     p_0 = born_probability(state, site, 0)
-    born_rng = get_rng(state.rng_registry, :born)
-    outcome = rand(born_rng) < p_0 ? 0 : 1
+    born_measurement_rng = get_rng(state.rng_registry, :born_measurement)
+    outcome = rand(born_measurement_rng) < p_0 ? 0 : 1
     _apply_single!(state, Projection(outcome), [site])
     return outcome
 end

@@ -56,7 +56,7 @@ export AbstractGeometry, SingleSite, AdjacentPair, Bricklayer, AllSites
 export StaircaseLeft, StaircaseRight
 export Pointer, move!
 # Observables
-export AbstractObservable, DomainWall, BornProbability, EntanglementEntropy, StringOrder
+export AbstractObservable, DomainWall, BornProbability, EntanglementEntropy, StringOrder, Magnetization
 export track!, record!, list_observables
 # API
 export apply!, simulate, with_state, current_state, apply_with_prob!
@@ -64,17 +64,21 @@ export run_circuit!, simulate_circuits, CircuitSimulation
 export record_every, record_at_circuits, record_always
 export get_state, get_observables, circuits_run
 # Circuit (lazy mode API)
-export Circuit, expand_circuit, simulate!, ExpandedOp
+export Circuit, expand_circuit, expand_circuit_grouped, simulate!, ExpandedOp
 export RecordingContext, every_n_gates, every_n_steps
 # ASCII Plotting
 export print_circuit
 # Visualization (provided by Luxor extension)
-function plot_circuit end
+# _plot_circuit_impl is defined in ext/QuantumCircuitsMPSLuxorExt.jl when Luxor is loaded
+function _plot_circuit_impl end
+function plot_circuit(circuit::Circuit; n_steps::Int=1, gates_spacetime::Int=0, filename::Union{String,Nothing}=nothing)
+    Base.invokelatest(_plot_circuit_impl, circuit; n_steps=n_steps, gates_spacetime=gates_spacetime, filename=filename)
+end
 export plot_circuit
 
 # === INTERNAL EXPORTS (for CT.jl parity/debugging) ===
 # These are exported for testing/verification but not public API
-export advance!, get_sites, current_position  # Geometry internals
+export advance!, get_sites, current_position, reset!  # Geometry internals
 export compute_site_staircase_right, compute_site_staircase_left, compute_pair_staircase  # Pure geometry computation
 export apply_op_internal!, apply_post!        # Apply internals  
 export born_probability                       # Observable internals

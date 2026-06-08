@@ -24,12 +24,13 @@ StaircaseRight(1; range=2)  # NNN: (1,3), (2,4), ...
 ```
 """
 mutable struct StaircaseRight <: AbstractStaircase
+    _start_position::Int  # initial position (for reset!)
     _position::Int  # internal, use current_position() to read
     range::Int      # distance between sites
     
     function StaircaseRight(start::Int; range::Int=1)
         range >= 1 || throw(ArgumentError("range must be >= 1"))
-        new(start, range)
+        new(start, start, range)
     end
 end
 
@@ -49,12 +50,13 @@ StaircaseLeft(1; range=2)  # NNN: (1,3), (2,4), ...
 ```
 """
 mutable struct StaircaseLeft <: AbstractStaircase
+    _start_position::Int  # initial position (for reset!)
     _position::Int  # internal, use current_position() to read
     range::Int      # distance between sites
     
     function StaircaseLeft(start::Int; range::Int=1)
         range >= 1 || throw(ArgumentError("range must be >= 1"))
-        new(start, range)
+        new(start, start, range)
     end
 end
 
@@ -123,5 +125,38 @@ function advance!(geo::StaircaseLeft, L::Int, bc::Symbol)
         # OBC: position cycles L-1 → L-2 → ... → 1 → L-1
         max_pos = L - 1
         geo._position = geo._position == 1 ? max_pos : geo._position - 1
+    end
+end
+
+"""
+    reset!(geo::AbstractStaircase)
+
+Reset staircase position to its initial value.
+"""
+function reset!(geo::AbstractStaircase)
+    geo._position = geo._start_position
+    nothing
+end
+
+"""
+    reset!(::AbstractGeometry)
+
+No-op base method for reset! on general geometries.
+"""
+reset!(::AbstractGeometry) = nothing
+
+"""
+    sync_staircase_positions!(outcomes, selected_geo::AbstractStaircase)
+
+After advancing the selected staircase in a stochastic group, sync all other
+AbstractStaircase geometries in the group to the selected geometry's new position.
+This implements shared random-walk position for CIPT circuits.
+"""
+function sync_staircase_positions!(outcomes, selected_geo::AbstractStaircase)
+    for outcome in outcomes
+        geo = outcome.geometry
+        if geo isa AbstractStaircase && geo !== selected_geo
+            geo._position = selected_geo._position
+        end
     end
 end
