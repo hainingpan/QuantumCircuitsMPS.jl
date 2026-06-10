@@ -82,14 +82,15 @@ matching what `expand_circuit(circuit; seed=gates_spacetime)` produces.
 - ASCII mode: Uses `-' (wire), `|` (both box edges)
 
 # Layout Algorithm
-1. Builds circuit template from `circuit.operations` directly (all outcomes shown)
-2. Builds row list handling:
-   - Empty steps → one wire-only row
-   - Single op → one row with no letter suffix
-   - Multiple ops → lettered sub-rows (a, b, c...)
-3. Calculates fixed column width based on longest gate label (+2 for box chars)
-4. Renders header row with qubit labels (e.g., "q1", "q2", "q3", "q4")
-5. Renders time step rows with gate boxes or wire segments
+1. Expands the circuit with `expand_circuit_grouped` (one group per `apply!` call)
+2. For each group, packs ops into non-overlapping layers with `pack_ops_into_layers`;
+   each layer becomes one visual row, and the group label is printed only on the
+   first row of the group
+3. Letters identify groups (not sub-rows): single-group steps are labeled `"1:"`,
+   multi-group steps `"1a:"`, `"1b:"`, etc.; empty steps → one wire-only row
+4. Calculates fixed column width based on longest gate label (+2 for box chars)
+5. Renders header row with qubit labels (e.g., "q1", "q2", "q3", "q4")
+6. Renders time step rows with gate boxes or wire segments
 
 # Multi-Qubit Gates
 For gates spanning multiple sites (e.g., CZ on sites [2, 3]):
@@ -123,55 +124,26 @@ function print_circuit(io::IO, circuit::Circuit; n_steps::Int=1, gates_spacetime
     LEFT_BOX = unicode ? '┤' : '|'
     RIGHT_BOX = unicode ? '├' : '|'
     
-    # Helper: check if two ops overlap (share any qubits)
-    function ops_overlap(op1, op2)
-        return !isempty(intersect(op1.sites, op2.sites))
-    end
-    
-    # Helper: check if any ops in the list overlap with each other
-    function any_ops_overlap(ops)
-        for i in 1:length(ops), j in (i+1):length(ops)
-            if ops_overlap(ops[i], ops[j])
-                return true
-            end
-        end
-        return false
-    end
-    
     # 1. Expand circuit with the given RNG seed
     expanded = expand_circuit_grouped(circuit; n_steps=n_steps, seed=gates_spacetime)
     
-    # 2. Build row list: (step_idx, substep_letter, ops_list)
-    # ops_list is a Vector{ExpandedOp} of gates rendered on the same row
-    rows = []
+    # 2. Build row list: (label_text, is_first, ops_list)
+    # ops_list is a Vector{ExpandedOp} of gates rendered on the same row.
+    # Each group (apply! call) is packed into non-overlapping layers; the label
+    # is printed only on the first layer of each group. Letters identify groups,
+    # not packed sub-rows: single-group steps get "1:", multi-group "1a:", "1b:", ...
+    rows = Tuple{String, Bool, Vector{ExpandedOp}}[]
     for (step_idx, step_groups) in enumerate(expanded)
-        if isempty(step_groups)
-            push!(rows, (step_idx, "", ExpandedOp[]))
+        groups = [g for g in step_groups if !isempty(g)]
+        if isempty(groups)
+            push!(rows, ("$(step_idx)", true, ExpandedOp[]))
         else
-            # Build batches: each batch is a set of ops on the same visual row.
-            # Within a group (same apply! call), non-overlapping ops share a row.
-            # Different groups always get separate rows.
-            batches = Vector{ExpandedOp}[]
-            for group_ops in step_groups
-                if isempty(group_ops)
-                    continue
-                elseif !any_ops_overlap(group_ops)
-                    push!(batches, group_ops)
-                else
-                    for op in group_ops
-                        push!(batches, [op])
-                    end
-                end
-            end
-            
-            if isempty(batches)
-                push!(rows, (step_idx, "", ExpandedOp[]))
-            elseif length(batches) == 1
-                push!(rows, (step_idx, "", batches[1]))
-            else
-                for (batch_idx, batch) in enumerate(batches)
-                    letter = string(Char('a' + batch_idx - 1))
-                    push!(rows, (step_idx, letter, batch))
+            for (g_idx, group_ops) in enumerate(groups)
+                label_text = length(groups) == 1 ? "$(step_idx)" :
+                             "$(step_idx)$(Char('a' + g_idx - 1))"
+                layers = pack_ops_into_layers(group_ops)
+                for (layer_idx, layer_ops) in enumerate(layers)
+                    push!(rows, (label_text, layer_idx == 1, layer_ops))
                 end
             end
         end
@@ -192,9 +164,10 @@ function print_circuit(io::IO, circuit::Circuit; n_steps::Int=1, gates_spacetime
     
     # Calculate row label width (for alignment)
     max_row_label_len = 0
-    for (step, letter, _) in rows
-        label = letter == "" ? "$(step):" : "$(step)$(letter):"
-        max_row_label_len = max(max_row_label_len, length(label))
+    for (label_text, is_first, _) in rows
+        if is_first
+            max_row_label_len = max(max_row_label_len, length(label_text) + 1)  # +1 for ':'
+        end
     end
     ROW_LABEL_WIDTH = max(max_row_label_len + 2, 5)  # +2 for padding, min 5
     
@@ -206,10 +179,13 @@ function print_circuit(io::IO, circuit::Circuit; n_steps::Int=1, gates_spacetime
     println(io)
     
     # 5. Print time step rows
-    for (step, letter, ops) in rows
-        # Row label (step number with optional letter)
-        row_label = letter == "" ? "$(step):" : "$(step)$(letter):"
-        print(io, lpad(row_label, ROW_LABEL_WIDTH - 1), " ")
+    for (label_text, is_first, ops) in rows
+        # Row label printed only on first layer of each group; blank otherwise
+        if is_first
+            print(io, lpad(label_text * ":", ROW_LABEL_WIDTH - 1), " ")
+        else
+            print(io, lpad("", ROW_LABEL_WIDTH))
+        end
         
         # For each qubit column, find the active op (if any)
         for q in 1:circuit.L

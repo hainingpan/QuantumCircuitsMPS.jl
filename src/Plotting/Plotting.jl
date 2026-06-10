@@ -43,5 +43,8 @@ matching `expand_circuit(circuit; seed=gates_spacetime)`.
 - [`simulate!`](@ref): Execute circuits after visualizing
 """
 
+# Layout helpers (layer packing)
+include("layout.jl")
+
 # ASCII circuit visualization
 include("ascii.jl")

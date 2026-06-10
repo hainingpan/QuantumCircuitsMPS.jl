@@ -56,6 +56,21 @@ using ITensorMPS
         @test_throws ArgumentError ProductState(binary_int=1, bitstring="01")
         @test_throws ArgumentError ProductState(binary_decimal=0.1, bitstring="01")
         @test_throws ArgumentError ProductState()  # Must provide exactly one
+
+        # spin_state: uniform product state
+        @testset "spin_state" begin
+            state_s1 = SimulationState(L=4, bc=:periodic, site_type="S=1", maxdim=16,
+                rng=RNGRegistry(gates_spacetime=1, born_measurement=2, gates_realization=3))
+            initialize!(state_s1, ProductState(spin_state="Z0"))
+            @test maxlinkdim(state_s1.mps) == 1
+
+            # Mutual exclusion with spin_state
+            @test_throws ArgumentError ProductState(spin_state="Z0", binary_int=0)
+            @test_throws ArgumentError ProductState(spin_state="Z0", bitstring="01")
+            @test_throws ArgumentError ProductState(spin_state="Z0", binary_decimal=0.1)
+            # Empty string rejected
+            @test_throws ArgumentError ProductState(spin_state="")
+        end
     end
     
     @testset "Spin Projector Properties" begin

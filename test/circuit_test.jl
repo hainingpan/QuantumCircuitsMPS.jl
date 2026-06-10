@@ -572,6 +572,79 @@ end
         @test occursin(r"\s*1:", output)
     end
     
+    @testset "pack_ops_into_layers" begin
+        # Helper to build ExpandedOp with given sites
+        mk(sites) = ExpandedOp(1, HaarRandom(), sites, "Haar")
+
+        # Case 1: Bricklayer(:nn) L=8 periodic → 2 layers of 4 ops each
+        ops_nn = [mk([1,2]), mk([3,4]), mk([5,6]), mk([7,8]),
+                  mk([2,3]), mk([4,5]), mk([6,7]), mk([8,1])]
+        layers_nn = QuantumCircuitsMPS.pack_ops_into_layers(ops_nn)
+        @test length(layers_nn) == 2
+        @test length(layers_nn[1]) == 4
+        @test length(layers_nn[2]) == 4
+
+        # Case 2: L=3 periodic odd cycle → 3 layers (triangle graph)
+        ops_odd = [mk([1,2]), mk([3,1]), mk([2,3])]
+        layers_odd = QuantumCircuitsMPS.pack_ops_into_layers(ops_odd)
+        @test length(layers_odd) == 3
+
+        # Case 3: Non-overlapping single-site ops → 1 layer with 3 ops
+        ops_single = [mk([1]), mk([2]), mk([3])]
+        layers_single = QuantumCircuitsMPS.pack_ops_into_layers(ops_single)
+        @test length(layers_single) == 1
+        @test length(layers_single[1]) == 3
+
+        # Case 4: CZ@[1,2] + CZ@[2,3] share site 2 → 2 layers
+        ops_cz = [mk([1,2]), mk([2,3])]
+        layers_cz = QuantumCircuitsMPS.pack_ops_into_layers(ops_cz)
+        @test length(layers_cz) == 2
+
+        # Case 5: Wrapped pair [8,1] conflicts with [1,2] (share 1) and [7,8] (share 8)
+        #         but NOT with [3,4]
+        ops_wrap = [mk([1,2]), mk([7,8]), mk([3,4]), mk([8,1])]
+        layers_wrap = QuantumCircuitsMPS.pack_ops_into_layers(ops_wrap)
+        # [8,1] cannot go in layer 1 (conflicts [1,2] and [7,8]), so goes to layer 2
+        # [3,4] fits in layer 1 alongside [1,2] and [7,8]
+        @test length(layers_wrap) == 2
+        # [3,4] should be in layer 1 (3 ops), [8,1] in layer 2 (1 op)
+        @test length(layers_wrap[1]) == 3
+        @test length(layers_wrap[2]) == 1
+
+        # Case 6: Empty input → empty output
+        layers_empty = QuantumCircuitsMPS.pack_ops_into_layers(ExpandedOp[])
+        @test isempty(layers_empty)
+
+        # Case 7: Single op → 1 layer of 1
+        layers_one = QuantumCircuitsMPS.pack_ops_into_layers([mk([5,6])])
+        @test length(layers_one) == 1
+        @test length(layers_one[1]) == 1
+    end
+
+    @testset "print_circuit greedy packing" begin
+        # Bricklayer(:nn) L=8 periodic → 2 gate rows, single-group label "1:" (no letters)
+        circuit = Circuit(L=8, bc=:periodic) do c
+            apply!(c, HaarRandom(), Bricklayer(:nn))
+        end
+        io = IOBuffer()
+        print_circuit(circuit; gates_spacetime=0, io=io)
+        output = String(take!(io))
+        @test !occursin("1a:", output)
+        @test !occursin("1b:", output)
+        @test occursin(r"\s*1:", output)  # step label exists without letter
+
+        # 2-group circuit → letters preserved
+        circuit2 = Circuit(L=4, bc=:periodic) do c
+            apply!(c, PauliX(), SingleSite(1))
+            apply!(c, PauliX(), SingleSite(2))
+        end
+        io2 = IOBuffer()
+        print_circuit(circuit2; gates_spacetime=0, io=io2)
+        output2 = String(take!(io2))
+        @test occursin("1a:", output2)
+        @test occursin("1b:", output2)
+    end
+
     @testset "Multi-step single-qubit gates ASCII output" begin
         # Baseline: Multiple single-qubit gates in same step (transposed layout)
         circuit = Circuit(L=4, bc=:periodic) do c

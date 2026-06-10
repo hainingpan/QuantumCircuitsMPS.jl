@@ -7,7 +7,7 @@ Abstract type for initial state specifications.
 abstract type AbstractInitialState end
 
 """
-    ProductState(; binary_int=nothing, binary_decimal=nothing, bitstring=nothing)
+    ProductState(; binary_int=nothing, binary_decimal=nothing, bitstring=nothing, spin_state=nothing)
 
 Product state initialization for qubits/qudits. Exactly one parameter must be specified.
 
@@ -15,6 +15,7 @@ Product state initialization for qubits/qudits. Exactly one parameter must be sp
 - `binary_int::Integer`: Integer representation (e.g., 0, 1, 5)
 - `binary_decimal::AbstractFloat`: Binary decimal notation (e.g., 0.101 = "101")
 - `bitstring::AbstractString`: Explicit bitstring (e.g., "101")
+- `spin_state::AbstractString`: ITensor state name applied uniformly to all sites, e.g. `"Z0"` for the S=1 m=0 state
 
 # Site ordering
 MSB at site 1, LSB at site L (CT.jl convention):
@@ -34,32 +35,38 @@ ProductState(binary_decimal=0.101)
 
 # Explicit bitstring
 ProductState(bitstring="1010")
+
+# Uniform S=1 m=0 state
+ProductState(spin_state="Z0")
 ```
 """
 struct ProductState <: AbstractInitialState
     binary_int::Union{Nothing, BigInt}
     binary_decimal::Union{Nothing, Float64}
     bitstring::Union{Nothing, String}
+    spin_state::Union{Nothing, String}
     
     function ProductState(; 
         binary_int::Union{Nothing, Integer}=nothing,
         binary_decimal::Union{Nothing, AbstractFloat}=nothing,
-        bitstring::Union{Nothing, AbstractString}=nothing
+        bitstring::Union{Nothing, AbstractString}=nothing,
+        spin_state::Union{Nothing, AbstractString}=nothing
     )
         # Validate exactly one parameter is specified
         params_specified = sum([
             binary_int !== nothing,
             binary_decimal !== nothing,
-            bitstring !== nothing
+            bitstring !== nothing,
+            spin_state !== nothing
         ])
         
         if params_specified == 0
             throw(ArgumentError(
-                "ProductState requires exactly one of: binary_int, binary_decimal, or bitstring"
+                "ProductState requires exactly one of: binary_int, binary_decimal, bitstring, or spin_state"
             ))
         elseif params_specified > 1
             throw(ArgumentError(
-                "ProductState accepts only one parameter, got multiple"
+                "ProductState requires exactly one of: binary_int, binary_decimal, bitstring, or spin_state"
             ))
         end
         
@@ -67,13 +74,19 @@ struct ProductState <: AbstractInitialState
         bi = binary_int === nothing ? nothing : BigInt(binary_int)
         bd = binary_decimal === nothing ? nothing : Float64(binary_decimal)
         bs = bitstring === nothing ? nothing : String(bitstring)
+        ss = spin_state === nothing ? nothing : String(spin_state)
         
         # Validate bitstring contains only 0/1
         if bs !== nothing && !all(c in ('0', '1') for c in bs)
             throw(ArgumentError("bitstring must contain only '0' and '1' characters"))
         end
         
-        return new(bi, bd, bs)
+        # Validate spin_state is not empty
+        if ss !== nothing && isempty(ss)
+            throw(ArgumentError("spin_state cannot be an empty string"))
+        end
+        
+        return new(bi, bd, bs, ss)
     end
 end
 
@@ -100,6 +113,15 @@ Uses CT.jl MSB ordering: site 1 = MSB, site L = LSB.
 """
 function initialize!(state::SimulationState, init::ProductState)
     L = state.L
+    
+    # Handle uniform spin_state branch early
+    if init.spin_state !== nothing
+        state_names_physical = fill(init.spin_state, L)
+        # Reorder to RAM order using ram_phy
+        ram_state_names = [state_names_physical[state.ram_phy[i]] for i in 1:L]
+        state.mps = MPS(state.sites, ram_state_names)
+        return nothing
+    end
     
     # Convert init specification to bit pattern string
     bit_pattern_str::String = if init.binary_int !== nothing

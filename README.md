@@ -1,4 +1,4 @@
-[![Julia 1.9+](https://img.shields.io/badge/Julia-1.9%2B-blue)](https://julialang.org/)
+[![Julia 1.11+](https://img.shields.io/badge/Julia-1.11%2B-blue)](https://julialang.org/)
 [![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD--3--Clause-green.svg)](LICENSE)
 
 # QuantumCircuitsMPS.jl
@@ -115,7 +115,7 @@ using Revising
 - **Required**: ITensors.jl, ITensorMPS.jl, JSON.jl
 - **Optional**: Luxor.jl (for circuit visualization)
 
-Julia 1.9 or higher is required.
+Julia 1.11 or higher is required.
 
 ---
 
@@ -208,7 +208,6 @@ end
 
 ```julia
 using QuantumCircuitsMPS
-using ITensorMPS
 
 # System parameters
 L = 12                    # Chain length
@@ -230,9 +229,9 @@ end
 # Initialize state and track observables
 state = SimulationState(L=L, bc=bc, site_type="S=1", maxdim=128,
     rng=RNGRegistry(gates_spacetime=42, gates_realization=2, born_measurement=3))
-state.mps = MPS(state.sites, ["Z0" for _ in 1:L])
+initialize!(state, ProductState(spin_state="Z0"))
 
-track!(state, :entropy => EntanglementEntropy(cut=L÷2, order=1, base=2))
+track!(state, :entropy => EntanglementEntropy(cut=L÷2, renyi_index=1, base=2))
 track!(state, :string_order => StringOrder(1, L÷2+1, order=1))
 
 # Run L layers of projections

@@ -3,7 +3,8 @@ module QuantumCircuitsMPSLuxorExt
 using Luxor
 using QuantumCircuitsMPS
 using QuantumCircuitsMPS: Circuit, expand_circuit_grouped, ExpandedOp,
-    gate_label, is_compound_geometry, get_compound_elements, compute_sites_dispatch
+    gate_label, is_compound_geometry, get_compound_elements, compute_sites_dispatch,
+    pack_ops_into_layers
 
 """Wrapper type for SVG data that auto-displays in Jupyter notebooks."""
 struct SVGImage
@@ -131,63 +132,25 @@ function QuantumCircuitsMPS._plot_circuit_impl(circuit::Circuit; n_steps::Int=1,
     
     expanded = expand_circuit_grouped(circuit; n_steps=n_steps, seed=gates_spacetime)
     
-    # Helper: check if two ops overlap (share any qubits)
-    function ops_overlap(op1, op2)
-        return !isempty(intersect(op1.sites, op2.sites))
-    end
-    
-    # Helper: check if any ops in the list overlap with each other
-    function any_ops_overlap(ops)
-        for i in 1:length(ops), j in (i+1):length(ops)
-            if ops_overlap(ops[i], ops[j])
-                return true
-            end
-        end
-        return false
-    end
-    
     # Build row list with visual row position tracking
-    # Each row is: (step_idx, letter, ops_list, row_pos)
-    # ops_list is a Vector{ExpandedOp} of gates to render on the same visual row
+    # Each row is: (step_idx, label_text, ops_list, row_pos, render_header::Bool)
+    # render_header=true marks the first layer of each group (where label is drawn)
     rows = []
     visual_row = 0
     for (step_idx, step_groups) in enumerate(expanded)
-        if isempty(step_groups)
+        groups = [g for g in step_groups if !isempty(g)]
+        if isempty(groups)
             # Empty step - still render one row
             visual_row += 1
-            push!(rows, (step_idx, "", ExpandedOp[], visual_row))
+            push!(rows, (step_idx, string(step_idx), ExpandedOp[], visual_row, true))
         else
-            # Build batches: each batch is a set of ops on the same visual row.
-            # Within a group (same apply! call), non-overlapping ops share a row.
-            # Different groups always get separate rows.
-            batches = Vector{ExpandedOp}[]
-            for group_ops in step_groups
-                if isempty(group_ops)
-                    continue
-                elseif !any_ops_overlap(group_ops)
-                    # All ops in this group can share one row
-                    push!(batches, group_ops)
-                else
-                    # Overlapping within group - each op gets its own row
-                    for op in group_ops
-                        push!(batches, [op])
-                    end
-                end
-            end
-            
-            if isempty(batches)
-                visual_row += 1
-                push!(rows, (step_idx, "", ExpandedOp[], visual_row))
-            elseif length(batches) == 1
-                # Single batch - no letter suffix
-                visual_row += 1
-                push!(rows, (step_idx, "", batches[1], visual_row))
-            else
-                # Multiple batches - letter suffixes
-                for (batch_idx, batch) in enumerate(batches)
+            for (g_idx, group_ops) in enumerate(groups)
+                label_text = length(groups) == 1 ? string(step_idx) :
+                             string(step_idx, Char('a' + g_idx - 1))
+                layers = pack_ops_into_layers(group_ops)
+                for (layer_idx, layer_ops) in enumerate(layers)
                     visual_row += 1
-                    letter = string(Char('a' + batch_idx - 1))
-                    push!(rows, (step_idx, letter, batch, visual_row))
+                    push!(rows, (step_idx, label_text, layer_ops, visual_row, layer_idx == 1))
                 end
             end
         end
@@ -220,19 +183,33 @@ function QuantumCircuitsMPS._plot_circuit_impl(circuit::Circuit; n_steps::Int=1,
     end
     
     # Draw step headers on left side (was top)
-    # For parallel ops (same row_pos), only render header once
-    rendered_headers = Set{Int}()
-    for (step, letter, _, row_pos) in rows
-        if row_pos ∉ rendered_headers
-            push!(rendered_headers, row_pos)
-            y = wire_length - (row_pos - 0.5) * ROW_HEIGHT  # was x
-            header = letter == "" ? string(step) : "$(step)$(letter)"
-            text(header, Point(-10, y + 5), halign=:right, valign=:center)
+    # render_header=true marks the first layer of each group
+    # For multi-layer groups, center the label across all layers
+    # Collect group spans: for each (step, label_text) combo, find first and last row_pos
+    group_spans = Dict{Tuple{Int,String}, Tuple{Int,Int}}()  # (step, label) → (first_row_pos, last_row_pos)
+    for (step, label_text, _, row_pos, render_header) in rows
+        key = (step, label_text)
+        if !haskey(group_spans, key)
+            group_spans[key] = (row_pos, row_pos)
+        else
+            first_pos, _ = group_spans[key]
+            group_spans[key] = (first_pos, row_pos)
+        end
+    end
+    rendered_labels = Set{Tuple{Int,String}}()
+    for (step, label_text, _, row_pos, render_header) in rows
+        key = (step, label_text)
+        if render_header && key ∉ rendered_labels
+            push!(rendered_labels, key)
+            first_pos, last_pos = group_spans[key]
+            # Center y across all layers of this group
+            y_center = wire_length - ((first_pos + last_pos - 1) / 2) * ROW_HEIGHT
+            text(label_text, Point(-10, y_center + 5), halign=:right, valign=:center)
         end
     end
     
     # Draw gate boxes with transposed coordinates
-    for (_, _, ops, row_pos) in rows
+    for (_, _, ops, row_pos, _) in rows
         y = wire_length - (row_pos - 0.5) * ROW_HEIGHT  # time position
         for op in ops
             # Check if single-qubit or multi-qubit gate
