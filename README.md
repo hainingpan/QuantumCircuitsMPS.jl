@@ -80,7 +80,7 @@ flowchart TB
 
 ### Layered Abstraction
 
-**User-Facing API**: Physicists work with `SimulationState`, `Gates` (PauliX, HaarRandom, Projection), `Geometry` (Bricklayer, AllSites, StaircaseLeft), and `Observables` (EntanglementEntropy, DomainWall). No tensor network concepts exposed.
+**User-Facing API**: Physicists work with `SimulationState`, `Gates` (PauliX, HaarRandom, Projection), `Geometry` (Bricklayer, AllSites, StaircaseLeft), and `Observables` (EntanglementEntropy, Magnetization). No tensor network concepts exposed.
 
 **Internal Engine**: The `apply!` function translates high-level physics operations into ITensor calls. It manages physical-to-RAM index mappings (`phy_ram`/`ram_phy`), operator construction, and MPS updates. Users never interact with this layer.
 
@@ -107,7 +107,7 @@ julia --project=.
 using Pkg
 Pkg.instantiate()
 using QuantumCircuitsMPS
-using Revising
+using Revise
 ```
 
 ### Dependencies
@@ -159,7 +159,7 @@ simulate!(circuit, state; n_steps=n_steps, record_when=:every_step)
 entropies = state.observables[:entropy]
 println("Final entropy: $(entropies[end])")
 
-# See examples/mipt_example.jl for full version
+# See examples/mipt_example.ipynb for the full tutorial
 ```
 
 **Physics**: The competition between entangling Haar gates and disentangling measurements creates a phase transition at critical measurement rate p_c ≈ 0.16. Below p_c, the system exhibits volume-law entanglement; above p_c, area-law entanglement emerges.
@@ -169,40 +169,38 @@ println("Final entropy: $(entropies[end])")
 ```julia
 using QuantumCircuitsMPS
 
-function run_cipt(L::Int, p_ctrl::Float64)
-    # Define moving geometries for control-induced feedback
-    left = StaircaseLeft(1)
-    right = StaircaseRight(1)
-    
-    # Circuit step: conditional branching based on control probability
-    function circuit_step!(state, t)
-        apply_with_prob!(state; rng=:gates_spacetime, outcomes=[
-            (probability=p_ctrl, gate=Reset(), geometry=left),
-            (probability=1-p_ctrl, gate=HaarRandom(), geometry=right)
-        ])
-    end
-    
-    # Observable evaluation depends on staircase position
-    get_i1(state, t) = (current_position(left) % L) + 1
-    
-    # Functional simulation API
-    results = simulate(
-        L=L, bc=:periodic,
-        init=ProductState(binary_int=1),
-        rng=RNGRegistry(Val(:ct_compat), circuit=42, measurement=123),
-        steps=2*L^2,
-        circuit!=circuit_step!,
-        observables=[:DW1 => DomainWall(order=1)],
-        i1_fn=get_i1
-    )
-    
-    return results[:DW1]  # Domain wall trajectory
+# System parameters
+L = 8                   # Number of qubits
+p_ctrl = 0.5            # Control probability (critical point p_c ≈ 0.5)
+n_steps = 2 * L^2       # Timesteps (staircase sweeps)
+
+# Build circuit: each step, a coin flip applies Reset (moving left) or Haar (moving right)
+left = StaircaseLeft(1)
+right = StaircaseRight(1)
+
+circuit = Circuit(L=L, bc=:periodic, p_ctrl=p_ctrl) do c
+    apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+        (probability=c.params[:p_ctrl], gate=Reset(), geometry=left),
+        (probability=1-c.params[:p_ctrl], gate=HaarRandom(), geometry=right)
+    ])
 end
 
-# See examples/cipt_example.jl for full version
+# Initialize state and track magnetization Mz = (1/L) Σᵢ ⟨Zᵢ⟩
+state = SimulationState(L=L, bc=:periodic, maxdim=64,
+    rng=RNGRegistry(gates_spacetime=42, born_measurement=1, gates_realization=2))
+initialize!(state, ProductState(binary_int=0))
+track!(state, :Mz => Magnetization(:Z))
+
+# Run simulation
+simulate!(circuit, state; n_steps=n_steps, record_when=:every_gate)
+
+mz_vals = state.observables[:Mz]
+println("Final Mz: $(mz_vals[end])")
+
+# See examples/cipt_example.ipynb for the full tutorial
 ```
 
-**Physics**: Control-induced feedback creates spatial structure in the entanglement. The staircase geometry moves deterministically, creating domain wall defects that track the effective entanglement boundary.
+**Physics**: The competition between Reset gates (which project qubits to |0⟩) and Haar random unitaries (which entangle qubits) drives a phase transition at p_c ≈ 0.5. In the reset-dominated phase (p_ctrl > 0.5), the magnetization Mz → +1 as qubits are repeatedly reset to |0⟩. In the unitary-dominated phase (p_ctrl < 0.5), Mz → 0 as random unitaries scramble the state. The staircase geometries sweep in opposite directions, creating the spatial competition that drives the transition.
 
 ### AKLT Example: Forced Measurement Protocol
 
@@ -241,7 +239,7 @@ simulate!(circuit, state; n_steps=L, record_when=:every_step)
 println("Entropy: $(state.observables[:entropy][end])")
 println("|String Order|: $(abs(state.observables[:string_order][end]))")
 
-# See examples/AKLT_forcedmeas.jl for full version with NNN support
+# See examples/AKLT_forcedmeas.ipynb for the full tutorial with NNN support
 ```
 
 **Physics**: The AKLT (Affleck-Kennedy-Lieb-Tasaki) state is a paradigmatic example of symmetry-protected topological order. By projecting out the S=2 quintet sector from adjacent spin-1 pairs, the protocol converges to the AKLT ground state characterized by string order parameter |O| ≈ 4/9.
@@ -256,9 +254,9 @@ println("|String Order|: $(abs(state.observables[:string_order][end]))")
 
 | Concept | Description | Examples |
 |---------|-------------|----------|
-| **Gates** | Quantum operations applied to qubits | `HaarRandom()`, `PauliX()`, `Reset()`, `Measurement(:Z)`, `Projection(:up)`, `SpinSectorProjection()` |
-| **Geometry** | Which qubits to apply gates to | `Bricklayer(:odd)`, `Bricklayer(:even)`, `Bricklayer(:nn)`, `Bricklayer(:nnn)`, `AllSites()`, `Site(3)`, `StaircaseLeft(1)` |
-| **Observables** | Quantities to measure during simulation | `EntanglementEntropy(; cut=L÷2)`, `DomainWall(order=1)`, `BornProbability()`, `StringOrder(i, j; order=1)` |
+| **Gates** | Quantum operations applied to qubits | `HaarRandom()`, `PauliX()`, `Reset()`, `Measurement(:Z)`, `Projection(0)`, `SpinSectorProjection()` |
+| **Geometry** | Which qubits to apply gates to | `Bricklayer(:odd)`, `Bricklayer(:even)`, `Bricklayer(:nn)`, `Bricklayer(:nnn)`, `AllSites()`, `SingleSite(3)`, `StaircaseLeft(1)` |
+| **Observables** | Quantities to measure during simulation | `EntanglementEntropy(; cut=L÷2)`, `DomainWall(order=1)`, `BornProbability(1, 0)`, `Magnetization(:Z)`, `StringOrder(i, j; order=1)` |
 | **SimulationState** | The quantum state + tracking | Holds MPS, RNG streams, recorded observables |
 
 ### Bricklayer Geometry Parities
@@ -299,9 +297,9 @@ Note: `order=2` requires `j >= i+4` for non-overlapping endpoint pairs.
 |----------|---------|---------|
 | `apply!(state, gate, geometry)` | Apply a gate to specified sites | `apply!(state, HaarRandom(), Bricklayer(:odd))` |
 | `apply_with_prob!(state; rng, outcomes)` | Probabilistic gate application | `apply_with_prob!(state; rng=:gates_spacetime, outcomes=[...])` |
-| `simulate(; L, bc, init, ...)` | Functional simulation API | See CIPT example |
-| `track!(state, obs)` | Register observable for recording | `track!(state, :S => EntanglementEntropy())` |
-| `record!(state; kwargs...)` | Record current observable values | `record!(state; i1=5)` |
+| `simulate!(circuit, state; n_steps=50, record_when=:every_step)` | Run circuit n_steps times | See Quick Start |
+| `track!(state, obs)` | Register observable for recording | `track!(state, :S => EntanglementEntropy(; cut=6))` |
+| `record!(state; i1=nothing)` | Record current observable values | `record!(state)` |
 | `plot_circuit(circuit; filename)` | Export circuit diagram to SVG | Requires `using Luxor` |
 | `print_circuit(circuit)` | ASCII circuit visualization | Prints to console |
 
