@@ -194,6 +194,7 @@ function _apply_single!(state::SimulationState, gate::AbstractGate, phy_sites::V
     # Contract 3.5: Normalization dispatch
     if gate isa Projection || gate isa SpinSectorProjection || gate isa SpinSectorMeasurement
         normalize!(state.mps)
+        truncate!(state.mps; cutoff=state.cutoff)
     end
     # Unitaries (HaarRandom, CZ, PauliX/Y/Z): NO normalize
 end

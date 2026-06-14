@@ -33,6 +33,8 @@ function born_probability(state, physical_site::Int, outcome::Int)
     proj_op = outcome == 0 ? "Proj0" : "Proj1"
     
     # expect() returns Vector for all sites, index by RAM position
+    # Divide by ⟨ψ|ψ⟩ to handle slight norm drift; for normalized MPS this is a no-op.
+    mps_norm_sq = real(inner(state.mps, state.mps))
     all_probs = expect(state.mps, proj_op)
-    return real(all_probs[ram_idx])
+    return real(all_probs[ram_idx]) / mps_norm_sq
 end
