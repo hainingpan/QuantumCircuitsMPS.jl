@@ -111,6 +111,7 @@ function _von_neumann_entropy(
     # Apply threshold to avoid numerical issues with log(0)
     singular_vals = diag(S)
     p = max.(singular_vals, threshold) .^ 2
+    p ./= sum(p)   # renormalize after threshold replacement
     
     # Define log with specified base: log_b(x) = log(x) / log(b)
     log_fn = x -> log(x) / log(base)

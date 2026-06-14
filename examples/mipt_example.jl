@@ -1,24 +1,6 @@
-#!/usr/bin/env julia
-
-# MIPT Tutorial - Measurement-Induced Phase Transition
-# =====================================================
-# This tutorial demonstrates the **Measurement-Induced Phase Transition (MIPT)**
-# in a 1D quantum circuit with random unitary gates and projective measurements.
-#
-# ## What is MIPT?
-#
-# The MIPT arises from a competition between two processes:
-# 1. Unitary evolution (Haar random gates): Creates entanglement between qubits
-# 2. Projective measurements (Z-basis): Destroys entanglement locally
-#
-# Depending on the measurement rate, the system exhibits two distinct phases:
-# - Volume-law phase (p < p_c ≈ 0.16): Entanglement entropy scales with system size S ~ L
-# - Area-law phase (p > p_c ≈ 0.16): Entanglement entropy remains constant S ~ const
-# - Critical point (p ≈ p_c): Logarithmic scaling S ~ log(L)
-
-# ═══════════════════════════════════════════════════════════════════
-# Setup
-# ═══════════════════════════════════════════════════════════════════
+# mipt_example.jl — script mirror of examples/mipt_example.ipynb
+# Run with: julia --project=. -t auto examples/mipt_example.jl
+# See examples/mipt_example.ipynb for the full interactive tutorial.
 
 using Pkg; Pkg.activate(dirname(@__DIR__))
 using QuantumCircuitsMPS
@@ -28,14 +10,10 @@ using Plots
 using ProgressMeter
 using Luxor
 
-# ═══════════════════════════════════════════════════════════════════
-# Section 1: Setup and Parameters
-# ═══════════════════════════════════════════════════════════════════
-
-# Define system parameters
+# --- Section 1: Setup and Parameters ---
 const L = 8                   # System size (number of qubits)
 const bc = :periodic           # Boundary conditions
-const n_steps = L             # Total timesteps for simulation (used in simulate!(n_circuits=n_steps))
+const n_steps = L             # Total timesteps for simulation (passed to simulate!(n_steps=n_steps))
 const p = 0.5                 # Measurement probability (near critical p_c ≈ 0.16)
 const cut = L ÷ 2              # Entanglement cut position
 
@@ -46,14 +24,9 @@ println("  n_steps = $n_steps (circuit timesteps)")
 println("  p = $p (measurement probability)")
 println("  cut = $cut (entanglement cut position)")
 
-# ═══════════════════════════════════════════════════════════════════
-# Section 2: Building the MIPT Circuit
-# ═══════════════════════════════════════════════════════════════════
-# The circuit implements the standard MIPT protocol with Bricklayer
-# unitary gates followed by stochastic measurements.
-
-# Build circuit with n_steps=2 (two sublayers per circuit execution)
-circuit = Circuit(L=L, bc=bc, n_steps=2, p=p) do c
+# --- Section 2: Building the MIPT Circuit ---
+# Build circuit (one full MIPT cycle per do-block execution: even+measure+odd+measure)
+circuit = Circuit(L=L, bc=bc, p=p) do c
     apply!(c, HaarRandom(), Bricklayer(:even))
     apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
         (probability=c.params[:p], gate=Measurement(:Z), geometry=AllSites())
@@ -65,29 +38,19 @@ circuit = Circuit(L=L, bc=bc, n_steps=2, p=p) do c
 end
 
 println("Circuit built successfully")
-println("Circuit n_steps: $(circuit.n_steps) (timesteps per circuit run)")
+println("Circuit parameters: L=$(circuit.L), bc=$(circuit.bc)")
 println("System size: $(circuit.L) qubits")
 println("Boundary conditions: $(circuit.bc)")
 
 # Circuit visualization
-plot_circuit(circuit; gates_spacetime=0)
+plot_circuit(circuit; gates_spacetime=0, n_steps=4, filename=joinpath(@__DIR__, "mipt_circuit.svg"))
 
-# ═══════════════════════════════════════════════════════════════════
-# Section 3: Simulation with Entanglement Tracking
-# ═══════════════════════════════════════════════════════════════════
-# We track the entanglement entropy at the central cut (position L÷2)
-# to monitor the competition between:
-# - Unitary entanglement generation
-# - Measurement-induced disentanglement
-#
-# The EntanglementEntropy observable computes the von Neumann entropy
-# across a bipartite cut:  S = -Σ_i λ_i² log(λ_i²)
-# where λ_i are the Schmidt coefficients from the SVD of the MPS bond.
-
+# --- Section 3: Simulation with Entanglement Tracking ---
 # Create simulation state with RNG registry
 state = SimulationState(
     L=L,
     bc=bc,
+    maxdim=64,
     rng=RNGRegistry(gates_spacetime=0, born_measurement=0, gates_realization=2)
 )
 
@@ -97,8 +60,8 @@ initialize!(state, ProductState(binary_int=0))
 # Track entanglement entropy at the central cut
 track!(state, :entropy => EntanglementEntropy(; cut=cut))
 
-# Run simulation: execute circuit n_steps times (n_circuits=n_steps)
-simulate!(circuit, state; n_circuits=n_steps, record_when=:every_step)
+# Run simulation: execute circuit n_steps times (n_steps=n_steps)
+simulate!(circuit, state; n_steps=n_steps, record_when=:every_step)
 
 # Extract entropy values from state
 entropy_vals = state.observables[:entropy]
@@ -107,19 +70,13 @@ println("✓ Simulation complete")
 println("  Recorded $(length(entropy_vals)) entropy values")
 println()
 
-plot(entropy_vals, xlabel="Step", ylabel="Half-cut entanglement entropy", title="(p=$p)",
+p_traj = plot(entropy_vals, xlabel="Step", ylabel="Half-cut entanglement entropy", title="(p=$p)",
      legend=false, lw=1.5)
+savefig(p_traj, joinpath(@__DIR__, "mipt_entropy_trajectory.png"))
 
-# ═══════════════════════════════════════════════════════════════════
-# Section 4: Steady-State Entanglement Entropy
-# ═══════════════════════════════════════════════════════════════════
-# Sweep `p` to compute the half-cut entanglement entropy as a function
-# of measurement probability for multiple system sizes.
-#
-# Each point is averaged over `ensemble_size` random seeds.
-
-function run_mipt(; L, p, seed, bc=:periodic, n_steps=L, maxdim=1024)
-    circuit = Circuit(L=L, bc=bc, n_steps=2, p=p) do c
+# --- Section 4: Steady-State Phase Diagram ---
+function run_mipt(; L, p, seed, bc=:periodic, n_steps=2*L, maxdim=2^20)
+    circuit = Circuit(L=L, bc=bc, p=p) do c
         apply!(c, HaarRandom(), Bricklayer(:even))
         apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
             (probability=c.params[:p], gate=Measurement(:Z), geometry=AllSites())
@@ -130,19 +87,19 @@ function run_mipt(; L, p, seed, bc=:periodic, n_steps=L, maxdim=1024)
         ])
     end
 
-    state = SimulationState(L=L, bc=bc, maxdim=maxdim,
+    state = SimulationState(L=L, bc=bc, maxdim=maxdim, cutoff = 1e-6,
         rng=RNGRegistry(gates_spacetime=seed, born_measurement=seed+100, gates_realization=seed+200))
     initialize!(state, ProductState(binary_int=0))
     track!(state, :entropy => EntanglementEntropy(; cut=L÷2))
 
-    simulate!(circuit, state; n_circuits=n_steps, record_when=:final_only)
+    simulate!(circuit, state; n_steps=n_steps, record_when=:final_only)
     return state.observables[:entropy][end]
 end
 
-# Sweep parameters
-L_list = [4, 6, 8]
-p_list = 0.1:0.1:0.9 |> collect
-ensemble_size = 500
+# Sweep parameters (reduced for a quick script run)
+L_list = [6, 8, 10]
+p_list = [0, 0.1, 0.2, 0.3, 0.4, 0.5]
+ensemble_size = 100  # notebook production value: 2000
 
 configs = [(L=L, p=p, seed=s) for L in L_list for p in p_list for s in 1:ensemble_size]
 raw = Vector{Float64}(undef, length(configs))
@@ -165,6 +122,6 @@ println("Done!")
 p_fig = plot(xlabel="p", ylabel=raw"$S_{L/2}$", title=raw"MIPT Steady-State (t=L) Entanglement Entropy", legend=:topright)
 for (iL, L) in enumerate(L_list)
     plot!(p_fig, p_list, S_mean[:, iL], ribbon=S_sem[:, iL], fillalpha=0.2,
-          label="L=$L", lw=2, marker=:o, ms=4)
+          label="L=$L", lw=2, marker=:o, ms=4, ylims=(0,5))
 end
-p_fig
+savefig(p_fig, joinpath(@__DIR__, "mipt_phase_diagram.png"))
