@@ -6,4 +6,5 @@ using QuantumCircuitsMPS
     include("recording_test.jl")
     include("entanglement_test.jl")
     include("qudit_test.jl")
+    include("mipt_regressions.jl")
 end
