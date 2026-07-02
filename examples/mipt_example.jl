@@ -75,6 +75,13 @@ p_traj = plot(entropy_vals, xlabel="Step", ylabel="Half-cut entanglement entropy
 savefig(p_traj, joinpath(@__DIR__, "mipt_entropy_trajectory.png"))
 
 # --- Section 4: Steady-State Phase Diagram ---
+# NOTE on comparing S across system sizes:
+# With a fixed end-of-cycle recording phase, the half-cut bond (L/2, L/2+1) is
+# refreshed by the :even or :odd brick sublayer depending on L, producing an
+# L mod 4 parity artifact in S(L) (largest deep in the area-law phase, p >= 0.3).
+# The package itself is verified against exact statevector evolution to machine
+# precision. Full analysis + quantitative reproduction of Skinner-Ruhman-Nahum
+# PRX 9, 031009 Fig. 13(a): see the `validation-srn` branch.
 function run_mipt(; L, p, seed, bc=:periodic, n_steps=2*L, maxdim=2^20)
     circuit = Circuit(L=L, bc=bc, p=p) do c
         apply!(c, HaarRandom(), Bricklayer(:even))
@@ -87,8 +94,9 @@ function run_mipt(; L, p, seed, bc=:periodic, n_steps=2*L, maxdim=2^20)
         ])
     end
 
-    state = SimulationState(L=L, bc=bc, maxdim=maxdim, cutoff = 1e-6,
-        rng=RNGRegistry(gates_spacetime=seed, born_measurement=seed+100, gates_realization=seed+200))
+    state = SimulationState(L=L, bc=bc, maxdim=maxdim, cutoff = 1e-10,
+        # non-overlapping streams across trajectories
+        rng=RNGRegistry(gates_spacetime=3*(seed-1)+1, born_measurement=3*(seed-1)+2, gates_realization=3*(seed-1)+3))
     initialize!(state, ProductState(binary_int=0))
     track!(state, :entropy => EntanglementEntropy(; cut=L÷2))
 
@@ -119,7 +127,7 @@ S_sem  = dropdims(std(S_raw, dims=1), dims=1) ./ sqrt(size(S_raw, 1))
 
 println("Done!")
 
-p_fig = plot(xlabel="p", ylabel=raw"$S_{L/2}$", title=raw"MIPT Steady-State (t=L) Entanglement Entropy", legend=:topright)
+p_fig = plot(xlabel="p", ylabel=raw"$S_{L/2}$ (bits)", title=raw"MIPT Steady-State (t=2L) Entanglement Entropy", legend=:topright)
 for (iL, L) in enumerate(L_list)
     plot!(p_fig, p_list, S_mean[:, iL], ribbon=S_sem[:, iL], fillalpha=0.2,
           label="L=$L", lw=2, marker=:o, ms=4, ylims=(0,5))
