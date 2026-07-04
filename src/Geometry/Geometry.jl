@@ -4,6 +4,9 @@ Geometry types for specifying where gates are applied.
 Provides abstractions for:
 - Static geometries: SingleSite, AdjacentPair, Bricklayer, AllSites
 - Dynamic geometries: StaircaseLeft, StaircaseRight (with internal pointer)
+- v0.1 vocabulary: broadcast geometries (AllSites, Bricklayer, EachSite) vs
+  set geometries (SingleSite, AdjacentPair, Sites, staircases, Pointer);
+  canonical element enumeration via `elements(geo, L, bc)`
 """
 
 """
@@ -25,4 +28,5 @@ include("static.jl")
 include("staircase.jl")
 include("pointer.jl")
 include("compute_sites.jl")
-include("compound.jl")
+include("elements.jl")   # canonical elements() + EachSite/Sites + traits (needs types above)
+include("compound.jl")   # legacy delegates to elements() (needs EachSite from elements.jl)

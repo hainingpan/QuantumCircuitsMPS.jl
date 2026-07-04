@@ -36,6 +36,7 @@ struct SpinSectorProjection <: AbstractGate
 end
 
 support(::SpinSectorProjection) = 2
+needs_normalization(::SpinSectorProjection) = true  # coherent projection shrinks norm
 
 """
     SpinSectorMeasurement(sectors::Vector{Int}=)
@@ -67,7 +68,16 @@ After application, the measurement outcome S can be retrieved from state history
 struct SpinSectorMeasurement <: AbstractGate
     sectors::Vector{Int}
     
-    function SpinSectorMeasurement(sectors::Vector{Int}=[0, 1, 2])
+    function SpinSectorMeasurement(sectors::Vector{Int}=[0, 1, 2]; feedback=nothing)
+        # feedback= is NOT supported for SpinSectorMeasurement in v0.1
+        # (deferred to v0.2 — see docs/api_surface_v0.1.md). Erroring here is
+        # deliberate: silently ignoring it would be an implicit behavior trap.
+        feedback === nothing || throw(ArgumentError(
+            "SpinSectorMeasurement does not support feedback= in v0.1 " *
+            "(deferred to v0.2). Use Measure(:Z; feedback=...) for qubit " *
+            "feedback, or post-select via the event log " *
+            "(SimulationState(...; log_events=true) + measurements(state))."
+        ))
         # Validate sectors are valid for spin-1 ⊗ spin-1
         all(s -> s in (0, 1, 2), sectors) || throw(ArgumentError(
             "sectors must be subset of {0, 1, 2} for two spin-1 sites"
@@ -80,6 +90,8 @@ struct SpinSectorMeasurement <: AbstractGate
 end
 
 support(::SpinSectorMeasurement) = 2
+needs_normalization(::SpinSectorMeasurement) = true  # collapse shrinks norm
+is_measurement(::SpinSectorMeasurement) = true       # Born-samples via :born_measurement
 
 # === build_operator implementations ===
 

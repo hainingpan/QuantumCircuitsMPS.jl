@@ -59,3 +59,27 @@ Base.@kwdef struct Circuit
     operations::Vector{NamedTuple} = NamedTuple[]
     params::Dict{Symbol,Any} = Dict{Symbol,Any}()
 end
+
+"""
+    Base.copy(circuit::Circuit) -> Circuit
+
+Deep copy of a circuit, including its geometries. This is THE per-trajectory
+pattern for thread safety: staircase/`Pointer` geometries are mutable (their
+positions advance during `simulate!`), so concurrent trajectories must each
+own a private copy of the circuit.
+
+`copy` is implemented as `deepcopy`, which preserves INTRA-circuit geometry
+aliasing: if the same staircase object appears in several operations of the
+original, the copies also share one (new) object — required for CIPT-style
+shared random-walk positions.
+
+```julia
+Threads.@threads for seed in seeds
+    c = copy(circuit)                       # private geometry state
+    st = SimulationState(...; rng=RNGRegistry(gates_spacetime=seed, ...))
+    initialize!(st, ProductState(binary_int=0))
+    simulate!(c, st; n_steps=n)
+end
+```
+"""
+Base.copy(circuit::Circuit) = deepcopy(circuit)

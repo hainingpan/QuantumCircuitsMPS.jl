@@ -32,11 +32,28 @@ proj_gate = SpinSectorProjection(P0 + P1)  # removes S=2, keeps S=0/1 coherently
 
 # One layer per do-block execution: NN bricklayer w.p. p_nn, NNN bricklayer w.p. 1-p_nn
 circuit = Circuit(L=L, bc=bc, p_nn=p_nn, proj_gate=proj_gate) do c
-    apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+    apply_with_prob!(c; outcomes=[
         (probability=c.params[:p_nn], gate=c.params[:proj_gate], geometry=Bricklayer(:nn)),
         (probability=1-c.params[:p_nn], gate=c.params[:proj_gate], geometry=Bricklayer(:nnn))
     ])
 end
+
+# ── Stochastic semantics in v0.1: per-element exclusive choice ──
+# In v0.1, apply_with_prob! requires all outcome geometries to expand to the
+# SAME element count K (here K = L for both Bricklayer(:nn) and Bricklayer(:nnn),
+# validated at build time).  For each element k = 1..K the engine draws ONE coin
+# from :gates_spacetime and makes a CATEGORICAL (exclusive) selection: either
+# the :nn projection OR the :nnn projection is applied at that bond slot, never
+# both in one layer.  This is a deliberate change from the pre-v0.1 engine, which
+# drew independent Bernoulli trials per outcome and could apply BOTH projections
+# to the same slot in one layer.
+#
+# At the endpoints p_nn = 0 or p_nn = 1 the distinction is degenerate (one
+# outcome has probability 0), so the physics is BIT-EXACT vs the pre-refactor
+# golden.  For 0 < p_nn < 1 the new semantics is the physically intended model:
+# each bond slot receives exactly one projection type per layer.
+#
+# See docs/migration_v0.1.md "Case B findings" for the full audit.
 
 println("Circuit built successfully")
 println("  System size: $(circuit.L) sites")
@@ -73,7 +90,7 @@ function run_aklt(; L, p_nn, seed, bc=:periodic, n_layers=L, maxdim=128)
     proj_gate = SpinSectorProjection(P0 + P1)
 
     circuit = Circuit(L=L, bc=bc, p_nn=p_nn, proj_gate=proj_gate) do c
-        apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+        apply_with_prob!(c; outcomes=[
             (probability=c.params[:p_nn], gate=c.params[:proj_gate], geometry=Bricklayer(:nn)),
             (probability=1-c.params[:p_nn], gate=c.params[:proj_gate], geometry=Bricklayer(:nnn))
         ])

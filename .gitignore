@@ -32,3 +32,9 @@ examples/mipt_entropy_trajectory.png
 
 # Third-party literature figure (copyright - keep local only)
 examples/MIPT.png
+
+# Agent / planning artifacts
+AGENTS.md
+prompt.md
+workflow.md
+.opencode_bak/

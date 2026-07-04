@@ -1,13 +1,50 @@
-# === Two-Qubit Gates ===
+# === Two-Qubit / n-Site Unitary Gates ===
 
 """
-    HaarRandom
+    HaarRandom(n::Int=2)
 
-Two-qubit Haar random unitary gate.
-Requires RNG from state for reproducibility.
+`n`-site Haar random unitary gate (default: 2-site).
+
+Each application draws a fresh Haar-random unitary of size `d^n × d^n`
+(`d` = local dimension) via QR decomposition of a complex Ginibre matrix,
+consuming from the `:gates_realization` RNG stream.
+
+RNG contract: for `n = 2` the consumption pattern and produced matrices are
+bit-identical to the historical two-site implementation (exact CT.jl `U()`
+algorithm) — golden regressions depend on this.
 """
-struct HaarRandom <: AbstractGate end
-support(::HaarRandom) = 2
+struct HaarRandom <: AbstractGate
+    n::Int
+
+    function HaarRandom(n::Int=2)
+        n >= 1 || throw(ArgumentError("HaarRandom requires n >= 1 site(s), got $n"))
+        new(n)
+    end
+end
+support(g::HaarRandom) = g.n
+
+"""
+    _haar_unitary(N::Int, rng::AbstractRNG) -> Matrix{ComplexF64}
+
+Haar random N×N unitary via QR of a complex Ginibre matrix.
+EXACT reproduction of the CT.jl U() algorithm (lines 585-592): two separate
+`randn(rng, N, N)` calls (real then imaginary parts), QR, then phase
+correction by `diag(R)/|diag(R)|`. Do NOT change the call shape/order —
+the `:gates_realization` stream consumption is an API contract (goldens).
+"""
+function _haar_unitary(N::Int, rng::AbstractRNG)
+    # Generate complex Gaussian matrix: real + imag parts separately
+    z = randn(rng, N, N) + randn(rng, N, N) * im
+
+    # QR decomposition
+    Q, R = qr(z)
+    Q = Matrix(Q)  # Convert from QRCompactWY to Matrix
+
+    # Phase correction: multiply by diagonal of R/|R|
+    r_diag = diag(R)
+    Lambda = Diagonal(r_diag ./ abs.(r_diag))
+    return Q * Lambda
+end
 
 """
     CZ
@@ -21,36 +58,39 @@ support(::CZ) = 2
 """
     build_operator(gate::HaarRandom, sites::Vector{Index}, local_dim::Int; rng::RNGRegistry) -> ITensor
 
-Build Haar random unitary operator.
-Uses exact CT.jl algorithm for reproducibility (from CT.jl U() function lines 585-592).
+Build an n-site Haar random unitary operator from the `:gates_realization`
+stream. For `gate.n == 2` this is bit-identical to the historical
+implementation (same `randn` call shape/order, same index ordering).
 """
 function build_operator(gate::HaarRandom, sites::Vector{<:Index}, local_dim::Int; rng, kwargs...)
-    length(sites) == 2 || throw(ArgumentError("HaarRandom requires exactly 2 sites"))
-    
+    length(sites) == gate.n || throw(ArgumentError(
+        "HaarRandom($(gate.n)) requires exactly $(gate.n) sites, got $(length(sites))"))
+
     # Get the gates_realization RNG stream
     gates_realization_rng = get_rng(rng, :gates_realization)
-    
-    # CT.jl U(n, rng) algorithm - EXACT reproduction
-    n = local_dim^2  # 4 for qubits
-    
-    # Generate complex Gaussian matrix: real + imag parts separately
-    z = randn(gates_realization_rng, n, n) + randn(gates_realization_rng, n, n) * im
-    
-    # QR decomposition
-    Q, R = qr(z)
-    Q = Matrix(Q)  # Convert from QRCompactWY to Matrix
-    
-    # Phase correction: multiply by diagonal of R/|R|
-    r_diag = diag(R)
-    Lambda = Diagonal(r_diag ./ abs.(r_diag))
-    U_matrix = Q * Lambda
-    
-    # Build ITensor from 4x4 matrix
-    U_4 = reshape(U_matrix, 2, 2, 2, 2)
-    s1, s2 = sites[1], sites[2]
-    op_tensor = ITensor(U_4, s1, s2, s1', s2')
-    
-    return op_tensor
+
+    n_sites = length(sites)
+    N = local_dim^n_sites  # 4 for two qubits (matches legacy n = local_dim^2)
+    U_matrix = _haar_unitary(N, gates_realization_rng)
+
+    # Build ITensor from the N×N matrix.
+    # For n_sites == 2 this reproduces the legacy construction exactly:
+    # reshape(U, 2,2,2,2) with ITensor(U_4, s1, s2, s1', s2').
+    U_tensor = reshape(U_matrix, ntuple(_ -> local_dim, 2 * n_sites))
+    return ITensor(U_tensor, sites..., prime.(sites)...)
+end
+
+"""
+    build_operator(gate::HaarRandom, site::Index, local_dim::Int; rng) -> ITensor
+
+Single-site (`n = 1`) Haar random unitary. Same Ginibre-QR algorithm on a
+`d × d` matrix, consuming from `:gates_realization`.
+"""
+function build_operator(gate::HaarRandom, site::Index, local_dim::Int; rng, kwargs...)
+    gate.n == 1 || throw(ArgumentError(
+        "HaarRandom($(gate.n)) acts on $(gate.n) sites, but was applied to a single site"))
+    U = _haar_unitary(local_dim, get_rng(rng, :gates_realization))
+    return ITensor(U, site, prime(site))
 end
 
 """

@@ -26,7 +26,7 @@ circuit = Circuit(L=4, bc=:periodic, n_steps=10) do c
     apply!(c, Reset(), StaircaseRight(1))
     
     # Stochastic branching
-    apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+    apply_with_prob!(c; outcomes=[
         (probability=0.3, gate=HaarRandom(), geometry=StaircaseLeft(4)),
         (probability=0.5, gate=Reset(), geometry=SingleSite(1))
         # Implicit 0.2 probability of "do nothing"
@@ -42,6 +42,9 @@ end
 
 # Circuit types and internal operation representation
 include("types.jl")
+
+# Fixed-draw contract helper (expected_draws)
+include("draws.jl")
 
 # CircuitBuilder and do-block API
 include("builder.jl")

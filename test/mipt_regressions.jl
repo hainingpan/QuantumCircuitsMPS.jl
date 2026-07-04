@@ -140,13 +140,13 @@ end
                           cutoff=1e-10, burn_in=max(L, 8))
         circuit_half1 = Circuit(L=L, bc=bc, p=p) do c
             apply!(c, HaarRandom(), Bricklayer(:even))
-            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+            apply_with_prob!(c; outcomes=[
                 (probability=c.params[:p], gate=Measurement(:Z), geometry=AllSites())
             ])
         end
         circuit_half2 = Circuit(L=L, bc=bc, p=p) do c
             apply!(c, HaarRandom(), Bricklayer(:odd))
-            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+            apply_with_prob!(c; outcomes=[
                 (probability=c.params[:p], gate=Measurement(:Z), geometry=AllSites())
             ])
         end

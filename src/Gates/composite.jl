@@ -32,6 +32,7 @@ struct Measurement <: AbstractGate
 end
 
 support(::Measurement) = 1
+is_measurement(::Measurement) = true  # Born-samples via :born_measurement
 
 # Measurement requires Born sampling - cannot be a simple operator
 function build_operator(gate::Measurement, site::Index, local_dim::Int; kwargs...)

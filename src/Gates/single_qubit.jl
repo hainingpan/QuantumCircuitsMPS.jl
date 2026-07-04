@@ -27,6 +27,7 @@ struct Projection <: AbstractGate
     end
 end
 support(::Projection) = 1
+needs_normalization(::Projection) = true  # projector shrinks the norm
 
 # === build_operator implementations ===
 
