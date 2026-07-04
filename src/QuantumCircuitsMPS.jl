@@ -27,7 +27,6 @@ include("Core/apply.jl")
 include("Observables/Observables.jl")
 
 # API
-include("API/imperative.jl")
 include("API/probabilistic.jl")
 
 # Circuit (lazy mode API)
