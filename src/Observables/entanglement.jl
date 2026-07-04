@@ -66,7 +66,7 @@ function (ee::EntanglementEntropy)(state)
     ram_cut = ee.cut
     
     # Compute entropy using internal helper
-    return _von_neumann_entropy(state.mps, ram_cut; n=ee.renyi_index, threshold=ee.threshold, base=ee.base)
+    return _von_neumann_entropy(state.backend.mps, ram_cut; n=ee.renyi_index, threshold=ee.threshold, base=ee.base)
 end
 
 """

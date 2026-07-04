@@ -20,6 +20,6 @@ struct Magnetization <: AbstractObservable
 end
 
 function (m::Magnetization)(state)
-    vals = expect(state.mps, String(m.axis))
+    vals = expect(state.backend.mps, String(m.axis))
     return real(sum(vals)) / length(vals)
 end

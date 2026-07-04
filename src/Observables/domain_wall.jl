@@ -116,7 +116,7 @@ function compute_projector_product_expectation(state, sites_zero::Vector{Int}, s
     
     mpo_tensors = ITensor[]
     for (ram_idx, op_name) in enumerate(ops_at_ram)
-        site_idx = state.sites[ram_idx]
+        site_idx = state.backend.sites[ram_idx]
         push!(mpo_tensors, op(op_name, site_idx))
     end
     
@@ -124,5 +124,5 @@ function compute_projector_product_expectation(state, sites_zero::Vector{Int}, s
     proj_mpo = MPO(mpo_tensors)
     
     # Compute ⟨ψ|O|ψ⟩
-    return real(inner(state.mps', proj_mpo, state.mps))
+    return real(inner(state.backend.mps', proj_mpo, state.backend.mps))
 end

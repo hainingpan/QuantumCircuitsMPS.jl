@@ -8,7 +8,7 @@ using ITensorMPS
     apply!(state::SimulationState, gate::AbstractGate, geo::AbstractGeometry)
 
 Apply a gate to the state at sites specified by geometry.
-Modifies state.mps in-place.
+Modifies state.backend.mps in-place.
 
 Geometry dispatch resolves the target region(s); each region is executed
 through the uniform `execute!(state, gate, region)` protocol.
@@ -230,18 +230,18 @@ function _apply_single!(state::SimulationState, gate::AbstractGate, phy_sites::V
     # Convert physical sites to RAM indices
     ram_sites = [state.phy_ram[ps] for ps in phy_sites]
     
-    # Build operator with state.sites indices (in physical pair order)
+    # Build operator with state.backend.sites indices (in physical pair order)
     op = _build_gate_operator(state, gate, phy_sites, ram_sites)
     
     # Apply operator using CT.jl algorithm
-    apply_op_internal!(state.mps, op, state.sites, state.cutoff, state.maxdim)
+    apply_op_internal!(state.backend.mps, op, state.backend.sites, state.backend.cutoff, state.backend.maxdim)
     
     # Contract 3.5: Normalization via the needs_normalization trait
     # (true for Projection/SpinSectorProjection/SpinSectorMeasurement and any
     # user gate that opts in; unitaries default to false — NO normalize)
     if needs_normalization(gate)
-        normalize!(state.mps)
-        truncate!(state.mps; cutoff=state.cutoff)
+        normalize!(state.backend.mps)
+        truncate!(state.backend.mps; cutoff=state.backend.cutoff)
     end
 end
 
@@ -254,13 +254,13 @@ function _build_gate_operator(state::SimulationState, gate::AbstractGate, phy_si
     if length(ram_sites) == 1
         # Single-site gate. rng is passed for gates that need randomness
         # (e.g. HaarRandom(1)); all other single-site gates absorb it via kwargs.
-        site_idx = state.sites[ram_sites[1]]
+        site_idx = state.backend.sites[ram_sites[1]]
         return build_operator(gate, site_idx, state.local_dim; rng=state.rng_registry)
     else
         # Multi-site gate: use indices in RAM order
-        site_indices = [state.sites[rs] for rs in ram_sites]
+        site_indices = [state.backend.sites[rs] for rs in ram_sites]
         return build_operator(gate, site_indices, state.local_dim; 
-                              rng=state.rng_registry, mps=state.mps, ram_sites=ram_sites)
+                              rng=state.rng_registry, mps=state.backend.mps, ram_sites=ram_sites)
     end
 end
 
