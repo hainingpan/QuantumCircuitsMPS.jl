@@ -14,7 +14,7 @@ let
     _ = Circuit(L=4, bc=:periodic) do c
         apply!(c, Reset(), SingleSite(1))
         apply!(c, HaarRandom(), StaircaseRight(1))
-        apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+        apply_with_prob!(c; outcomes=[
             (probability=0.5, gate=Reset(), geometry=SingleSite(1))
         ])
     end
@@ -52,10 +52,11 @@ end
     end
     
     @testset "Stochastic operations" begin
+        # v0.1: staircase geometries require Σp = 1 (CIPT walk guard)
         circuit = Circuit(L=4, bc=:periodic) do c
-            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+            apply_with_prob!(c; outcomes=[
                 (probability=0.5, gate=Reset(), geometry=StaircaseRight(1)),
-                (probability=0.3, gate=HaarRandom(), geometry=SingleSite(1))
+                (probability=0.5, gate=HaarRandom(), geometry=SingleSite(1))
             ])
         end
         
@@ -66,10 +67,11 @@ end
     end
     
     @testset "Mixed operations" begin
+        # v0.1: staircase geometries require Σp = 1 (CIPT walk guard)
         circuit = Circuit(L=4, bc=:periodic) do c
             apply!(c, Reset(), StaircaseRight(1))
-            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
-                (probability=0.5, gate=HaarRandom(), geometry=StaircaseRight(1))
+            apply_with_prob!(c; outcomes=[
+                (probability=1.0, gate=HaarRandom(), geometry=StaircaseRight(1))
             ])
             apply!(c, PauliZ(), SingleSite(1))
         end
@@ -127,14 +129,14 @@ end
     
     @testset "Probability sum > 1" begin
         @test_throws ArgumentError Circuit(L=4, bc=:periodic) do c
-            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+            apply_with_prob!(c; outcomes=[
                 (probability=0.8, gate=Reset(), geometry=SingleSite(1)),
                 (probability=0.5, gate=HaarRandom(), geometry=SingleSite(1))
             ])
         end
         
         @test_throws ArgumentError Circuit(L=4, bc=:periodic) do c
-            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+            apply_with_prob!(c; outcomes=[
                 (probability=1.1, gate=Reset(), geometry=SingleSite(1))
             ])
         end
@@ -145,14 +147,14 @@ end
         # so this throws TypeError during type construction, not ArgumentError during validation
         # We test that it fails, regardless of exception type
         @test_throws Exception Circuit(L=4, bc=:periodic) do c
-            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[])
+            apply_with_prob!(c; outcomes=[])
         end
     end
     
     @testset "Valid probability sums" begin
         # Exactly 1.0 should work
         circuit1 = Circuit(L=4, bc=:periodic) do c
-            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+            apply_with_prob!(c; outcomes=[
                 (probability=0.7, gate=Reset(), geometry=SingleSite(1)),
                 (probability=0.3, gate=HaarRandom(), geometry=SingleSite(1))
             ])
@@ -161,7 +163,7 @@ end
         
         # Less than 1.0 should work (do-nothing branch)
         circuit2 = Circuit(L=4, bc=:periodic) do c
-            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+            apply_with_prob!(c; outcomes=[
                 (probability=0.5, gate=Reset(), geometry=SingleSite(1))
             ])
         end
@@ -171,7 +173,7 @@ end
 
 @testset "expand_circuit Determinism" begin
     circuit = Circuit(L=4, bc=:periodic) do c
-        apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+        apply_with_prob!(c; outcomes=[
             (probability=0.5, gate=Reset(), geometry=StaircaseRight(1)),
             (probability=0.5, gate=HaarRandom(), geometry=StaircaseLeft(4))
         ])
@@ -222,7 +224,7 @@ end
     @testset "Do-nothing branches create empty vectors" begin
         # Circuit with low probability - may produce empty steps
         sparse_circuit = Circuit(L=4, bc=:periodic) do c
-            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+            apply_with_prob!(c; outcomes=[
                 (probability=0.3, gate=Reset(), geometry=SingleSite(1))
             ])
         end
@@ -268,7 +270,7 @@ end
         left = StaircaseLeft(L)
         right = StaircaseRight(L)
         circuit = Circuit(L=L, bc=:periodic) do c
-            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+            apply_with_prob!(c; outcomes=[
                 (probability=0.5, gate=Reset(), geometry=left),
                 (probability=0.5, gate=HaarRandom(), geometry=right)
             ])
@@ -296,7 +298,7 @@ end
         left2 = StaircaseLeft(L)
         right2 = StaircaseRight(L)
         circuit2 = Circuit(L=L, bc=:periodic) do c
-            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+            apply_with_prob!(c; outcomes=[
                 (probability=0.5, gate=Reset(), geometry=left2),
                 (probability=0.5, gate=HaarRandom(), geometry=right2)
             ])
@@ -312,7 +314,7 @@ end
         left = StaircaseLeft(L)
         right = StaircaseRight(L)
         circuit = Circuit(L=8, bc=:periodic) do c
-            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+            apply_with_prob!(c; outcomes=[
                 (probability=0.5, gate=Reset(), geometry=left),
                 (probability=0.5, gate=HaarRandom(), geometry=right)
             ])
@@ -336,7 +338,7 @@ end
         left = StaircaseLeft(L)
         right = StaircaseRight(L)
         circuit = Circuit(L=L, bc=:periodic) do c
-            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+            apply_with_prob!(c; outcomes=[
                 (probability=0.5, gate=Reset(), geometry=left),
                 (probability=0.5, gate=HaarRandom(), geometry=right)
             ])
@@ -384,7 +386,7 @@ end
     
     @testset "Stochastic circuit execution" begin
         circuit = Circuit(L=4, bc=:periodic) do c
-            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+            apply_with_prob!(c; outcomes=[
                 (probability=0.5, gate=Reset(), geometry=StaircaseRight(1)),
                 (probability=0.5, gate=HaarRandom(), geometry=StaircaseLeft(4))
             ])
@@ -435,9 +437,10 @@ end
     end
     
     @testset "Multiple timesteps execute correctly" begin
+        # v0.1: staircase geometries require Σp = 1 (CIPT walk guard)
         circuit = Circuit(L=4, bc=:periodic) do c
-            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
-                (probability=0.5, gate=Reset(), geometry=StaircaseRight(1))
+            apply_with_prob!(c; outcomes=[
+                (probability=1.0, gate=Reset(), geometry=StaircaseRight(1))
             ])
         end
         
@@ -480,10 +483,11 @@ end
     end
     
     @testset "Stochastic circuit rendering" begin
+        # v0.1: staircase geometries require Σp = 1 (CIPT walk guard)
         circuit = Circuit(L=4, bc=:periodic) do c
-            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+            apply_with_prob!(c; outcomes=[
                 (probability=0.5, gate=Reset(), geometry=StaircaseRight(1)),
-                (probability=0.3, gate=HaarRandom(), geometry=SingleSite(1))
+                (probability=0.5, gate=HaarRandom(), geometry=SingleSite(1))
             ])
         end
         
@@ -532,7 +536,7 @@ end
     
     @testset "Empty steps render correctly" begin
         circuit = Circuit(L=4, bc=:periodic) do c
-            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+            apply_with_prob!(c; outcomes=[
                 (probability=0.2, gate=Reset(), geometry=SingleSite(1))
             ])
         end
@@ -827,7 +831,7 @@ end
 @testset "RNG Alignment" begin
     @testset "expand_circuit and simulate! use same RNG stream" begin
         circuit = Circuit(L=4, bc=:periodic) do c
-            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+            apply_with_prob!(c; outcomes=[
                 (probability=0.5, gate=Reset(), geometry=StaircaseRight(1)),
                 (probability=0.5, gate=HaarRandom(), geometry=StaircaseRight(1))
             ])
@@ -1119,7 +1123,7 @@ end
     @testset "Stochastic AllSites with Measurement — per-site independent" begin
         L = 4
         c = Circuit(L=L, bc=:open) do b
-            apply_with_prob!(b; rng=:gates_spacetime, outcomes=[
+            apply_with_prob!(b; outcomes=[
                 (probability=0.5, gate=Measurement(:Z), geometry=AllSites())
             ])
         end
@@ -1151,7 +1155,7 @@ end
     @testset "RNG determinism — same seed produces identical MPS" begin
         # Two states with same seed should produce identical results
         circuit = Circuit(L=4, bc=:periodic) do c
-            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+            apply_with_prob!(c; outcomes=[
                 (probability=0.3, gate=Measurement(:Z), geometry=AllSites())
             ])
         end
@@ -1234,7 +1238,7 @@ end
         # Same seed → same branch selections per element
         L = 4
         circuit = Circuit(L=L, bc=:periodic) do c
-            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+            apply_with_prob!(c; outcomes=[
                 (probability=0.3, gate=Measurement(:Z), geometry=AllSites())
             ])
         end
@@ -1435,7 +1439,7 @@ end
             P0 = total_spin_projector(0)
             P1 = total_spin_projector(1)
             proj = SpinSectorProjection(P0 + P1)
-            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+            apply_with_prob!(c; outcomes=[
                 (probability=1.0, gate=proj, geometry=Bricklayer(:nn))
             ])
         end
@@ -1467,7 +1471,7 @@ end
         L = 8
         p = 0.3
         c = Circuit(L=L, bc=:open) do b
-            apply_with_prob!(b; rng=:gates_spacetime, outcomes=[
+            apply_with_prob!(b; outcomes=[
                 (probability=p, gate=Measurement(:Z), geometry=AllSites())
             ])
         end
@@ -1495,7 +1499,7 @@ end
         L = 8
         p = 0.3
         c = Circuit(L=L, bc=:open) do b
-            apply_with_prob!(b; rng=:gates_spacetime, outcomes=[
+            apply_with_prob!(b; outcomes=[
                 (probability=p, gate=Measurement(:Z), geometry=AllSites())
             ])
         end
@@ -1523,7 +1527,7 @@ end
 
         # p=0.0: rand() < 0.0 is always false → zero ops
         c_zero = Circuit(L=L, bc=:open) do b
-            apply_with_prob!(b; rng=:gates_spacetime, outcomes=[
+            apply_with_prob!(b; outcomes=[
                 (probability=0.0, gate=Measurement(:Z), geometry=AllSites())
             ])
         end
@@ -1532,7 +1536,7 @@ end
 
         # p=1.0: rand() < 1.0 is always true → L ops every time
         c_one = Circuit(L=L, bc=:open) do b
-            apply_with_prob!(b; rng=:gates_spacetime, outcomes=[
+            apply_with_prob!(b; outcomes=[
                 (probability=1.0, gate=Measurement(:Z), geometry=AllSites())
             ])
         end
@@ -1540,11 +1544,13 @@ end
         @test total_one == L * 10
     end
 
-    @testset "Test 4: Multi-outcome Bricklayer(:odd)/(:even) fire independently" begin
+    @testset "Test 4: Multi-outcome Bricklayer(:odd)/(:even) both reachable (v0.1 categorical)" begin
         L = 8
-        # Two independent compound outcomes
+        # v0.1 unified rule: per element k, ONE coin selects categorically
+        # among the outcomes (Σp=1 → exactly one fires per element slot).
+        # Both outcomes must still be reachable across seeds.
         c = Circuit(L=L, bc=:periodic) do b
-            apply_with_prob!(b; rng=:gates_spacetime, outcomes=[
+            apply_with_prob!(b; outcomes=[
                 (probability=0.5, gate=Measurement(:Z), geometry=Bricklayer(:odd)),
                 (probability=0.5, gate=Measurement(:Z), geometry=Bricklayer(:even))
             ])
@@ -1575,7 +1581,7 @@ end
     @testset "Test 5: RNG alignment — expand_circuit(seed=X) ≡ simulate!(gates_spacetime=X)" begin
         L = 4
         circuit = Circuit(L=L, bc=:open) do c
-            apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+            apply_with_prob!(c; outcomes=[
                 (probability=0.5, gate=Measurement(:Z), geometry=AllSites())
             ])
         end

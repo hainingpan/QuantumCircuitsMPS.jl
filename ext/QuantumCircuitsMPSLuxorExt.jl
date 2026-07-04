@@ -212,6 +212,18 @@ function QuantumCircuitsMPS._plot_circuit_impl(circuit::Circuit; n_steps::Int=1,
     for (_, _, ops, row_pos, _) in rows
         y = wire_length - (row_pos - 0.5) * ROW_HEIGHT  # time position
         for op in ops
+            # Record-marker pseudo-op (gate === nothing, no sites): render as
+            # a dashed rule across all wires with its label to the right.
+            if isempty(op.sites)
+                setdash("dashed")
+                line(Point(QUBIT_SPACING - GATE_WIDTH / 2, y),
+                     Point(circuit.L * QUBIT_SPACING + GATE_WIDTH / 2, y), :stroke)
+                setdash("solid")
+                fontsize(DEFAULT_FONT_SIZE)
+                text(op.label, Point(circuit.L * QUBIT_SPACING + GATE_WIDTH / 2 + 5, y + 5),
+                     halign=:left, valign=:center)
+                continue
+            end
             # Check if single-qubit or multi-qubit gate
             if length(op.sites) == 1
                 # Single-qubit gate

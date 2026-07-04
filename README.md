@@ -8,11 +8,9 @@
 MIPT (Measurement-Induced Phase Transition) and CIPT (Control-Induced Phase Transition) are emergent phenomena in monitored quantum circuits where feedback, measurements, and unitary dynamics compete to create distinct entanglement phases.
 
 ---
-
 ## What is QuantumCircuitsMPS.jl?
 
 - **"PyTorch for Quantum Circuits"** — Physicists code as they speak: focusing on physics without touching implementation details.
-
 - A pure Julia library for simulating quantum circuits using Matrix Product State (MPS) methods. It's purpose-built for researchers studying measurement-induced and control-induced phase transitions in monitored quantum systems.
 
 > ⚠️ **Note**: This package is under active development. APIs may change and bugs may exist. Please report issues on [GitHub](https://github.com/hainingpan/QuantumCircuitsMPS.jl/issues).
@@ -20,15 +18,12 @@ MIPT (Measurement-Induced Phase Transition) and CIPT (Control-Induced Phase Tran
 **Why use this package?**
 
 1. **Pure Julia MPS simulation**: Native Julia performance with ITensors.jl backend, scaling to 100+ qubits.
-
 2. **Physics-first API**: Write circuits using intuitive abstractions (Gates + Geometry) without managing MPS bond dimensions, index orderings, or truncation schemes. The library handles tensor network details internally.
-
 3. **Reproducible randomness**: Independent RNG streams for each source (`:gates_spacetime`, `:gates_realization`, `:born_measurement`, `:state_init`) enable reproducible trajectories. Useful in cross entropy benchmark and study quantum flucutuations.
 
 **Philosophy**: Users write `apply!(state, HaarRandom(), Bricklayer(:odd))` and never see ITensor index objects, SVD calls, or orthogonalization centers. The package manages the gap between high-level physics intent and low-level tensor manipulations.
 
 ---
-
 ## Why QuantumCircuitsMPS.jl?
 
 ### Comparison with Existing Julia Quantum Libraries
@@ -44,20 +39,7 @@ MIPT (Measurement-Induced Phase Transition) and CIPT (Control-Induced Phase Tran
 
 **\*Note:** Qiskit.jl is a circuit construction wrapper; MPS simulation requires Python Qiskit Aer.
 
-### Package Strengths
-
-**[ITensors.jl](https://github.com/ITensor/ITensors.jl)**: Excellent foundation for building custom tensor network algorithms. Provides full control over MPS details (bond dimensions, gauges, contraction orders), but requires users to manage these low-level concerns. Best choice when you need maximum flexibility for novel tensor network methods.
-
-**[PastaQ.jl](https://github.com/GTorlai/PastaQ.jl)**: Designed for quantum tomography, process characterization, and benchmarking. Provides circuit simulation with MPS backend, but monitored circuits with feedback require manual composition of measurement logic. Ideal for tomography and noise studies.
-
-**[Yao.jl](https://github.com/QuantumBFS/Yao.jl)**: Clean, composable API for variational quantum algorithms and quantum machine learning. Primary backend is state vector (limited to ~30 qubits), with tensor network support via YaoToEinsum. Excellent for gate-based algorithms on small-to-medium systems.
-
-**[Qiskit.jl](https://github.com/Qiskit/Qiskit.jl)**: Julia wrapper for circuit construction, transpilation, and job submission to IBM Quantum. Does not include simulation capabilities—useful for interfacing with Qiskit's Python ecosystem.
-
-**QuantumCircuitsMPS.jl**: Purpose-built for MIPT/CIPT research. Combines MPS scalability (N=100+) with a physics-first API that treats monitored circuits, feedback loops, and entanglement tracking as first-class features. Users define gates and geometries; the library handles all tensor network mechanics.
-
 ---
-
 ## Design Philosophy
 
 ```mermaid
@@ -80,45 +62,42 @@ flowchart TB
 
 ### Layered Abstraction
 
-**User-Facing API**: Physicists work with `SimulationState`, `Gates` (PauliX, HaarRandom, Projection), `Geometry` (Bricklayer, AllSites, StaircaseLeft), and `Observables` (EntanglementEntropy, Magnetization). No tensor network concepts exposed.
+- **User-Facing API**: Physicists work with `SimulationState`, `Gates` (PauliX, HaarRandom, Projection), `Geometry` (Bricklayer, AllSites, StaircaseLeft), and `Observables` (EntanglementEntropy, Magnetization). No tensor network concepts exposed.
+- **Internal Engine**: The `apply!` function translates high-level physics operations into ITensor calls. It manages physical-to-RAM index mappings (`phy_ram`/`ram_phy`), operator construction, and MPS updates. Users never interact with this layer.
+- **Backend**: ITensors.jl and ITensorMPS.jl handle tensor contractions, SVD truncations, and gauge management. All low-level optimizations (bond dimensions, cutoffs, orthogonality centers) are managed automatically.
+- **Key Insight**: Users write physics in three lines of code; the package executes hundreds of tensor operations behind the scenes, enabling rapid prototyping without sacrificing performance or scalability.
 
-**Internal Engine**: The `apply!` function translates high-level physics operations into ITensor calls. It manages physical-to-RAM index mappings (`phy_ram`/`ram_phy`), operator construction, and MPS updates. Users never interact with this layer.
+### The Unified Stochastic Rule
 
-**Backend**: ITensors.jl and ITensorMPS.jl handle tensor contractions, SVD truncations, and gauge management. All low-level optimizations (bond dimensions, cutoffs, orthogonality centers) are managed automatically.
+Every probabilistic operation in the package, from a single measurement to a multi-outcome control protocol, follows ONE rule: `apply_with_prob!(c; outcomes=[(probability=p, gate=g, geometry=geo), ...])` expands each outcome's `geometry` into a list of elements (site groups), and every outcome must expand to the SAME element count `K`. For each element `k = 1..K`, the engine draws exactly one coin from the `:gates_spacetime` stream and makes a categorical selection among the outcomes at that element; the remainder `1 - Σp` selects identity (nothing applied). There is no separate "independent Bernoulli per outcome" code path and no second RNG scheme hiding in a compound geometry — one rule, one selection function, everywhere.
+This single rule is what makes exclusive per-bond gate choices natural: `outcomes=[(probability=0.5, gate=HaarRandom(), geometry=Bricklayer(:even)), (probability=0.5, gate=CZ(), geometry=Bricklayer(:even))]` guarantees every even bond gets EXACTLY one of `HaarRandom()` or `CZ()`, never both and never neither (when `Σp = 1`). Correlated layers (the SAME coin choosing an entire layer, not per-bond) are expressed with `ProductGate`, not with a second probabilistic construct.
 
-**Key Insight**: Users write physics in three lines of code. The package executes hundreds of tensor operations behind the scenes. This separation enables rapid prototyping without sacrificing performance or scalability.
+### Broadcast vs. Set Geometry
+
+Geometries fall into two families, and knowing which one you're holding tells you exactly how it behaves inside `apply_with_prob!` and `apply!`:
+
+- **Broadcast** ("distribution") geometries expand to `K ≥ 1` independent elements, each getting its own gate application (and, inside a stochastic op, its own coin): `AllSites()`, `Bricklayer(parity)`, `EachSite(collection)`.
+- **Set** ("region") geometries denote ONE region of sites, a single element: `SingleSite(i)`, `AdjacentPair(i)`, `Sites(collection)`, `StaircaseLeft`/`StaircaseRight`, `Pointer`.
+`is_broadcast(geo)` reports the trait, and `elements(geo, L, bc)` returns the canonical enumeration either way, always `Vector{Vector{Int}}`. This vocabulary is also why `EachSite(2:L-1)` and `Sites(2:L-1)` look similar but mean opposite things: `EachSite` applies a single-site gate independently at each of sites 2 through L-1 (K = L-2 coins, K = L-2 possible applications), while `Sites(2:L-1)` is ONE region spanning sites 2 through L-1 for a single gate whose support equals `L-2`.
 
 ---
-
 ## Installation
 
-`QuantumCircuitsMPS.jl` is not yet registered in the Julia General registry. Install directly from GitHub:
+`QuantumCircuitsMPS.jl` is not yet registered in the Julia General registry.
 
 ```julia
 using Pkg
 Pkg.add(url="https://github.com/hainingpan/QuantumCircuitsMPS.jl")
 ```
-### Local development
-```bash
-cd /path/to/QuantumCircuitsMPS.jl
-julia --project=.
-```
+**Local development**: `cd /path/to/QuantumCircuitsMPS.jl && julia --project=.`, then:
 ```julia
 using Pkg
 Pkg.instantiate()
-using QuantumCircuitsMPS
-using Revise
+using QuantumCircuitsMPS, Revise
 ```
-
-### Dependencies
-
-- **Required**: ITensors.jl, ITensorMPS.jl, JSON.jl
-- **Optional**: Luxor.jl (for circuit visualization)
-
-Julia 1.11 or higher is required.
+**Dependencies**: ITensors.jl, ITensorMPS.jl, JSON.jl (required); Luxor.jl (optional, for circuit visualization). Julia 1.11+ required.
 
 ---
-
 ## Quick Start
 
 ### MIPT Example: Measurement-Induced Phase Transition
@@ -131,17 +110,19 @@ L = 12                  # 12 qubits
 p = 0.15               # Measurement probability (near critical point)
 n_steps = 50           # Time evolution steps
 
-# Build circuit: Haar random unitaries + stochastic measurements
+# Haar random unitaries + stochastic measurements; record! marks snapshot points
 circuit = Circuit(L=L, bc=:periodic) do c
     # Even gates → measure → odd gates → measure per timestep
     apply!(c, HaarRandom(), Bricklayer(:even))
-    apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
-        (probability=p, gate=Measurement(:Z), geometry=AllSites())
+    apply_with_prob!(c; outcomes=[
+        (probability=p, gate=Measure(:Z), geometry=AllSites())
     ])
+    record!(c, :entropy)
     apply!(c, HaarRandom(), Bricklayer(:odd))
-    apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
-        (probability=p, gate=Measurement(:Z), geometry=AllSites())
+    apply_with_prob!(c; outcomes=[
+        (probability=p, gate=Measure(:Z), geometry=AllSites())
     ])
+    record!(c, :entropy)
 end
 
 # Initialize state and track entanglement entropy
@@ -152,8 +133,8 @@ state = SimulationState(
 initialize!(state, ProductState(binary_int=0))
 track!(state, :entropy => EntanglementEntropy(; cut=L÷2))
 
-# Run simulation
-simulate!(circuit, state; n_steps=n_steps, record_when=:every_step)
+# record_when=:marks fires at each record!(c, ...) marker, twice per step
+simulate!(circuit, state; n_steps=n_steps, record_when=:marks)
 
 # Extract entropy trajectory
 entropies = state.observables[:entropy]
@@ -179,7 +160,7 @@ left = StaircaseLeft(1)
 right = StaircaseRight(1)
 
 circuit = Circuit(L=L, bc=:periodic, p_ctrl=p_ctrl) do c
-    apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+    apply_with_prob!(c; outcomes=[
         (probability=c.params[:p_ctrl], gate=Reset(), geometry=left),
         (probability=1-c.params[:p_ctrl], gate=HaarRandom(), geometry=right)
     ])
@@ -202,6 +183,8 @@ println("Final Mz: $(mz_vals[end])")
 
 **Physics**: The competition between Reset gates (which project qubits to |0⟩) and Haar random unitaries (which entangle qubits) drives a phase transition at p_c ≈ 0.5. In the reset-dominated phase (p_ctrl > 0.5), the magnetization Mz → +1 as qubits are repeatedly reset to |0⟩. In the unitary-dominated phase (p_ctrl < 0.5), Mz → 0 as random unitaries scramble the state. The staircase geometries sweep in opposite directions, creating the spatial competition that drives the transition.
 
+`Reset()` above is sugar: it's exactly `Measure(:Z; feedback=OnOutcome(1 => PauliX()))` (measure, then flip back to |0⟩ if the outcome was 1) — see the "Feedback & Custom Gates" section below for the general form, which lets you swap the flip for any gate, or for an arbitrary closure.
+
 ### AKLT Example: Forced Measurement Protocol
 
 ```julia
@@ -218,7 +201,7 @@ proj_gate = SpinSectorProjection(P0 + P1)
 
 # Build circuit: apply projections to all NN pairs
 circuit = Circuit(L=L, bc=bc) do c
-    apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+    apply_with_prob!(c; outcomes=[
         (probability=p_nn, gate=proj_gate, geometry=Bricklayer(:nn)),
         (probability=1-p_nn, gate=proj_gate, geometry=Bricklayer(:nnn))
     ])
@@ -244,20 +227,64 @@ println("|String Order|: $(abs(state.observables[:string_order][end]))")
 
 **Physics**: The AKLT (Affleck-Kennedy-Lieb-Tasaki) state is a paradigmatic example of symmetry-protected topological order. By projecting out the S=2 quintet sector from adjacent spin-1 pairs, the protocol converges to the AKLT ground state characterized by string order parameter |O| ≈ 4/9.
 
-**More Examples**: The `examples/` directory contains complete scripts with parameter sweeps, data export, and visualization. Additional tutorials coming soon.
+### Feedback & Custom Gates
+
+Measurement feedback, arbitrary unitaries, and correlated layers are all first-class:
+
+```julia
+using QuantumCircuitsMPS
+
+# --- 1. Closure feedback: adaptive random-unitary response ---
+L = 6
+circuit = Circuit(L=L, bc=:open) do c
+    apply!(c, HaarRandom(), Bricklayer(:odd))
+    apply_with_prob!(c; outcomes=[
+        (probability=1.0,
+         gate=Measure(:Z; feedback=(state, sites, outcome) ->
+             outcome == 1 && apply!(state, HaarRandom(1), SingleSite(sites[1]))),
+         geometry=EachSite(2:L-1))
+    ])
+end
+
+state = SimulationState(L=L, bc=:open, maxdim=32,
+    rng=RNGRegistry(gates_spacetime=7, gates_realization=8, born_measurement=9, state_init=1),
+    log_events=true)
+initialize!(state, ProductState(binary_int=0))
+simulate!(circuit, state; n_steps=3)
+n_outcomes = length(QuantumCircuitsMPS.measurements(state))
+println("Feedback circuit ran 3 steps, $(n_outcomes) measurement outcomes logged")
+
+# --- 2. MatrixGate: any hand-supplied unitary as a gate ---
+state2 = SimulationState(L=2, bc=:open, maxdim=16,
+    rng=RNGRegistry(gates_spacetime=1, gates_realization=2, born_measurement=3))
+initialize!(state2, ProductState(binary_int=0))
+apply!(state2, MatrixGate([0.0 1.0; 1.0 0.0]), SingleSite(1))
+println("MatrixGate(X) flipped site 1: P(site1=1) = $(born_probability(state2, 1, 1))")
+
+# --- 3. ProductGate: ONE coin governs an entire correlated layer ---
+pg_haar = ProductGate(HaarRandom(), Bricklayer(:even))
+state3 = SimulationState(L=4, bc=:open, maxdim=16,
+    rng=RNGRegistry(gates_spacetime=1, gates_realization=2, born_measurement=3))
+initialize!(state3, ProductState(binary_int=0))
+track!(state3, :entropy => EntanglementEntropy(; cut=2))
+apply!(state3, pg_haar)  # geometry omitted — fills in Sites(union) automatically
+record!(state3)
+println("ProductGate layer applied: entropy = $(state3.observables[:entropy][end])")
+```
 
 ---
-
 ## Core API
 
 ### Main Abstractions
 
 | Concept | Description | Examples |
 |---------|-------------|----------|
-| **Gates** | Quantum operations applied to qubits | `HaarRandom()`, `PauliX()`, `Reset()`, `Measurement(:Z)`, `Projection(0)`, `SpinSectorProjection()` |
-| **Geometry** | Which qubits to apply gates to | `Bricklayer(:odd)`, `Bricklayer(:even)`, `Bricklayer(:nn)`, `Bricklayer(:nnn)`, `AllSites()`, `SingleSite(3)`, `StaircaseLeft(1)` |
+| **Gates** | Quantum operations applied to qubits | `HaarRandom()`, `HaarRandom(n)`, `PauliX()`, `Reset()`, `Measure(:Z; feedback=...)`, `MatrixGate(U)`, `Rx(θ)`/`Ry(θ)`/`Rz(θ)`, `Hadamard()`, `ProductGate(gate, geometry)`, `Projection(0)`, `SpinSectorProjection()` |
+| **Feedback** | Classical response to a `Measure` outcome | `OnOutcome(1 => PauliX())` (declarative), `(state, sites, outcome) -> ...` (closure escape hatch) |
+| **Geometry** | Which qubits to apply gates to (broadcast vs. set — see Design Philosophy) | `Bricklayer(:odd)`, `Bricklayer(:even)`, `Bricklayer(:nn)`, `Bricklayer(:nnn)`, `AllSites()`, `EachSite(2:L-1)`, `SingleSite(3)`, `Sites(1:4)`, `StaircaseLeft(1)` |
+| **Recording markers** | Explicit `record!(c[, names...])` positions inside a `Circuit` do-block | `record!(c)` (all tracked observables), `record!(c, :entropy)` (selective) |
 | **Observables** | Quantities to measure during simulation | `EntanglementEntropy(; cut=L÷2)`, `DomainWall(order=1)`, `BornProbability(1, 0)`, `Magnetization(:Z)`, `StringOrder(i, j; order=1)` |
-| **SimulationState** | The quantum state + tracking | Holds MPS, RNG streams, recorded observables |
+| **SimulationState** | The quantum state + tracking | Holds MPS, RNG streams, recorded observables, opt-in event log (`log_events=true`) |
 
 ### Bricklayer Geometry Parities
 
@@ -274,14 +301,13 @@ The `Bricklayer` geometry supports multiple parities for different gate applicat
 | `:nnn_even_2` | NNN sublayer 4 | (4,6), (8,10), (12,2) |
 | **`:nnn`** | All NNN pairs (combines all 4 sublayers) | All 12 NNN bonds |
 
-The `:nn` and `:nnn` parities automatically expand to cover all bonds, eliminating the need to manually combine sublayers.
-
 ### String Order Observable
 
 The `StringOrder` observable measures the non-local string order parameter for spin-1 chains:
 
 ```julia
-StringOrder(i, j; order=1)  # order=1 (default) for NN AKLT, order=2 for NNN AKLT
+using QuantumCircuitsMPS
+StringOrder(1, 7; order=1)  # order=1 (default) for NN AKLT, order=2 for NNN AKLT
 ```
 
 | Parameter | Formula | Expected Value |
@@ -296,51 +322,33 @@ Note: `order=2` requires `j >= i+4` for non-overlapping endpoint pairs.
 | Function | Purpose | Example |
 |----------|---------|---------|
 | `apply!(state, gate, geometry)` | Apply a gate to specified sites | `apply!(state, HaarRandom(), Bricklayer(:odd))` |
-| `apply_with_prob!(state; rng, outcomes)` | Probabilistic gate application | `apply_with_prob!(state; rng=:gates_spacetime, outcomes=[...])` |
-| `simulate!(circuit, state; n_steps=50, record_when=:every_step)` | Run circuit n_steps times | See Quick Start |
+| `apply_with_prob!(c_or_state; outcomes)` | Unified per-element categorical gate application (builder or eager form; all coins from `:gates_spacetime`) | `apply_with_prob!(c; outcomes=[(probability=p, gate=Measure(:Z), geometry=AllSites())])` |
+| `record!(c::CircuitBuilder[, names...])` | Insert a recording marker inside a `Circuit` do-block | `record!(c)`, `record!(c, :entropy)` |
+| `simulate!(circuit, state; n_steps=50, record_when=:every_step)` | Run circuit n_steps times; `record_when ∈ {:every_step, :every_gate, :final_only, :marks, predicate}` | See Quick Start |
 | `track!(state, obs)` | Register observable for recording | `track!(state, :S => EntanglementEntropy(; cut=6))` |
-| `record!(state; i1=nothing)` | Record current observable values | `record!(state)` |
+| `record!(state; i1=nothing)` | Record current observable values (eager form) | `record!(state)` |
+| `events(state)` / `measurements(state)` | Typed event-log accessors (requires `log_events=true`) | Post-selection: `all(m -> m.outcome == 0, measurements(state))` |
+| `expected_draws(circuit, n_steps)` | Fixed `:gates_spacetime` coin consumption for a circuit run | Draw-count invariant checks |
 | `plot_circuit(circuit; filename)` | Export circuit diagram to SVG | Requires `using Luxor` |
 | `print_circuit(circuit)` | ASCII circuit visualization | Prints to console |
 
 ### Simulation Workflow
 
 ```julia
-# 1. Define circuit (declarative)
+using QuantumCircuitsMPS
 circuit = Circuit(L=12, bc=:periodic) do c
     apply!(c, HaarRandom(), Bricklayer(:even))
     apply!(c, HaarRandom(), Bricklayer(:odd))
 end
-
-# 2. Create and initialize state
 state = SimulationState(L=12, bc=:periodic, maxdim=64, rng=RNGRegistry(gates_spacetime=42, gates_realization=1, born_measurement=2))
 initialize!(state, ProductState(binary_int=0))
-
-# 3. Track observables
 track!(state, :entropy => EntanglementEntropy(; cut=6))
-
-# 4. Simulate (circuit + state)
 simulate!(circuit, state; n_steps=50, record_when=:every_step)
-
-# 5. Access results
 state.observables[:entropy]
 ```
 
-The workflow separates circuit definition from execution.
-
-For complete API documentation, see the source code docstrings.
-
+Circuit definition (declarative) is kept separate from execution. For complete API documentation, see the source code docstrings.
 ---
-
-## Benchmarks
-
-Performance benchmarks are being developed. Check back soon for:
-- Scaling with system size (N = 10, 50, 100, 200 qubits)
-- Bond dimension growth over circuit depth
-- Comparison with direct state vector simulation
-
----
-
 ## Citation
 
 If you use QuantumCircuitsMPS.jl in your research, please cite:
@@ -355,7 +363,6 @@ If you use QuantumCircuitsMPS.jl in your research, please cite:
 ```
 
 ---
-
 ## Related Projects
 
 - **[ITensors.jl](https://github.com/ITensor/ITensors.jl)**: General tensor network library (our backend)
@@ -365,12 +372,15 @@ If you use QuantumCircuitsMPS.jl in your research, please cite:
 
 ---
 
+## Known Limitations / Future Work
+
+- **RNG stream name hardcoded**: The stochastic engine always draws from `:gates_spacetime`. In principle, different probabilistic operations could use independently named streams — this is deferred until a concrete research use case requires it.
+
+---
 ## License and Contributing
 
 QuantumCircuitsMPS.jl is licensed under the [BSD 3-Clause License](LICENSE).
 
-**Bug Reports**: Please open an issue on [GitHub Issues](https://github.com/hainingpan/QuantumCircuitsMPS.jl/issues).
-
-**Contributions**: Contributions are welcome! Fork the repository and submit a pull request. Please include tests for new features.
-
-**Development Status**: This package is under active development. APIs may change before reaching version 1.0.
+- **Bug Reports**: [GitHub Issues](https://github.com/hainingpan/QuantumCircuitsMPS.jl/issues)
+- **Contributions**: Welcome — fork the repository and submit a pull request with tests for new features.
+- **Development Status**: Active development; APIs may change before reaching version 1.0.

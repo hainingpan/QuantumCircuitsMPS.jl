@@ -20,6 +20,21 @@ Thumbs.db
 # Generated outputs
 examples/output/
 *.bin
-.sisyphus
-.opencode
-*.md
+
+# Generated example outputs (regenerate by running the notebooks)
+examples/aklt_*.png
+examples/aklt_circuit.svg
+examples/cipt_*.png
+examples/cipt_circuit.svg
+examples/cipt_Mz_data*.csv
+examples/mipt_circuit.svg
+examples/mipt_entropy_trajectory.png
+
+# Third-party literature figure (copyright - keep local only)
+examples/MIPT.png
+
+# Agent / planning artifacts
+AGENTS.md
+prompt.md
+workflow.md
+.opencode_bak/

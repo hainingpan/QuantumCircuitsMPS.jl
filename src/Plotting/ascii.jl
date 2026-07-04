@@ -54,7 +54,12 @@ function build_template_groups_ascii(circuit; n_steps::Int=1)
                         push!(step_groups, outcome_ops)
                     end
                 end
+
+            elseif op.type == :record_mark
+                # record!(c[, names...]) marker pseudo-op: own group, no sites
+                push!(step_groups, [_record_mark_op(step, op)])
             end
+            # Unknown op types: skipped (forward-compatible)
         end
 
         push!(result, step_groups)
@@ -80,6 +85,11 @@ matching what `expand_circuit(circuit; seed=gates_spacetime)` produces.
 # Character Sets
 - Unicode mode (default): Uses `─` (wire), `┤` (left box), `├` (right box)
 - ASCII mode: Uses `-' (wire), `|` (both box edges)
+
+# Record Markers
+`record!(c[, names...])` markers appear as their own row with the marker
+glyph on every wire: `▽` in Unicode mode, `[R]` in ASCII mode. Named markers
+print their names after the wires (e.g. `▽ ... ▽  [R:entropy]`).
 
 # Layout Algorithm
 1. Expands the circuit with `expand_circuit_grouped` (one group per `apply!` call)
@@ -149,10 +159,12 @@ function print_circuit(io::IO, circuit::Circuit; n_steps::Int=1, gates_spacetime
         end
     end
     
-    # 3. Calculate fixed column width
+    # 3. Calculate fixed column width (marker pseudo-ops excluded — they are
+    # rendered as a fixed glyph per wire, not as gate boxes)
     max_label_len = 1  # Minimum width
     for (_, _, ops) in rows
         for op in ops
+            is_record_mark(op) && continue
             max_label_len = max(max_label_len, length(op.label))
         end
     end
@@ -187,6 +199,22 @@ function print_circuit(io::IO, circuit::Circuit; n_steps::Int=1, gates_spacetime
             print(io, lpad("", ROW_LABEL_WIDTH))
         end
         
+        # Record-marker row: render the marker glyph centered on every wire
+        # (▽ in Unicode mode, [R] in ASCII mode); named markers append their
+        # names after the wires.
+        if length(ops) == 1 && is_record_mark(ops[1])
+            glyph = unicode ? "▽" : "[R]"
+            pad = max(COL_WIDTH - length(glyph), 0)
+            left_pad = pad ÷ 2
+            right_pad = pad - left_pad
+            for q in 1:circuit.L
+                print(io, repeat(WIRE, left_pad), glyph, repeat(WIRE, right_pad))
+            end
+            ops[1].label != "[R]" && print(io, "  ", ops[1].label)
+            println(io)
+            continue
+        end
+
         # For each qubit column, find the active op (if any)
         for q in 1:circuit.L
             active_op = nothing

@@ -26,12 +26,16 @@ println("  p_ctrl = $p_ctrl (control probability)")
 
 # --- Section 2: Building the CIPT Circuit ---
 
-# Build circuit: at each step, coin flip decides Reset (left) or Haar (right)
+# Build circuit: at each step, coin flip decides Reset (left) or Haar (right).
+# Reset() is sugar for Measure(:Z; feedback=OnOutcome(1 => PauliX())) —
+# it Born-samples the qubit, then flips it back to |0⟩ if the outcome was 1.
+# For a custom feedback variant, replace Reset() with e.g.
+#   Measure(:Z; feedback=OnOutcome(1 => Ry(π/4)))
 left = StaircaseLeft(1)
 right = StaircaseRight(1)
 
 circuit = Circuit(L=L, bc=bc, p_ctrl=p_ctrl) do c
-    apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+    apply_with_prob!(c; outcomes=[
         (probability=c.params[:p_ctrl], gate=Reset(), geometry=left),
         (probability=1-c.params[:p_ctrl], gate=HaarRandom(), geometry=right)
     ])
@@ -87,7 +91,7 @@ function run_cipt(; L, p_ctrl, seed, bc=:periodic, n_steps=L^2, maxdim=2^20)
     right = StaircaseRight(1)
 
     circuit = Circuit(L=L, bc=bc, p_ctrl=p_ctrl) do c
-        apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
+        apply_with_prob!(c; outcomes=[
             (probability=c.params[:p_ctrl], gate=Reset(), geometry=left),
             (probability=1-c.params[:p_ctrl], gate=HaarRandom(), geometry=right)
         ])

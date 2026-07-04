@@ -10,6 +10,7 @@ include("Core/basis.jl")
 include("Core/rng.jl")
 
 # State
+include("State/events.jl")  # CircuitEvent types (needed by SimulationState field)
 include("State/State.jl")
 include("State/initialization.jl")
 
@@ -26,18 +27,15 @@ include("Core/apply.jl")
 include("Observables/Observables.jl")
 
 # API
-include("API/imperative.jl")
-include("API/functional.jl")
-include("API/context.jl")
 include("API/probabilistic.jl")
-
-# Simulation styles (circuit-level APIs)
-include("API/simulation_styles/style_imperative.jl")
-include("API/simulation_styles/style_callback.jl")
-include("API/simulation_styles/style_iterator.jl")
 
 # Circuit (lazy mode API)
 include("Circuit/Circuit.jl")
+
+# ProductGate (late include: adds methods to the execute! protocol
+# (Core/apply.jl), gate_label (Circuit/expand.jl) and the CircuitBuilder
+# apply! form (Circuit/builder.jl), so it must come after Circuit)
+include("Gates/product_gate.jl")
 
 # Plotting
 include("Plotting/Plotting.jl")
@@ -45,24 +43,35 @@ include("Plotting/Plotting.jl")
 # === PUBLIC API EXPORTS ===
 # State
 export SimulationState, initialize!, ProductState, RandomMPS
+# Event log (opt-in via SimulationState(...; log_events=true)).
+# Event TYPES (CircuitEvent, GateApplied, MeasurementOutcome) and log_event! are
+# internal — use qualified names (manifest KEEP+ADD tables list only the accessors).
+export events, measurements
 # RNG
-export RNGRegistry, get_rng  # NOTE: rand is extended, not exported
+export RNGRegistry, get_rng
+export expected_draws  # v0.1 fixed-draw contract (see docs/api_surface_v0.1.md ADD table)
+# NOTE: draw, with_guarded_stream, SentinelRNG, is_aliased are internal —
+# use qualified (QuantumCircuitsMPS.draw, ...). The type-pirating
+# Base.rand(state, stream) extension was removed in v0.1 (use draw).
 # Gates
 export AbstractGate, PauliX, PauliY, PauliZ, Projection, HaarRandom, Measurement, Reset, CZ
+export MatrixGate, Rx, Ry, Rz, Hadamard, ProductGate  # v0.1 gates
+export Measure, OnOutcome  # v0.1 feedback system (AbstractFeedback/CallbackFeedback internal — use qualified)
 export total_spin_projector, verify_spin_projectors
 export SpinSectorProjection, SpinSectorMeasurement
 # Geometry
 export AbstractGeometry, SingleSite, AdjacentPair, Bricklayer, AllSites
 export StaircaseLeft, StaircaseRight
 export Pointer, move!
+export EachSite, Sites, elements, element_count, is_broadcast  # v0.1 geometry vocabulary
 # Observables
 export AbstractObservable, DomainWall, BornProbability, EntanglementEntropy, StringOrder, Magnetization
 export track!, record!, list_observables
-# API
-export apply!, simulate, with_state, current_state, apply_with_prob!
-export run_circuit!, simulate_circuits, CircuitSimulation
-export record_every, record_at_circuits, record_always
-export get_state, get_observables, circuits_run
+# API — legacy entry points (simulate, simulate_circuits, run_circuit!,
+# CircuitSimulation, with_state, current_state, record_every, record_at_circuits,
+# record_always, get_state, get_observables, circuits_run) were REMOVED in v0.1.0;
+# unexported migration stubs remain in src/API/ (docs/api_surface_v0.1.md REMOVE table).
+export apply!, apply_with_prob!
 # Circuit (lazy mode API)
 export Circuit, expand_circuit, expand_circuit_grouped, simulate!, ExpandedOp
 export RecordingContext, every_n_gates, every_n_steps
