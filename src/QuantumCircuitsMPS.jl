@@ -9,6 +9,9 @@ using LinearAlgebra
 include("Core/basis.jl")
 include("Core/rng.jl")
 
+# Backend
+include("Backend/Backend.jl")
+
 # State
 include("State/events.jl")  # CircuitEvent types (needed by SimulationState field)
 include("State/State.jl")

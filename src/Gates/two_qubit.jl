@@ -47,6 +47,17 @@ function _haar_unitary(N::Int, rng::AbstractRNG)
 end
 
 """
+    gate_matrix(g::HaarRandom, rng::AbstractRNG; local_dim::Int=2) -> Matrix{ComplexF64}
+
+State-vector-path equivalent of `build_operator(gate::HaarRandom, ...)`: draws
+a fresh `d^n × d^n` Haar random unitary (`d = local_dim`, `n = g.n`) by
+reusing the same `_haar_unitary` core used by the MPS `build_operator` path.
+Consumes from whichever RNG stream `rng` is (caller is responsible for
+passing the appropriate stream, e.g. `:gates_realization`).
+"""
+gate_matrix(g::HaarRandom, rng::AbstractRNG; local_dim::Int=2) = _haar_unitary(local_dim^g.n, rng)
+
+"""
     CZ
 
 Controlled-Z gate. Symmetric under qubit exchange.
@@ -54,6 +65,7 @@ Controlled-Z gate. Symmetric under qubit exchange.
 """
 struct CZ <: AbstractGate end
 support(::CZ) = 2
+gate_matrix(::CZ) = Matrix(Diagonal(ComplexF64[1, 1, 1, -1]))
 
 """
     build_operator(gate::HaarRandom, sites::Vector{Index}, local_dim::Int; rng::RNGRegistry) -> ITensor
