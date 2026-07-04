@@ -91,6 +91,11 @@ Parameters:
 - backend: `:mps` (default, builds an `MPSBackend` with ITensor site indices) or
   `:statevector` (builds a `StateVectorBackend`; no site indices, identity
   phy_ram/ram_phy mapping).
+- engine: gate-application engine for `backend=:statevector` only — `:builtin`
+  (default, Tier 1 reshape/permutedims engine, ground truth) or `:optimized`
+  (Tier 2 hand-written stride-loop engine, numerically verified to match
+  `:builtin` bitwise/to <1e-13, faster especially for 1-site gates). Accepted
+  (but ignored) when `backend=:mps`, for API consistency across backends.
 
 For "Qudit" site type, local_dim specifies the dimension (e.g., local_dim=4 for d=4).
 """
@@ -103,10 +108,12 @@ function SimulationState(;
     maxdim::Int = 100,
     rng = nothing,  # RNGRegistry, attached later or passed here
     log_events::Bool = false,
-    backend::Symbol = :mps
+    backend::Symbol = :mps,
+    engine::Symbol = :builtin
 )
     # Validate bc
     bc in (:open, :periodic) || throw(ArgumentError("bc must be :open or :periodic, got $bc"))
+    engine in (:builtin, :optimized) || throw(ArgumentError("engine must be :builtin or :optimized, got $engine"))
     
     # Auto-detect local_dim from site_type if not explicitly set
     if site_type == "S=1" && local_dim == 2  # default not overridden
@@ -129,7 +136,7 @@ function SimulationState(;
         # No MPS bond-dimension folding concept for state vectors: identity mapping.
         phy_ram = collect(1:L)
         ram_phy = collect(1:L)
-        backend_obj = StateVectorBackend(nothing)
+        backend_obj = StateVectorBackend(nothing, engine)
     else
         throw(ArgumentError("backend must be :mps or :statevector, got $backend"))
     end

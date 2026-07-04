@@ -74,7 +74,9 @@ Steps:
 2. Convert physical sites to RAM indices (identity for SV, kept for
    code-path consistency with the MPS backend)
 3. Resolve the gate's dense matrix (HaarRandom needs rng + local_dim)
-4. Apply via apply_gate_sv!, reassigning state.backend.ψ
+4. Apply via apply_gate_sv! (Tier 1) or apply_gate_sv_optimized! (Tier 2,
+   selected via `state.backend.engine == :optimized` — see
+   src/StateVector/optimized.jl), reassigning state.backend.ψ
 5. Normalize iff `needs_normalization(gate)` (trait, Contract 3.5) — there
    is NO truncate! equivalent for state vectors (no bond dimension)
 """
@@ -86,7 +88,11 @@ function _apply_single!(state::SimulationState{StateVectorBackend}, gate::Abstra
     ram_sites = [state.phy_ram[ps] for ps in phy_sites]   # identity for SV, but keep the lookup for code-path consistency
 
     U = _resolve_gate_matrix_sv(gate, state)
-    state.backend.ψ = apply_gate_sv!(state.backend.ψ, U, ram_sites, state.L, state.local_dim)
+    if state.backend.engine == :optimized
+        state.backend.ψ = apply_gate_sv_optimized!(state.backend.ψ, U, ram_sites, state.L, state.local_dim)
+    else
+        state.backend.ψ = apply_gate_sv!(state.backend.ψ, U, ram_sites, state.L, state.local_dim)
+    end
 
     if needs_normalization(gate)
         normalize!(state.backend.ψ)

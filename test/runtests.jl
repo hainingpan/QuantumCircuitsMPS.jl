@@ -22,4 +22,6 @@ using QuantumCircuitsMPS
         include("golden_compare.jl")
     end
     include("cross_cutting_v01.jl")
+    include("statevector/cross_validation.jl")
+    include("statevector/integration.jl")
 end
