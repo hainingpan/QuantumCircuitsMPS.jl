@@ -72,6 +72,14 @@ include("StateVector/magnetization.jl")
 include("StateVector/domain_wall.jl")
 include("StateVector/string_order.jl")
 
+# Clifford observable/measurement implementations (backend-specific dispatch
+# methods added to already-exported names: born_probability, Magnetization.
+# Overrides _measure_single_site! since Clifford measurement does not go
+# through the default Projection-based path.)
+include("Clifford/measurement.jl")
+include("Clifford/entanglement.jl")
+include("Clifford/magnetization.jl")
+
 # API
 include("API/probabilistic.jl")
 
