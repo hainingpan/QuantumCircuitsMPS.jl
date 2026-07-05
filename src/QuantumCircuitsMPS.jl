@@ -22,6 +22,11 @@ include("State/initialization.jl")
 # loaded above — first file of a growing multi-file src/StateVector/ component)
 include("StateVector/initialization.jl")
 
+# Clifford (stabilizer-tableau backend initialization; needs
+# AbstractInitialState/ProductState from State and CliffordBackend from
+# Backend, both already loaded above)
+include("Clifford/initialization.jl")
+
 # Gates
 include("Gates/Gates.jl")
 
@@ -43,6 +48,15 @@ include("StateVector/StateVector.jl")
 # _apply_single! references `apply_gate_sv_optimized!` by name.
 include("StateVector/optimized.jl")
 
+# Clifford gate-application engine: _apply_single! methods for
+# SimulationState{CliffordBackend}, dispatched per gate type onto a
+# QuantumClifford.jl MixedDestabilizer tableau. Needs AbstractGate/gate
+# structs (from Gates, included above), CliffordBackend (from Backend), and
+# get_rng (from Core/rng.jl). Placed alongside the other backends' gate-
+# application engines, before Core/apply.jl (whose default execute!/apply!
+# dispatch chain routes to _apply_single! once defined here).
+include("Clifford/Clifford.jl")
+
 # Core apply! (after State, Gates, Geometry)
 include("Core/apply.jl")
 
@@ -57,6 +71,14 @@ include("StateVector/entanglement.jl")
 include("StateVector/magnetization.jl")
 include("StateVector/domain_wall.jl")
 include("StateVector/string_order.jl")
+
+# Clifford observable/measurement implementations (backend-specific dispatch
+# methods added to already-exported names: born_probability, Magnetization.
+# Overrides _measure_single_site! since Clifford measurement does not go
+# through the default Projection-based path.)
+include("Clifford/measurement.jl")
+include("Clifford/entanglement.jl")
+include("Clifford/magnetization.jl")
 
 # API
 include("API/probabilistic.jl")
@@ -88,6 +110,7 @@ export expected_draws  # v0.1 fixed-draw contract (see docs/api_surface_v0.1.md 
 # Gates
 export AbstractGate, PauliX, PauliY, PauliZ, Projection, HaarRandom, Measurement, Reset, CZ
 export MatrixGate, Rx, Ry, Rz, Hadamard, ProductGate  # v0.1 gates
+export CNOT, PhaseGate, SWAP, RandomClifford  # Clifford backend gates (also usable on MPS/SV)
 export Measure, OnOutcome  # v0.1 feedback system (AbstractFeedback/CallbackFeedback internal — use qualified)
 export total_spin_projector, verify_spin_projectors
 export SpinSectorProjection, SpinSectorMeasurement
