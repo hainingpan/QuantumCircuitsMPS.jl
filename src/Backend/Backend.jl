@@ -1,5 +1,6 @@
 using ITensors
 using ITensorMPS
+import QuantumClifford: MixedDestabilizer
 
 """
 Abstract base type for all simulation backends.
@@ -30,4 +31,14 @@ State-vector backend: holds the full statevector as a dense complex vector.
 mutable struct StateVectorBackend <: AbstractBackend
     ψ::Union{Vector{ComplexF64}, Nothing}
     engine::Symbol
+end
+
+"""
+Clifford (stabilizer) backend: holds a QuantumClifford.jl stabilizer tableau.
+
+Uses `MixedDestabilizer` (tracks both stabilizer and destabilizer generators),
+which enables efficient O(n²) measurement via `project!`.
+"""
+mutable struct CliffordBackend <: AbstractBackend
+    tableau::Union{MixedDestabilizer, Nothing}
 end

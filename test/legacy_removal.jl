@@ -37,6 +37,7 @@ using QuantumCircuitsMPS
             :EachSite, :Sites, :Measure, :OnOutcome, :MatrixGate,
             :Rx, :Ry, :Rz, :Hadamard, :ProductGate,
             :events, :measurements, :expected_draws,
+            :CNOT, :PhaseGate, :SWAP, :RandomClifford,  # Clifford backend gates (Task 11)
         ]
         # Geometry contract helpers documented in the KEEP table's
         # AbstractGeometry row ("Gains canonical elements(geo, L, bc),
@@ -51,7 +52,7 @@ using QuantumCircuitsMPS
         missing_ = sort!(collect(setdiff(expected, actual)))
         @test isempty(extra) || error("Exports beyond manifest KEEP+ADD: $extra")
         @test isempty(missing_) || error("Manifest KEEP+ADD symbols not exported: $missing_")
-        @test length(actual) == 77
+        @test length(actual) == 81
 
         # REMOVE-table symbols must not be exported
         removed = (:simulate, :simulate_circuits, :run_circuit!, :CircuitSimulation,

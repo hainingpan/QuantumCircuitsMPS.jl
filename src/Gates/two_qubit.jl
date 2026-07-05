@@ -137,3 +137,67 @@ function build_operator(gate::CZ, sites::Vector{<:Index}, local_dim::Int; rng=no
     
     return op_tensor
 end
+
+"""
+    CNOT
+
+Controlled-NOT gate. Control = site 1, target = site 2.
+|00⟩→|00⟩, |01⟩→|01⟩, |10⟩→|11⟩, |11⟩→|10⟩
+"""
+struct CNOT <: AbstractGate end
+support(::CNOT) = 2
+gate_matrix(::CNOT) = ComplexF64[1 0 0 0; 0 1 0 0; 0 0 0 1; 0 0 1 0]
+
+"""
+    SWAP
+
+Swap gate. Exchanges the states of the two sites.
+|00⟩→|00⟩, |01⟩→|10⟩, |10⟩→|01⟩, |11⟩→|11⟩
+"""
+struct SWAP <: AbstractGate end
+support(::SWAP) = 2
+gate_matrix(::SWAP) = ComplexF64[1 0 0 0; 0 0 1 0; 0 1 0 0; 0 0 0 1]
+
+"""
+    build_operator(gate::CNOT, sites::Vector{Index}, local_dim::Int) -> ITensor
+
+Build CNOT gate operator. Control = sites[1], target = sites[2].
+"""
+function build_operator(gate::CNOT, sites::Vector{<:Index}, local_dim::Int; rng=nothing, kwargs...)
+    length(sites) == 2 || throw(ArgumentError("CNOT requires exactly 2 sites"))
+
+    s1, s2 = sites[1], sites[2]
+
+    # CNOT: control=s1, target=s2
+    # |00⟩→|00⟩, |01⟩→|01⟩, |10⟩→|11⟩, |11⟩→|10⟩
+    op_tensor = ITensor(ComplexF64, s1', s2', dag(s1), dag(s2))
+
+    for j1 in 1:local_dim, j2 in 1:local_dim
+        i1 = j1  # control unchanged
+        i2 = (j1 == local_dim) ? (local_dim + 1 - j2) : j2  # flip target iff control is |1⟩
+        op_tensor[s1' => i1, s2' => i2, s1 => j1, s2 => j2] = 1.0 + 0.0im
+    end
+
+    return op_tensor
+end
+
+"""
+    build_operator(gate::SWAP, sites::Vector{Index}, local_dim::Int) -> ITensor
+
+Build SWAP gate operator.
+"""
+function build_operator(gate::SWAP, sites::Vector{<:Index}, local_dim::Int; rng=nothing, kwargs...)
+    length(sites) == 2 || throw(ArgumentError("SWAP requires exactly 2 sites"))
+
+    s1, s2 = sites[1], sites[2]
+
+    # SWAP: |00⟩→|00⟩, |01⟩→|10⟩, |10⟩→|01⟩, |11⟩→|11⟩
+    op_tensor = ITensor(ComplexF64, s1', s2', dag(s1), dag(s2))
+
+    for j1 in 1:local_dim, j2 in 1:local_dim
+        i1, i2 = j2, j1  # swap the two site values
+        op_tensor[s1' => i1, s2' => i2, s1 => j1, s2 => j2] = 1.0 + 0.0im
+    end
+
+    return op_tensor
+end

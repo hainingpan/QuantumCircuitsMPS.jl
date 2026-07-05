@@ -57,6 +57,7 @@ is_measurement(::AbstractGate) = false
 include("matrix_gate.jl")    # defines gate_matrix — MUST come before single_qubit.jl/two_qubit.jl which add methods to it
 include("single_qubit.jl")
 include("two_qubit.jl")
+include("random_clifford.jl")
 include("parametrized.jl")
 include("composite.jl")
 include("feedback.jl")       # Measure + AbstractFeedback/OnOutcome/CallbackFeedback (v0.1)

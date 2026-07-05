@@ -11,7 +11,7 @@ MIPT (Measurement-Induced Phase Transition) and CIPT (Control-Induced Phase Tran
 ## What is QuantumCircuitsMPS.jl?
 
 - **"PyTorch for Quantum Circuits"** — Physicists code as they speak: focusing on physics without touching implementation details.
-- A pure Julia library for simulating quantum circuits using Matrix Product State (MPS) methods. It's purpose-built for researchers studying measurement-induced and control-induced phase transitions in monitored quantum systems.
+- A pure Julia library for simulating quantum circuits using Matrix Product State (MPS) methods, with an exact state-vector backend and a stabilizer-tableau (Clifford) backend alongside it. It's purpose-built for researchers studying measurement-induced and control-induced phase transitions in monitored quantum systems.
 
 > ⚠️ **Note**: This package is under active development. APIs may change and bugs may exist. Please report issues on [GitHub](https://github.com/hainingpan/QuantumCircuitsMPS.jl/issues).
 
@@ -31,9 +31,9 @@ MIPT (Measurement-Induced Phase Transition) and CIPT (Control-Induced Phase Tran
 | Feature | ITensors.jl | PastaQ.jl | Yao.jl | Qiskit.jl | **This Package** |
 |---------|-------------|-----------|--------|-----------|------------------|
 | **Primary Focus** | Tensor networks | Tomography & benchmarking | Variational algorithms | Circuit construction | **MIPT/CIPT dynamics** |
-| **Backend** | MPS/MPO (via ITensorMPS) | MPS/MPO | State vector (+ YaoToEinsum) | No simulation* | **MPS (via ITensors) + state vector (builtin/optimized)** |
+| **Backend** | MPS/MPO (via ITensorMPS) | MPS/MPO | State vector (+ YaoToEinsum) | No simulation* | **MPS (via ITensors) + state vector (builtin/optimized) + Clifford stabilizer tableau** |
 | **MIPT/CIPT Support** | Build from scratch | Manual logic | State vector limited | N/A | **First-class** |
-| **Scalability** | N=100+ | N=100+ | ~30 qubits | N/A | **N=100+** |
+| **Scalability** | N=100+ | N=100+ | ~30 qubits | N/A | **N=100+ (N=1000+ for Clifford-only circuits)** |
 | **API Level** | Tensor-level | Circuit + Tomography | Block-level | Circuit construction | **Physics-level** |
 | **Learning Curve** | Steep | Medium | Gentle | N/A | **Gentle** |
 
@@ -406,6 +406,96 @@ state = SimulationState(L=20, bc=:open, backend=:statevector, engine=:optimized,
 Use `:builtin` when auditability matters most (e.g. debugging an observable formula); reach for `:optimized` once you're pushing `L` toward the upper end of the state-vector backend's practical range and want faster gate application.
 
 ---
+## Clifford Backend
+
+`QuantumCircuitsMPS.jl` also ships a stabilizer-tableau backend, built on [QuantumClifford.jl](https://github.com/QuantumSavory/QuantumClifford.jl), for circuits built entirely out of Clifford-group gates. Instead of an MPS or a dense state vector, the state is stored as a `MixedDestabilizer` tableau, a compact `O(L)`-generator representation that only Clifford operations can update. `apply!`, `track!`, `record!`, and `simulate!` all work exactly as on the other two backends; only the `SimulationState(...)` constructor call changes.
+
+**When to use it**: MIPT/CIPT studies that only need Clifford gates (Pauli twirls, random Clifford circuits, stabilizer measurements) and want to reach system sizes `L = 100-1000+`, far beyond what MPS or the state-vector backend can practically reach.
+
+**When not to use it**: any circuit that needs a non-Clifford gate, `HaarRandom`, `Rx`/`Ry`/`Rz`, `MatrixGate`, or a general `Projection`/`SpinSectorProjection`. Use `backend=:mps` or `backend=:statevector` for those.
+
+### Quick Example
+
+```julia
+using QuantumCircuitsMPS
+
+# Stabilizer-tableau simulation: scales to L=100-1000+ qubits for Clifford-only circuits
+L = 100
+state = SimulationState(L=L, bc=:open, backend=:clifford,
+    rng=RNGRegistry(gates_spacetime=1, gates_realization=2, born_measurement=3))
+initialize!(state, ProductState(binary_int=0))
+track!(state, :entropy => EntanglementEntropy(cut=L÷2))
+
+apply!(state, RandomClifford(2), Bricklayer(:odd))
+apply!(state, RandomClifford(2), Bricklayer(:even))
+apply!(state, Measure(:Z), SingleSite(1))
+record!(state)
+println("Entropy after one layer + measurement: $(state.observables[:entropy][end])")
+```
+
+**Physics**: `RandomClifford(2)` draws an independent random two-qubit Clifford operator for each bond (from the `:gates_realization` stream) and applies it natively to the tableau, no dense matrix is ever built, so the entangling layer costs the same whether `L` is 8 or 800.
+
+### Scalability
+
+Unlike the state-vector backend's `2^L` memory or the MPS backend's bond-dimension-dependent cost, the stabilizer-tableau representation scales polynomially: `O(L²)` memory (`L` stabilizer generators, each an `L`-bit string) and `O(L²)`-`O(L³)` per gate or measurement update. In practice, a full even+odd `RandomClifford(2)` bricklayer sweep over all `L` qubits completes in well under a second at `L=500` or `L=1000` on a single core, sizes that are simply unreachable for a dense state vector (`2^500` amplitudes) and impractical for MPS once entanglement growth forces `maxdim` up.
+
+| Backend | Memory scaling | Practical qubit range |
+|---------|-----------------|------------------------|
+| State vector | `2^L` (exponential) | `L ≲ 25-27` |
+| MPS | Bond-dimension dependent (`maxdim`) | `L = 100+` |
+| **Clifford** | `O(L²)` (polynomial) | **`L = 100-1000+`** |
+
+### Supported Gates
+
+| Category | Gates |
+|----------|-------|
+| Single-qubit Clifford | `PauliX()`, `PauliY()`, `PauliZ()`, `Hadamard()`, `PhaseGate()` |
+| Two-qubit Clifford | `CZ()`, `CNOT()`, `SWAP()` |
+| Random Clifford | `RandomClifford(n)` — an `n`-qubit random Clifford operator, sampled from `:gates_realization` and applied natively to the tableau |
+| Measurement & feedback | `Measure(:Z; feedback=...)`, `Reset()`, `OnOutcome(...)`, closure feedback — identical semantics to the MPS/state-vector backends |
+
+### Gate Validation
+
+Any gate outside the supported set, `HaarRandom`, `Rx`/`Ry`/`Rz`, `MatrixGate`, `Projection`, `SpinSectorProjection`, has no stabilizer-tableau representation and raises an informative error rather than being silently approximated:
+
+```julia
+using QuantumCircuitsMPS
+
+state = SimulationState(L=4, bc=:open, backend=:clifford,
+    rng=RNGRegistry(gates_spacetime=1, gates_realization=2, born_measurement=3))
+initialize!(state, ProductState(binary_int=0))
+apply!(state, HaarRandom(), SingleSite(1))
+```
+```
+ArgumentError: Clifford backend only supports Clifford gates (PauliX, PauliY, PauliZ, Hadamard, PhaseGate, CZ, CNOT, SWAP, RandomClifford, Measure, Reset). Received: HaarRandom. Please switch to backend=:mps or backend=:statevector for non-Clifford gates.
+```
+
+### Entanglement Spectrum
+
+Stabilizer states have an exactly flat entanglement spectrum: for any bipartition, every nonzero Schmidt coefficient has the same magnitude. As a direct consequence, every Rényi-n entropy, including the von Neumann limit, is identical for a stabilizer state, so the `renyi_index` keyword on `EntanglementEntropy` is automatically satisfied for any value:
+
+```julia
+using QuantumCircuitsMPS
+
+state = SimulationState(L=4, bc=:open, backend=:clifford,
+    rng=RNGRegistry(gates_spacetime=1, gates_realization=2, born_measurement=3))
+initialize!(state, ProductState(binary_int=0))
+apply!(state, Hadamard(), SingleSite(1))
+apply!(state, CNOT(), Sites([1,2]))
+apply!(state, CNOT(), Sites([2,3]))
+apply!(state, CNOT(), Sites([3,4]))  # GHZ state
+for r in (1, 2, 3, 5)
+    println("renyi_index=$r -> S = $(EntanglementEntropy(cut=2, renyi_index=r)(state))")
+end
+```
+```
+renyi_index=1 -> S = 1.0
+renyi_index=2 -> S = 1.0
+renyi_index=3 -> S = 1.0
+renyi_index=5 -> S = 1.0
+```
+
+---
 ## Citation
 
 If you use QuantumCircuitsMPS.jl in your research, please cite:
@@ -426,6 +516,11 @@ If you use QuantumCircuitsMPS.jl in your research, please cite:
 - **[ITensorMPS.jl](https://github.com/ITensor/ITensorMPS.jl)**: MPS/MPO algorithms and optimizations
 - **[PastaQ.jl](https://github.com/GTorlai/PastaQ.jl)**: Quantum tomography and circuit simulation
 - **[Yao.jl](https://github.com/QuantumBFS/Yao.jl)**: Quantum algorithm simulation and variational methods
+- **[QuantumClifford.jl](https://github.com/QuantumSavory/QuantumClifford.jl)**: Stabilizer-tableau simulation of Clifford circuits (our Clifford backend)
+
+The optimized state-vector engine (`engine=:optimized`) uses the stride-loop gate-application pattern popularized by [Yao.jl](https://github.com/QuantumBFS/Yao.jl) (MIT License). We acknowledge Roger Luo and the Yao.jl team for their foundational work on efficient quantum circuit simulation in Julia.
+
+The Clifford backend is built directly on [QuantumClifford.jl](https://github.com/QuantumSavory/QuantumClifford.jl) (MIT License) for its stabilizer-tableau representation and gate/measurement primitives. We acknowledge Stefan Krastanov and the QuantumClifford.jl contributors for this foundational stabilizer-formalism package.
 
 The optimized state-vector engine (`engine=:optimized`) uses the stride-loop gate-application pattern popularized by [Yao.jl](https://github.com/QuantumBFS/Yao.jl) (MIT License). We acknowledge Roger Luo and the Yao.jl team for their foundational work on efficient quantum circuit simulation in Julia.
 
@@ -434,6 +529,8 @@ The optimized state-vector engine (`engine=:optimized`) uses the stride-loop gat
 ## Known Limitations / Future Work
 
 - **RNG stream name hardcoded**: The stochastic engine always draws from `:gates_spacetime`. In principle, different probabilistic operations could use independently named streams — this is deferred until a concrete research use case requires it.
+- **`HaarRandom` MPS/state-vector parity**: cross-validation between the two backends is verified **exact** for every gate type, including `HaarRandom` — the same RNG seed produces bit-identical trajectories across backends.
+- **Clifford backend scope**: qubit-only (`local_dim=2`, no qudit/`S=1` support) and gate set is limited to the Clifford group plus `Measure`/`Reset`/feedback — no noise channels (Kraus/channel-style gates) and no non-Clifford gates; see the "Clifford Backend" section for the exact supported list and error behavior.
 
 ---
 ## License and Contributing
