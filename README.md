@@ -522,8 +522,6 @@ The optimized state-vector engine (`engine=:optimized`) uses the stride-loop gat
 
 The Clifford backend is built directly on [QuantumClifford.jl](https://github.com/QuantumSavory/QuantumClifford.jl) (MIT License) for its stabilizer-tableau representation and gate/measurement primitives. We acknowledge Stefan Krastanov and the QuantumClifford.jl contributors for this foundational stabilizer-formalism package.
 
-The optimized state-vector engine (`engine=:optimized`) uses the stride-loop gate-application pattern popularized by [Yao.jl](https://github.com/QuantumBFS/Yao.jl) (MIT License). We acknowledge Roger Luo and the Yao.jl team for their foundational work on efficient quantum circuit simulation in Julia.
-
 ---
 
 ## Known Limitations / Future Work
