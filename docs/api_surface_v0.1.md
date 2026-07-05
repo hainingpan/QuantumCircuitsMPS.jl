@@ -70,7 +70,7 @@ by regression tests).
 | `compute_pair_staircase` | Internal (CT.jl parity) — unchanged |
 | `apply_op_internal!` | Internal (CT.jl parity) — unchanged |
 | `born_probability` | Public utility (used by regression tests) — KEEP regardless of ct_compat decision |
-| `compute_basis_mapping` | Internal (CT.jl parity) — unchanged |
+| `compute_basis_mapping` | Internal (CT.jl parity) — gained a new `pbc_fold_start` keyword arg (default `L÷4+1`) controlling the PBC ring-fold origin; backward-compatible addition, not a breaking change |
 | `physical_to_ram` | Internal (CT.jl parity) — unchanged |
 | `ram_to_physical` | Internal (CT.jl parity) — unchanged |
 

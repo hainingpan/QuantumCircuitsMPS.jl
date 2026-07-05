@@ -248,4 +248,42 @@ end
         @test length(ψ_sv)  == 2^L
     end
 
+    # ═══════════════════════════════════════════════════════════════════════
+    # 6. PBC EntanglementEntropy(cut=L÷2) cross-backend parity
+    #    Verifies that, with the new default pbc_fold_start = L÷4+1, the MPS
+    #    backend's RAM half-cut aligns with the SAME physical bipartition
+    #    {1..L/2} vs {L/2+1..L} that the state-vector backend always used.
+    #    Same seeds + same circuit → identical entropy trajectories.
+    # ═══════════════════════════════════════════════════════════════════════
+    @testset "PBC EntanglementEntropy cross-backend parity (L=$L)" for L in [6, 8]
+        circuit = Circuit(L=L, bc=:periodic) do c
+            apply!(c, HaarRandom(), Bricklayer(:even))
+            apply!(c, HaarRandom(), Bricklayer(:odd))
+        end
+        ee = EntanglementEntropy(cut=L÷2)
+        seeds = (gates_spacetime=42, gates_realization=1, born_measurement=2)
+
+        # MPS backend
+        s_mps = SimulationState(L=L, bc=:periodic, maxdim=64,
+            rng=RNGRegistry(; seeds...))
+        initialize!(s_mps, ProductState(binary_int=0))
+        track!(s_mps, :entropy => ee)
+        simulate!(circuit, s_mps; n_steps=5, record_when=:every_step)
+
+        # SV backend
+        s_sv = SimulationState(L=L, bc=:periodic, backend=:statevector,
+            rng=RNGRegistry(; seeds...))
+        initialize!(s_sv, ProductState(binary_int=0))
+        track!(s_sv, :entropy => ee)
+        simulate!(circuit, s_sv; n_steps=5, record_when=:every_step)
+
+        # Entropy trajectories must match
+        for (e_mps, e_sv) in zip(s_mps.observables[:entropy], s_sv.observables[:entropy])
+            @test e_mps ≈ e_sv atol=1e-10
+        end
+        # Guard against a trivially-passing all-zero test
+        @test maximum(s_mps.observables[:entropy]) > 0.01
+        @test maximum(s_sv.observables[:entropy]) > 0.01
+    end
+
 end  # top-level @testset

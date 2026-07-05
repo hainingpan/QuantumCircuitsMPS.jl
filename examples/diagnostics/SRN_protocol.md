@@ -114,7 +114,7 @@ The figure in `examples/MIPT.png` — showing S₁(p) vs p for L = 6, 8, 10, 12,
 |---|---|---|---|
 | **Circuit architecture** | Brickwork (running bond), Haar random 2-site unitaries | Brickwork, Haar random 2-site unitaries (`HaarRandom()`, `Bricklayer(:even/:odd)`) | ✅ YES |
 | **Layer ordering** | Even layer first, then odd layer | Even layer first (`Bricklayer(:even)`), then odd layer (`Bricklayer(:odd)`) | ✅ YES |
-| **Boundary conditions** | **Open (OBC)** — no wrap-around gates; boundary spins participate in 1 gate per layer | **Periodic (PBC)** — `bc = :periodic`, folded basis `ram_phy = [1, L, 2, L-1, ...]` | ❌ **MISMATCH** |
+| **Boundary conditions** | **Open (OBC)** — no wrap-around gates; boundary spins participate in 1 gate per layer | **Periodic (PBC)** — `bc = :periodic`, folded basis `ram_phy = [1, L, 2, L-1, ...]` (fold origin now configurable via `pbc_fold_start`, default `L÷4+1`, rather than always starting at site 1) | ❌ **MISMATCH** |
 | **Measurement timing** | After **each unitary layer** (2 measurement sweeps per even+odd period) | After each unitary layer (even→meas→odd→meas) | ✅ YES |
 | **Measurement basis** | Z-basis (S_z) | Z-basis (`Measurement(:Z)`) | ✅ YES |
 | **Measurement probability** | Per-site probability p, independent | Per-site probability p, independent (`apply_with_prob!`) | ✅ YES |

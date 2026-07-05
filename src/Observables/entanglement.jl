@@ -59,9 +59,9 @@ function (ee::EntanglementEntropy)(state)
     1 <= ee.cut < state.L || throw(ArgumentError("cut must satisfy 1 <= cut < L"))
     
     # Determine RAM cut position based on boundary conditions
-    # For periodic BC with folded MPS [1,L,2,L-1,...], RAM cut at position k
-    # partitions into two contiguous arcs. The cut parameter directly specifies
-    # the RAM bond, giving a half-chain cut when cut=L÷2.
+    # For periodic BC with folded MPS, the fold origin is configurable via
+    # pbc_fold_start (default: L÷4+1, aligning the half-cut with the physical
+    # midpoint). The cut parameter directly specifies the RAM bond index.
     # For open BC, ram_phy is identity so this also works correctly.
     ram_cut = ee.cut
     

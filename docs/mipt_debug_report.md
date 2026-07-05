@@ -1,5 +1,7 @@
 # MIPT Entropy Anomaly: Root-Cause Report
 
+> **Note (post-v0.2)**: The domain-wall bond parity analysis in §5 was written for the original `pbc_fold_start=1` fold convention. As of the pbc_fold_start change, the default fold is `L÷4+1` (middle-aligned). The qualitative conclusions still hold, but the specific mod-4 parity table is no longer current.
+
 **Date**: 2026-06-13  
 **Status**: RESOLVED  
 **Package**: QuantumCircuitsMPS.jl  

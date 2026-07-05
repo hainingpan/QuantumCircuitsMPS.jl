@@ -61,7 +61,7 @@ Rerun of the pre-refactor golden circuits on the v0.1 engine, identical seeds:
 | Statevector lockstep (seeds 1–3) | none — deterministic Haar `Bricklayer(:even)`+`(:odd)`, OBC | **D** | No `:gates_spacetime` coins. Haar draws (`:gates_realization`) unchanged. Assertion is an invariant (MPS vs dense SVD at 1e-8), reproduces exactly. PASS |
 | Born statistics (400 trials) | none — `apply!` Haar + `apply!(Measurement(:Z), SingleSite(1))` | **D** | Deterministic gate schedule; only `:born_measurement` varies by design. Statistical band vs exact Born probability. PASS |
 | Phase-averaged entropy (p=0.5, 100 seeds) | `apply_with_prob!`, **1 outcome** `(p, Measurement(:Z), AllSites())` | **A** | Single-outcome compound: per-trajectory bit-identical under unified rule (K=L coins/step, strict `<`, same order). Assertion is a multi-seed statistical band (area-law L-independence). PASS |
-| RAM bipartition | none | **D** | Pure function test (`compute_basis_mapping`). PASS |
+| RAM bipartition | none | **D** | Pure function test (`compute_basis_mapping`); now uses a parameterized fold via `pbc_fold_start`. PASS |
 
 #### `test/circuit_test.jl`
 

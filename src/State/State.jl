@@ -91,6 +91,8 @@ Parameters:
 - backend: `:mps` (default, builds an `MPSBackend` with ITensor site indices) or
   `:statevector` (builds a `StateVectorBackend`; no site indices, identity
   phy_ram/ram_phy mapping).
+- pbc_fold_start: physical site the PBC zig-zag fold starts from (default `L÷4+1`).
+  Only meaningful for `backend=:mps` with `bc=:periodic`; ignored for `backend=:statevector`.
 - engine: gate-application engine for `backend=:statevector` only — `:builtin`
   (default, Tier 1 reshape/permutedims engine, ground truth) or `:optimized`
   (Tier 2 hand-written stride-loop engine, numerically verified to match
@@ -109,7 +111,8 @@ function SimulationState(;
     rng = nothing,  # RNGRegistry, attached later or passed here
     log_events::Bool = false,
     backend::Symbol = :mps,
-    engine::Symbol = :builtin
+    engine::Symbol = :builtin,
+    pbc_fold_start::Int = L÷4+1
 )
     # Validate bc
     bc in (:open, :periodic) || throw(ArgumentError("bc must be :open or :periodic, got $bc"))
@@ -122,7 +125,7 @@ function SimulationState(;
     
     if backend == :mps
         # Compute basis mapping (OBC works now, PBC throws until Task 4)
-        phy_ram, ram_phy = compute_basis_mapping(L, bc)
+        phy_ram, ram_phy = compute_basis_mapping(L, bc; pbc_fold_start=pbc_fold_start)
         
         # Create site indices in RAM order
         if site_type == "Qudit"
