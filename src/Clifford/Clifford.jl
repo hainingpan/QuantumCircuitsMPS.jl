@@ -145,7 +145,7 @@ function _apply_single!(state::SimulationState{CliffordBackend}, gate::RandomCli
     ram_sites = [state.phy_ram[ps] for ps in phy_sites]
     rng = get_rng(state.rng_registry, :gates_realization)
     op = QuantumClifford.random_clifford(rng, gate.n)
-    QuantumClifford.apply!(state.backend.tableau, op, ram_sites)
+    QuantumClifford.apply!(state.backend.tableau, op, reverse(ram_sites))
     return nothing
 end
 

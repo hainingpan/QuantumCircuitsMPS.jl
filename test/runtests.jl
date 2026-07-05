@@ -26,4 +26,5 @@ using QuantumCircuitsMPS
     include("statevector/integration.jl")
     include("gates/test_new_gates.jl")
     include("clifford/test_clifford.jl")
+    include("clifford/cross_validation.jl")
 end
