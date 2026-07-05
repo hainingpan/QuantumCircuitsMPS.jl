@@ -22,6 +22,11 @@ include("State/initialization.jl")
 # loaded above — first file of a growing multi-file src/StateVector/ component)
 include("StateVector/initialization.jl")
 
+# Clifford (stabilizer-tableau backend initialization; needs
+# AbstractInitialState/ProductState from State and CliffordBackend from
+# Backend, both already loaded above)
+include("Clifford/initialization.jl")
+
 # Gates
 include("Gates/Gates.jl")
 
@@ -42,6 +47,15 @@ include("StateVector/StateVector.jl")
 # checking `state.backend.engine`. Must come after StateVector.jl since
 # _apply_single! references `apply_gate_sv_optimized!` by name.
 include("StateVector/optimized.jl")
+
+# Clifford gate-application engine: _apply_single! methods for
+# SimulationState{CliffordBackend}, dispatched per gate type onto a
+# QuantumClifford.jl MixedDestabilizer tableau. Needs AbstractGate/gate
+# structs (from Gates, included above), CliffordBackend (from Backend), and
+# get_rng (from Core/rng.jl). Placed alongside the other backends' gate-
+# application engines, before Core/apply.jl (whose default execute!/apply!
+# dispatch chain routes to _apply_single! once defined here).
+include("Clifford/Clifford.jl")
 
 # Core apply! (after State, Gates, Geometry)
 include("Core/apply.jl")
