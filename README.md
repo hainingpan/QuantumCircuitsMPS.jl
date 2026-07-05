@@ -434,7 +434,7 @@ The optimized state-vector engine (`engine=:optimized`) uses the stride-loop gat
 ## Known Limitations / Future Work
 
 - **RNG stream name hardcoded**: The stochastic engine always draws from `:gates_spacetime`. In principle, different probabilistic operations could use independently named streams — this is deferred until a concrete research use case requires it.
-- **`HaarRandom` MPS/state-vector convention mismatch**: the MPS backend's `HaarRandom` construction uses an index convention that differs from `MatrixGate`'s documented Kronecker convention (a pre-existing MPS-internal inconsistency, orthogonal to and not introduced by the state-vector backend work). Practical consequence: for a circuit using `HaarRandom` with a shared seed, the MPS and state-vector backends may draw a different (but equally Haar-valid) unitary at each application, so their trajectories are **not guaranteed to be bit-identical**, even though each backend independently produces a valid, correctly-normalized, Haar-distributed state. Cross-validation between the two backends is verified **exact** for every other gate type — `PauliX`/`PauliY`/`PauliZ`, `CZ`, `Projection`, `MatrixGate`, `Rx`/`Ry`/`Rz`/`Hadamard`. If you need bit-exact `HaarRandom` parity across backends, generate the unitary explicitly and apply it via `MatrixGate(U)` on both sides instead.
+- **`HaarRandom` MPS/state-vector parity**: cross-validation between the two backends is verified **exact** for every gate type, including `HaarRandom` — the same RNG seed produces bit-identical trajectories across backends.
 
 ---
 ## License and Contributing

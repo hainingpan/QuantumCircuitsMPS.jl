@@ -5,8 +5,12 @@
 #   with A on the FIRST site of the region; U[out, in] = ⟨out|U|in⟩.
 # - Rotation convention: Rx(θ) = exp(-iθX/2), Ry(θ) = exp(-iθY/2),
 #   Rz(θ) = exp(-iθZ/2).
-# - HaarRandom(2) must be bit-identical (matrices AND RNG consumption) to the
-#   historical two-site implementation (golden Case D depends on it).
+# - HaarRandom(2) draws bit-identical RNG values to the historical two-site
+#   implementation, and embeds the resulting matrix using the SAME
+#   output-primed-first/reverse-site-order convention as MatrixGate (fixed
+#   2026-07 to correct a pre-existing index-order bug — see
+#   src/Gates/two_qubit.jl build_operator; golden Case D was regenerated to
+#   match).
 
 using Test
 using QuantumCircuitsMPS
@@ -49,7 +53,7 @@ end
         @test_throws ArgumentError HaarRandom(-1)
     end
 
-    @testset "HaarRandom(2) bit-identical to legacy algorithm" begin
+    @testset "HaarRandom(2) matrix embedding matches MatrixGate convention" begin
         seed = 20260703
         sites2 = siteinds("Qubit", 2)
         reg = RNGRegistry(gates_spacetime=1, gates_realization=seed, born_measurement=2)
@@ -64,9 +68,9 @@ end
         Lambda = Diagonal(r_diag ./ abs.(r_diag))
         U_ref = Q * Lambda
         U4_ref = reshape(U_ref, 2, 2, 2, 2)
-        op_ref = ITensor(U4_ref, sites2[1], sites2[2], sites2[1]', sites2[2]')
+        op_ref = ITensor(U4_ref, sites2[2]', sites2[1]', sites2[2], sites2[1])
 
-        ord = (sites2[1], sites2[2], sites2[1]', sites2[2]')
+        ord = (sites2[2]', sites2[1]', sites2[2], sites2[1])
         @test Array(op, ord...) == Array(op_ref, ord...)  # bitwise identical
 
         # RNG consumption identical: next draw from stream matches twin

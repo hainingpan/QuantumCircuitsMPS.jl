@@ -1,7 +1,6 @@
 # test/statevector/cross_validation.jl
 # Cross-validation: MPS and state-vector backends produce IDENTICAL results
-# for the SAME RNG seeds on every gate type except HaarRandom (which has a
-# documented, pre-existing MPS-internal convention mismatch — tested separately).
+# for the SAME RNG seeds, for every gate type including HaarRandom.
 
 using Test
 using QuantumCircuitsMPS
@@ -210,13 +209,13 @@ end
     end
 
     # ═══════════════════════════════════════════════════════════════════════
-    # 5. HaarRandom convention mismatch — DEMONSTRATION test
-    #    Proves (does NOT hide) that HaarRandom with a shared seed does NOT
-    #    produce bit-identical MPS/SV trajectories, due to a pre-existing
-    #    MPS-internal index convention discrepancy. Both backends produce
-    #    valid, normalized states — just DIFFERENT specific trajectories.
+    # 5. HaarRandom cross-backend parity
+    #    Verifies that HaarRandom with a shared seed produces bit-identical
+    #    (to float roundoff) MPS/SV trajectories, now that the MPS-internal
+    #    index convention matches MatrixGate's convention exactly. Both
+    #    backends consume the same random numbers and produce the SAME state.
     # ═══════════════════════════════════════════════════════════════════════
-    @testset "HaarRandom convention mismatch (documented discrepancy)" begin
+    @testset "HaarRandom cross-backend parity" begin
         L = 4
         seeds = (gates_spacetime=42, gates_realization=777, born_measurement=99)
 
@@ -229,16 +228,16 @@ end
         initialize!(sv_s, ProductState(binary_int=0))
 
         # Apply HaarRandom(2) to the same adjacent pair on both backends
-        # with THE SAME RNG seed — they will consume the same random numbers
-        # but produce DIFFERENT states due to the known convention mismatch.
+        # with THE SAME RNG seed — same seed now produces the same state
+        # across backends (the MPS-internal convention mismatch was fixed).
         apply!(mps_s, HaarRandom(2), AdjacentPair(1))
         apply!(sv_s,  HaarRandom(2), AdjacentPair(1))
 
         ψ_mps = mps_to_dense(mps_s)
         ψ_sv  = sv_s.backend.ψ
 
-        # ASSERT: the two states DIFFER (proving the documented discrepancy)
-        @test !(ψ_mps ≈ ψ_sv)
+        # ASSERT: the two states MATCH (same seed → same trajectory across backends)
+        @test ψ_mps ≈ ψ_sv atol=1e-12
 
         # ASSERT: both states are independently valid (normalized)
         @test norm(ψ_mps) ≈ 1.0 atol=1e-12

@@ -1,4 +1,5 @@
 # test/verify_ct_match.jl
+# NOTE: ct_reference_L10.json was generated before the HaarRandom build_operator fix (2026-07) and may not match current engine output.
 
 using JSON
 
