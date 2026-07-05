@@ -434,7 +434,6 @@ The optimized state-vector engine (`engine=:optimized`) uses the stride-loop gat
 ## Known Limitations / Future Work
 
 - **RNG stream name hardcoded**: The stochastic engine always draws from `:gates_spacetime`. In principle, different probabilistic operations could use independently named streams — this is deferred until a concrete research use case requires it.
-- **`HaarRandom` MPS/state-vector parity**: cross-validation between the two backends is verified **exact** for every gate type, including `HaarRandom` — the same RNG seed produces bit-identical trajectories across backends.
 
 ---
 ## License and Contributing
