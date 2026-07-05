@@ -83,21 +83,24 @@ Parameters:
 - bc: boundary condition (:open or :periodic)
 - site_type: site index type ("Qubit", "S=1", "Qudit")
 - local_dim: local Hilbert space dimension (default 2)
-- cutoff: SVD truncation cutoff (only meaningful for `backend=:mps`)
-- maxdim: maximum bond dimension (only meaningful for `backend=:mps`)
+- cutoff: SVD truncation cutoff (only meaningful for `backend=:mps`; ignored for `backend=:statevector`/`:clifford`)
+- maxdim: maximum bond dimension (only meaningful for `backend=:mps`; ignored for `backend=:statevector`/`:clifford`)
 - rng: RNGRegistry for reproducible randomness
 - log_events: enable the typed event log (default false; see `events`, `measurements`).
   Off by default to avoid any cost in the hot loop.
-- backend: `:mps` (default, builds an `MPSBackend` with ITensor site indices) or
+- backend: `:mps` (default, builds an `MPSBackend` with ITensor site indices),
   `:statevector` (builds a `StateVectorBackend`; no site indices, identity
-  phy_ram/ram_phy mapping).
+  phy_ram/ram_phy mapping), or `:clifford` (builds a `CliffordBackend` for
+  stabilizer-formalism simulation; qubit-only, identity phy_ram/ram_phy
+  mapping, tableau initialized later via `initialize!`).
 - pbc_fold_start: physical site the PBC zig-zag fold starts from (default `L÷4+1`).
-  Only meaningful for `backend=:mps` with `bc=:periodic`; ignored for `backend=:statevector`.
+  Only meaningful for `backend=:mps` with `bc=:periodic`; ignored for `backend=:statevector`/`:clifford`.
 - engine: gate-application engine for `backend=:statevector` only — `:builtin`
   (default, Tier 1 reshape/permutedims engine, ground truth) or `:optimized`
   (Tier 2 hand-written stride-loop engine, numerically verified to match
   `:builtin` bitwise/to <1e-13, faster especially for 1-site gates). Accepted
-  (but ignored) when `backend=:mps`, for API consistency across backends.
+  (but ignored) when `backend=:mps` or `backend=:clifford`, for API
+  consistency across backends.
 
 For "Qudit" site type, local_dim specifies the dimension (e.g., local_dim=4 for d=4).
 """
@@ -140,8 +143,17 @@ function SimulationState(;
         phy_ram = collect(1:L)
         ram_phy = collect(1:L)
         backend_obj = StateVectorBackend(nothing, engine)
+    elseif backend == :clifford
+        # Stabilizer formalism is qubit-only.
+        if local_dim != 2
+            throw(ArgumentError("Clifford backend only supports qubits (local_dim=2). Got site_type=$site_type, local_dim=$local_dim. Use backend=:mps or backend=:statevector for qudit systems."))
+        end
+        # No MPS bond-dimension folding concept for stabilizer tableaus: identity mapping.
+        phy_ram = collect(1:L)
+        ram_phy = collect(1:L)
+        backend_obj = CliffordBackend(nothing)
     else
-        throw(ArgumentError("backend must be :mps or :statevector, got $backend"))
+        throw(ArgumentError("backend must be :mps, :statevector, or :clifford, got $backend"))
     end
     
     # Return state with backend's underlying state = nothing (deferred to initialize!)
