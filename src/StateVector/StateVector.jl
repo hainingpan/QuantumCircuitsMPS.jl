@@ -57,6 +57,7 @@ end
 
 _resolve_gate_matrix_sv(gate::AbstractGate, state::SimulationState) = gate_matrix(gate)
 _resolve_gate_matrix_sv(gate::HaarRandom, state::SimulationState) = gate_matrix(gate, get_rng(state.rng_registry, :gates_realization); local_dim=state.local_dim)
+_resolve_gate_matrix_sv(gate::RandomClifford, state::SimulationState) = gate_matrix(gate, get_rng(state.rng_registry, :gates_realization); local_dim=state.local_dim)
 
 # === _apply_single! for the state-vector backend ===
 # NEW, more-specific method: Julia's multiple dispatch routes

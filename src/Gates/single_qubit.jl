@@ -75,3 +75,17 @@ function build_operator(gate::Projection, site::Index, local_dim::Int; kwargs...
         return op("Proj1", site)  # |1⟩⟨1|
     end
 end
+
+"""Phase gate (S gate, √Z), diag(1, i)."""
+struct PhaseGate <: AbstractGate end
+support(::PhaseGate) = 1
+gate_matrix(::PhaseGate) = ComplexF64[1 0; 0 im]
+
+"""
+    build_operator(gate::PhaseGate, site::Index, local_dim::Int) -> ITensor
+
+Build Phase (S) operator tensor.
+"""
+function build_operator(gate::PhaseGate, site::Index, local_dim::Int; kwargs...)
+    return op("S", site)
+end
