@@ -102,6 +102,7 @@ export expected_draws  # v0.1 fixed-draw contract (see docs/api_surface_v0.1.md 
 # Gates
 export AbstractGate, PauliX, PauliY, PauliZ, Projection, HaarRandom, Measurement, Reset, CZ
 export MatrixGate, Rx, Ry, Rz, Hadamard, ProductGate  # v0.1 gates
+export CNOT, PhaseGate, SWAP, RandomClifford  # Clifford backend gates (also usable on MPS/SV)
 export Measure, OnOutcome  # v0.1 feedback system (AbstractFeedback/CallbackFeedback internal — use qualified)
 export total_spin_projector, verify_spin_projectors
 export SpinSectorProjection, SpinSectorMeasurement

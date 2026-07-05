@@ -148,3 +148,22 @@ function _apply_single!(state::SimulationState{CliffordBackend}, gate::RandomCli
     QuantumClifford.apply!(state.backend.tableau, op, ram_sites)
     return nothing
 end
+
+"""
+    _apply_single!(state::SimulationState{CliffordBackend}, gate::AbstractGate, phy_sites::Vector{Int})
+
+Fallback for any gate NOT handled by one of the specific `_apply_single!`
+methods above. The Clifford (stabilizer-tableau) backend can only represent
+Clifford-group operations; non-Clifford gates (e.g. arbitrary rotations,
+Haar-random unitaries, or non-Clifford projections) have no native tableau
+representation. Throws an informative `ArgumentError` naming the offending
+gate type and suggesting the dense-backend alternatives.
+"""
+function _apply_single!(state::SimulationState{CliffordBackend}, gate::AbstractGate, phy_sites::Vector{Int})
+    throw(ArgumentError(
+        "Clifford backend only supports Clifford gates (PauliX, PauliY, PauliZ, " *
+        "Hadamard, PhaseGate, CZ, CNOT, SWAP, RandomClifford, Measure, Reset). " *
+        "Received: $(typeof(gate)). " *
+        "Please switch to backend=:mps or backend=:statevector for non-Clifford gates."
+    ))
+end
