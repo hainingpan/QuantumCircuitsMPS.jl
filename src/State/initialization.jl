@@ -119,7 +119,7 @@ function initialize!(state::SimulationState, init::ProductState)
         state_names_physical = fill(init.spin_state, L)
         # Reorder to RAM order using ram_phy
         ram_state_names = [state_names_physical[state.ram_phy[i]] for i in 1:L]
-        state.mps = MPS(state.sites, ram_state_names)
+        state.backend.mps = MPS(state.backend.sites, ram_state_names)
         return nothing
     end
     
@@ -186,7 +186,7 @@ function initialize!(state::SimulationState, init::ProductState)
     ram_state_names = [state_names_physical[state.ram_phy[i]] for i in 1:L]
     
     # Create MPS from state names
-    state.mps = MPS(state.sites, ram_state_names)
+    state.backend.mps = MPS(state.backend.sites, ram_state_names)
     
     return nothing
 end
@@ -210,7 +210,7 @@ function initialize!(state::SimulationState, init::RandomMPS)
     # Note: ITensorMPS 0.3+ uses Random.default_rng() internally
     # For reproducibility with our RNG, we'd need to seed it
     # For now, just use the specified bond_dim
-    state.mps = randomMPS(state.sites; linkdims=init.bond_dim)
+    state.backend.mps = randomMPS(state.backend.sites; linkdims=init.bond_dim)
     
     return nothing
 end

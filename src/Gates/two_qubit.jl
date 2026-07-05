@@ -47,6 +47,17 @@ function _haar_unitary(N::Int, rng::AbstractRNG)
 end
 
 """
+    gate_matrix(g::HaarRandom, rng::AbstractRNG; local_dim::Int=2) -> Matrix{ComplexF64}
+
+State-vector-path equivalent of `build_operator(gate::HaarRandom, ...)`: draws
+a fresh `d^n × d^n` Haar random unitary (`d = local_dim`, `n = g.n`) by
+reusing the same `_haar_unitary` core used by the MPS `build_operator` path.
+Consumes from whichever RNG stream `rng` is (caller is responsible for
+passing the appropriate stream, e.g. `:gates_realization`).
+"""
+gate_matrix(g::HaarRandom, rng::AbstractRNG; local_dim::Int=2) = _haar_unitary(local_dim^g.n, rng)
+
+"""
     CZ
 
 Controlled-Z gate. Symmetric under qubit exchange.
@@ -54,6 +65,7 @@ Controlled-Z gate. Symmetric under qubit exchange.
 """
 struct CZ <: AbstractGate end
 support(::CZ) = 2
+gate_matrix(::CZ) = Matrix(Diagonal(ComplexF64[1, 1, 1, -1]))
 
 """
     build_operator(gate::HaarRandom, sites::Vector{Index}, local_dim::Int; rng::RNGRegistry) -> ITensor
@@ -73,11 +85,15 @@ function build_operator(gate::HaarRandom, sites::Vector{<:Index}, local_dim::Int
     N = local_dim^n_sites  # 4 for two qubits (matches legacy n = local_dim^2)
     U_matrix = _haar_unitary(N, gates_realization_rng)
 
-    # Build ITensor from the N×N matrix.
-    # For n_sites == 2 this reproduces the legacy construction exactly:
-    # reshape(U, 2,2,2,2) with ITensor(U_4, s1, s2, s1', s2').
+    # Build ITensor from the N×N matrix, following the same
+    # output-primed-first, input-unprimed-second, reverse-site-order
+    # convention as MatrixGate (see matrix_gate.jl:107-109) — this ensures
+    # U (not U^T) is applied, and produces MPS/state-vector parity for the
+    # same RNG seed.
     U_tensor = reshape(U_matrix, ntuple(_ -> local_dim, 2 * n_sites))
-    return ITensor(U_tensor, sites..., prime.(sites)...)
+    out_inds = [prime(s) for s in Iterators.reverse(sites)]
+    in_inds = collect(Iterators.reverse(sites))
+    return ITensor(U_tensor, out_inds..., in_inds...)
 end
 
 """
@@ -90,7 +106,7 @@ function build_operator(gate::HaarRandom, site::Index, local_dim::Int; rng, kwar
     gate.n == 1 || throw(ArgumentError(
         "HaarRandom($(gate.n)) acts on $(gate.n) sites, but was applied to a single site"))
     U = _haar_unitary(local_dim, get_rng(rng, :gates_realization))
-    return ITensor(U, site, prime(site))
+    return ITensor(U, prime(site), site)
 end
 
 """

@@ -3,14 +3,17 @@
 """Pauli X gate (NOT gate, bit flip)."""
 struct PauliX <: AbstractGate end
 support(::PauliX) = 1
+gate_matrix(::PauliX) = ComplexF64[0 1; 1 0]
 
 """Pauli Y gate."""
 struct PauliY <: AbstractGate end
 support(::PauliY) = 1
+gate_matrix(::PauliY) = ComplexF64[0 -im; im 0]
 
 """Pauli Z gate (phase flip)."""
 struct PauliZ <: AbstractGate end
 support(::PauliZ) = 1
+gate_matrix(::PauliZ) = ComplexF64[1 0; 0 -1]
 
 """
     Projection(outcome::Int)
@@ -28,6 +31,7 @@ struct Projection <: AbstractGate
 end
 support(::Projection) = 1
 needs_normalization(::Projection) = true  # projector shrinks the norm
+gate_matrix(g::Projection) = g.outcome == 0 ? ComplexF64[1 0; 0 0] : ComplexF64[0 0; 0 1]
 
 # === build_operator implementations ===
 

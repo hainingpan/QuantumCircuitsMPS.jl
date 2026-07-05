@@ -9,10 +9,18 @@ using LinearAlgebra
 include("Core/basis.jl")
 include("Core/rng.jl")
 
+# Backend
+include("Backend/Backend.jl")
+
 # State
 include("State/events.jl")  # CircuitEvent types (needed by SimulationState field)
 include("State/State.jl")
 include("State/initialization.jl")
+
+# StateVector (state-vector backend initialization; needs AbstractInitialState/
+# ProductState from State and StateVectorBackend from Backend, both already
+# loaded above — first file of a growing multi-file src/StateVector/ component)
+include("StateVector/initialization.jl")
 
 # Gates
 include("Gates/Gates.jl")
@@ -20,11 +28,35 @@ include("Gates/Gates.jl")
 # Geometry
 include("Geometry/Geometry.jl")
 
+# StateVector gate-application engine (Tier 1 / vanilla): needs gate_matrix,
+# support, needs_normalization, AbstractGate, HaarRandom (all from Gates,
+# included above) and SimulationState{StateVectorBackend} (from State +
+# StateVector/initialization.jl, included earlier). Must come before
+# Core/apply.jl only for ordering clarity — no hard dependency either way
+# since _apply_single! dispatch is resolved at call time, but keeping gate
+# application code together is clearer.
+include("StateVector/StateVector.jl")
+
+# StateVector gate-application engine (Tier 2 / optimized): stride-loop
+# kernel, dispatches via `_apply_single!` (defined above in StateVector.jl)
+# checking `state.backend.engine`. Must come after StateVector.jl since
+# _apply_single! references `apply_gate_sv_optimized!` by name.
+include("StateVector/optimized.jl")
+
 # Core apply! (after State, Gates, Geometry)
 include("Core/apply.jl")
 
 # Observables
 include("Observables/Observables.jl")
+
+# StateVector observable/measurement implementations (backend-specific dispatch
+# methods added to already-exported names: born_probability, EntanglementEntropy,
+# Magnetization, StringOrder — plus the unexported domain_wall function)
+include("StateVector/measurement.jl")
+include("StateVector/entanglement.jl")
+include("StateVector/magnetization.jl")
+include("StateVector/domain_wall.jl")
+include("StateVector/string_order.jl")
 
 # API
 include("API/probabilistic.jl")

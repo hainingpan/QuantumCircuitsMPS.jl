@@ -54,9 +54,9 @@ deterministic-outcome channel, not an outcome-reporting measurement.
 is_measurement(::AbstractGate) = false
 
 # Include gate implementations
+include("matrix_gate.jl")    # defines gate_matrix — MUST come before single_qubit.jl/two_qubit.jl which add methods to it
 include("single_qubit.jl")
 include("two_qubit.jl")
-include("matrix_gate.jl")    # defines gate_matrix (used by parametrized.jl)
 include("parametrized.jl")
 include("composite.jl")
 include("feedback.jl")       # Measure + AbstractFeedback/OnOutcome/CallbackFeedback (v0.1)

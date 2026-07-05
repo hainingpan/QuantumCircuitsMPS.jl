@@ -83,7 +83,7 @@ function (obs::StringOrder)(state::SimulationState)
     end
     
     # Work on a copy of the MPS
-    psi_copy = copy(state.mps)
+    psi_copy = copy(state.backend.mps)
     
     if obs.order == 1
         # Order 1: ⟨Sz[i] * exp(iπΣ) * Sz[j]⟩
@@ -92,8 +92,8 @@ function (obs::StringOrder)(state::SimulationState)
         j_ram = state.phy_ram[j_phys]
         
         # Get site indices
-        site_i = state.sites[i_ram]
-        site_j = state.sites[j_ram]
+        site_i = state.backend.sites[i_ram]
+        site_j = state.backend.sites[j_ram]
         
         # Apply Sz at site i
         Sz_i = op("Sz", site_i)
@@ -102,7 +102,7 @@ function (obs::StringOrder)(state::SimulationState)
         # Apply exp(iπ Sz) to all sites between i and j
         for k_phys in (i_phys+1):(j_phys-1)
             k_ram = state.phy_ram[k_phys]
-            site_k = state.sites[k_ram]
+            site_k = state.backend.sites[k_ram]
             expSz_k = op("expSz", site_k)
             psi_copy[k_ram] = psi_copy[k_ram] * expSz_k
         end
@@ -118,21 +118,21 @@ function (obs::StringOrder)(state::SimulationState)
         # Left endpoint pair: Sz[n] · Sz[n+1]
         for site_phys in (n_phys, n_phys+1)
             site_ram = state.phy_ram[site_phys]
-            Sz = op("Sz", state.sites[site_ram])
+            Sz = op("Sz", state.backend.sites[site_ram])
             psi_copy[site_ram] = psi_copy[site_ram] * Sz
         end
         
         # String: exp(iπ Sz) for sites n+2 to m-2
         for k_phys in (n_phys+2):(m_phys-2)
             k_ram = state.phy_ram[k_phys]
-            expSz_k = op("expSz", state.sites[k_ram])
+            expSz_k = op("expSz", state.backend.sites[k_ram])
             psi_copy[k_ram] = psi_copy[k_ram] * expSz_k
         end
         
         # Right endpoint pair: Sz[m-1] · Sz[m]
         for site_phys in (m_phys-1, m_phys)
             site_ram = state.phy_ram[site_phys]
-            Sz = op("Sz", state.sites[site_ram])
+            Sz = op("Sz", state.backend.sites[site_ram])
             psi_copy[site_ram] = psi_copy[site_ram] * Sz
         end
     end
@@ -140,7 +140,7 @@ function (obs::StringOrder)(state::SimulationState)
     # Compute expectation value: ⟨ψ|O|ψ⟩
     # Remove prime marks from site indices added by operator application
     noprime!(psi_copy)
-    result = real(inner(state.mps, psi_copy))
+    result = real(inner(state.backend.mps, psi_copy))
     
     return result
 end

@@ -1,1 +1,1 @@
-{"params":{"L":12,"n_steps":12,"p_nn":1.0},"final_entropy":1.9999836971234757,"string_order":-0.4444494622199513,"rng_fingerprints":{"born_measurement":0.2789882030622046,"gates_realization":0.8768161548899056,"gates_spacetime":0.6539347077753881,"state_init":0.44373084494754944}}
+{"params":{"L":12,"n_steps":12,"p_nn":1.0},"final_entropy":1.9999836971251186,"string_order":-0.44444946221988957,"rng_fingerprints":{"born_measurement":0.2789882030622046,"gates_realization":0.8768161548899056,"gates_spacetime":0.10031542999150234,"state_init":0.44373084494754944}}
