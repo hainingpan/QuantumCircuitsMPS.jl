@@ -71,6 +71,7 @@ include("StateVector/entanglement.jl")
 include("StateVector/magnetization.jl")
 include("StateVector/domain_wall.jl")
 include("StateVector/string_order.jl")
+include("StateVector/pauli_string.jl")
 
 # Clifford observable/measurement implementations (backend-specific dispatch
 # methods added to already-exported names: born_probability, Magnetization.
@@ -80,6 +81,7 @@ include("Clifford/measurement.jl")
 include("Clifford/entanglement.jl")
 include("Clifford/magnetization.jl")
 include("Clifford/observables.jl")
+include("Clifford/pauli_string.jl")
 
 # API
 include("API/probabilistic.jl")
@@ -122,7 +124,7 @@ export Pointer, move!
 export EachSite, Sites, elements, element_count, is_broadcast  # v0.1 geometry vocabulary
 # Observables
 export AbstractObservable, DomainWall, BornProbability, EntanglementEntropy, StringOrder,
-       Magnetization
+       Magnetization, PauliString  # PauliString added v0.4.0 (T24)
 export born_probability  # functional form of BornProbability (used in README/Quick Start)
 export track!, record!, list_observables
 # API — legacy entry points (simulate, simulate_circuits, run_circuit!,
