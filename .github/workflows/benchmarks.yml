@@ -1,0 +1,17 @@
+name: Benchmarks
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  benchmarks:
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: MilesCranmer/AirspeedVelocity.jl@action-v1
+        with:
+          julia-version: '1'
