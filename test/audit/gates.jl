@@ -349,19 +349,12 @@ end
             _ag_compare_born(sv, cl, L)
         end
 
-        @testset "Measure / Measurement / Reset deterministic collapse" begin
-            # Measure(:Z) on |1⟩: outcome forced to 1 on SV and Clifford
-            for backend in (:statevector, :clifford)
+        @testset "Measure / Reset deterministic collapse" begin
+            # Measure(:Z) on |1⟩: outcome forced to 1, all three backends
+            for backend in (:mps, :statevector, :clifford)
                 s = _ag_state(2, backend)
                 apply!(s, PauliX(), SingleSite(1))
                 apply!(s, Measure(:Z), SingleSite(1))
-                @test born_probability(s, 1, 1) ≈ 1.0 atol=1e-12
-            end
-            # Measurement(:Z) (fundamental, no feedback) on |1⟩: stays |1⟩
-            for backend in (:mps, :statevector)
-                s = _ag_state(2, backend)
-                apply!(s, PauliX(), SingleSite(1))
-                apply!(s, Measurement(:Z), SingleSite(1))
                 @test born_probability(s, 1, 1) ≈ 1.0 atol=1e-12
             end
             # Reset() on |1⟩: measure + flip back → |0⟩, all three backends

@@ -58,7 +58,7 @@ real element index k.
 ```julia
 apply_with_prob!(state;
     outcomes = [
-        (probability=p, gate=Measurement(:Z), geometry=AllSites())
+        (probability=p, gate=Measure(:Z), geometry=AllSites())
     ]
 )
 ```

@@ -94,10 +94,10 @@ function rerun_case_a()
     circuit = Circuit(L = L, bc = :periodic) do c
         apply!(c, HaarRandom(), Bricklayer(:even))
         apply_with_prob!(c; outcomes = [
-            (probability = p, gate = Measurement(:Z), geometry = AllSites())])
+            (probability = p, gate = Measure(:Z), geometry = AllSites())])
         apply!(c, HaarRandom(), Bricklayer(:odd))
         apply_with_prob!(c; outcomes = [
-            (probability = p, gate = Measurement(:Z), geometry = AllSites())])
+            (probability = p, gate = Measure(:Z), geometry = AllSites())])
     end
     registry = RNGRegistry(gates_spacetime = 42, born_measurement = 1, gates_realization = 2)
     state = SimulationState(L = L, bc = :periodic, maxdim = 64, rng = registry)
@@ -213,8 +213,8 @@ function audit_caseb_test4(; seed = 42, n_steps = 20)
     c = Circuit(L = L, bc = :periodic) do b
         apply_with_prob!(b;
             outcomes = [
-                (probability = 0.5, gate = Measurement(:Z), geometry = Bricklayer(:odd)),
-                (probability = 0.5, gate = Measurement(:Z), geometry = Bricklayer(:even))])
+                (probability = 0.5, gate = Measure(:Z), geometry = Bricklayer(:odd)),
+                (probability = 0.5, gate = Measure(:Z), geometry = Bricklayer(:even))])
     end
     odd_e = elements(Bricklayer(:odd), L, :periodic)   # 4 pairs
     even_e = elements(Bricklayer(:even), L, :periodic)   # 4 pairs

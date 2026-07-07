@@ -27,7 +27,7 @@ end
 
 Apply a gate to specific physical sites. Direct site specification.
 Routes through the uniform `execute!` protocol (so measurement-like gates
-such as `Measurement`/`Reset` work with explicit site vectors too).
+such as `Measure`/`Reset` work with explicit site vectors too).
 """
 function apply!(state::SimulationState, gate::AbstractGate, sites::Vector{Int})
     execute!(state, gate, sites)
@@ -47,7 +47,7 @@ function _apply_dispatch!(state::SimulationState, gate::AbstractGate, geo::Adjac
 end
 
 function _apply_dispatch!(state::SimulationState, gate::AbstractGate, geo::AbstractStaircase)
-    # Gate-support-aware resolution: 1-site gates (e.g. Reset, Measurement)
+    # Gate-support-aware resolution: 1-site gates (e.g. Reset, Measure)
     # act at the current position; 2-site gates act on (pos, pos+range).
     sites = compute_sites(geo, 1, state.L, state.bc, gate)
     execute!(state, gate, sites)
@@ -128,7 +128,7 @@ geometry). This is the v0.1 gate-execution protocol:
 - **Default implementation**: `build_operator` → `apply_op_internal!`, then
   normalize + truncate iff `needs_normalization(gate)` (see `_apply_single!`).
 - **Gate-specific overrides**: gates with non-operator semantics (Born
-  sampling + classical logic) override this method — see `Measurement` and
+  sampling + classical logic) override this method — see `Measure` and
   `Reset` below. User-defined gates may override it the same way:
 
 ```julia
@@ -142,21 +142,6 @@ Related traits: `needs_normalization(gate)` (post-apply renormalization) and
 """
 function execute!(state::SimulationState, gate::AbstractGate, region::Vector{Int})
     _apply_single!(state, gate, region)
-end
-
-"""
-    execute!(state::SimulationState, gate::Measurement, region::Vector{Int})
-
-Measurement (FUNDAMENTAL - pure projection): Born-sample the single site in
-`region` and collapse. The outcome is discarded here (recorded in the event
-log when enabled); feedback on outcomes lands in v0.1 `Measure` (Task 10).
-"""
-function execute!(state::SimulationState, gate::Measurement, region::Vector{Int})
-    if support(gate) != length(region)
-        throw(ArgumentError("Gate support $(support(gate)) does not match sites $(length(region))"))
-    end
-    _measure_single_site!(state, region[1])
-    return nothing
 end
 
 """

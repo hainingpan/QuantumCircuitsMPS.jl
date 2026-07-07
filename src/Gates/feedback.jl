@@ -20,8 +20,8 @@ attempt to draw from `:gates_spacetime` during feedback throws (fixed-draw
 contract — see `RNGRegistry`). Feedback randomness must come from
 `:gates_realization` (e.g. `HaarRandom`) or `:born_measurement` (nested
 measurements). Feedback gates do NOT advance engine counters (`gate_idx`)
-and emit no `GateApplied` events; a nested `Measure`/`Measurement` still
-emits its `MeasurementOutcome`.
+and emit no `GateApplied` events; a nested `Measure` still emits its
+`MeasurementOutcome`.
 """
 abstract type AbstractFeedback end
 
@@ -95,8 +95,8 @@ enabled), then dispatches `feedback` with the observed outcome:
   (applied on the measured sites)
 - `feedback=(state, sites, outcome) -> ...` — arbitrary closure
   (auto-wrapped as [`CallbackFeedback`](@ref)); `sites::Vector{Int}`
-- `feedback=nothing` (default) — plain measurement; equivalent to the legacy
-  `Measurement(:Z)` (kept as an alias for one release)
+- `feedback=nothing` (default) — plain projective measurement (the legacy
+  `Measurement` gate was removed in v0.4.0; `Measure(:Z)` is its replacement)
 
 `Reset()` is semantically `Measure(:Z; feedback=OnOutcome(1 => PauliX()))`
 (bit-identical trajectories under the same seeds).

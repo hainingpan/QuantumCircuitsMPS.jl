@@ -54,7 +54,7 @@ end
                 apply!(c, HaarRandom(), Bricklayer(:even))
                 apply_with_prob!(c;
                     outcomes = [
-                        (probability = 0.3, gate = Measurement(:Z), geometry = AllSites())
+                        (probability = 0.3, gate = Measure(:Z), geometry = AllSites())
                     ])
             end
             for seed in (1, 42)
@@ -124,7 +124,7 @@ end
             apply!(c, HaarRandom(), Bricklayer(:even))
             apply_with_prob!(c;
                 outcomes = [
-                    (probability = 1.0, gate = Measurement(:Z),
+                    (probability = 1.0, gate = Measure(:Z),
                     geometry = EachSite(2:(L - 1)))
                 ])
         end

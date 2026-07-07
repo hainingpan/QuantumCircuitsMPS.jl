@@ -12,10 +12,10 @@ function _eventlog_mipt_circuit(L, p)
     Circuit(L = L, bc = :periodic) do c
         apply!(c, HaarRandom(), Bricklayer(:even))
         apply_with_prob!(c; outcomes = [
-            (probability = p, gate = Measurement(:Z), geometry = AllSites())])
+            (probability = p, gate = Measure(:Z), geometry = AllSites())])
         apply!(c, HaarRandom(), Bricklayer(:odd))
         apply_with_prob!(c; outcomes = [
-            (probability = p, gate = Measurement(:Z), geometry = AllSites())])
+            (probability = p, gate = Measure(:Z), geometry = AllSites())])
     end
 end
 

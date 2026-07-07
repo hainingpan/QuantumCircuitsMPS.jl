@@ -71,8 +71,7 @@ gate_label(CZ())          # Returns "CZ"
 gate_label(::Reset) = "Rst"
 gate_label(::HaarRandom) = "Haar"
 gate_label(::Projection) = "Prj"
-gate_label(::Measurement) = "Meas"
-gate_label(::Measure) = "Meas"  # v0.1 feedback-capable measurement (same label)
+gate_label(::Measure) = "Meas"  # v0.1 feedback-capable measurement
 gate_label(::PauliX) = "X"
 gate_label(::PauliY) = "Y"
 gate_label(::PauliZ) = "Z"

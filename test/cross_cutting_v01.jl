@@ -128,7 +128,7 @@ end
                 ])
             apply_with_prob!(c;
                 outcomes = [                             # K = L-2 = 6
-                    (probability = 0.3, gate = Measurement(:Z),
+                    (probability = 0.3, gate = Measure(:Z),
                     geometry = EachSite(2:(L - 1)))
                 ])
             apply_with_prob!(c;
@@ -184,7 +184,7 @@ end
         circuit = Circuit(L = L, bc = bc) do c
             apply!(c, HaarRandom(), Bricklayer(:even))                       # op 1: det, K=3
             apply_with_prob!(c; outcomes = [                                   # op 2: stoch, K=6
-                (probability = 0.4, gate = Measurement(:Z), geometry = AllSites())
+                (probability = 0.4, gate = Measure(:Z), geometry = AllSites())
             ])
             apply!(c, Hadamard(), AllSites())                                # op 3: det, K=6
             apply_with_prob!(c;
@@ -241,7 +241,7 @@ end
         @test !any(e -> e.gate_label == "X", gas)
 
         # Every Born sample logged: one MeasurementOutcome per selected
-        # Measurement/Measure application, with matching (step, op_idx).
+        # Measure application, with matching (step, op_idx).
         mos = [e for e in events(state) if e isa MeasurementOutcome]
         exp_meas = [x for x in expected if x.label == "Meas"]
         @test length(mos) == length(exp_meas)
@@ -264,12 +264,12 @@ end
     @testset "EQUAL-K: K=1 vs K>1 never broadcasts (builder AND eager)" begin
         outcomes_set_vs_bcast = [
             (probability = 0.5, gate = PauliX(), geometry = SingleSite(1)),  # K=1 (set)
-            (probability = 0.5, gate = Measurement(:Z), geometry = AllSites())      # K=4
+            (probability = 0.5, gate = Measure(:Z), geometry = AllSites())      # K=4
         ]
         # K=1 BROADCAST geometry against K>1 must error identically
         outcomes_bcast1_vs_bcast = [
             (probability = 0.5, gate = PauliX(), geometry = EachSite(1:1)),  # K=1 (broadcast)
-            (probability = 0.5, gate = Measurement(:Z), geometry = AllSites())      # K=4
+            (probability = 0.5, gate = Measure(:Z), geometry = AllSites())      # K=4
         ]
 
         for outcomes in (outcomes_set_vs_bcast, outcomes_bcast1_vs_bcast)

@@ -190,6 +190,6 @@ using QuantumCircuitsMPS
         @test QuantumCircuitsMPS.get_compound_elements(EachSite(2:4), 8, :open) ==
               [[2], [3], [4]]
         state = (L = 8, bc = :open)
-        @test get_sites(Sites([1, 2, 5]), state) == [1, 2, 5]
+        @test QuantumCircuitsMPS.get_sites(Sites([1, 2, 5]), state) == [1, 2, 5]
     end
 end

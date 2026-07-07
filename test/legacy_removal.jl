@@ -8,12 +8,13 @@ using QuantumCircuitsMPS
 
 @testset "Legacy API removal (v0.1.0, Task 14)" begin
     @testset "EXPORTS: surface == manifest KEEP + ADD (docs/api_surface_v0.1.md)" begin
-        # KEEP table (61 symbols; includes the CT.jl-parity internal exports)
+        # KEEP table (v0.4.0 surface: CT.jl-parity internal exports removed,
+        # Measurement removed, born_probability kept as public)
         keep = [
             :SimulationState, :initialize!, :ProductState, :RandomMPS,
             :RNGRegistry, :get_rng,
             :AbstractGate, :PauliX, :PauliY, :PauliZ, :Projection, :HaarRandom,
-            :Measurement, :Reset, :CZ,
+            :Reset, :CZ,  # :Measurement removed in v0.4.0 (use Measure)
             :total_spin_projector, :verify_spin_projectors,
             :SpinSectorProjection, :SpinSectorMeasurement,
             :AbstractGeometry, :SingleSite, :AdjacentPair, :Bricklayer, :AllSites,
@@ -25,11 +26,14 @@ using QuantumCircuitsMPS
             :Circuit, :expand_circuit, :expand_circuit_grouped, :simulate!,
             :ExpandedOp, :RecordingContext, :every_n_gates, :every_n_steps,
             :print_circuit, :plot_circuit,
-            # INTERNAL EXPORTS (CT.jl parity — kept per ct_compat decision)
-            :advance!, :get_sites, :current_position, :reset!,
-            :compute_site_staircase_right, :compute_site_staircase_left,
-            :compute_pair_staircase, :apply_op_internal!, :born_probability,
-            :compute_basis_mapping, :physical_to_ram, :ram_to_physical
+            # v0.4.0: the 11 CT.jl-parity internal exports (advance!, get_sites,
+            # current_position, reset!, compute_site_staircase_right,
+            # compute_site_staircase_left, compute_pair_staircase,
+            # apply_op_internal!, compute_basis_mapping, physical_to_ram,
+            # ram_to_physical) were UN-exported — use qualified
+            # QuantumCircuitsMPS.<name>. born_probability was promoted to a
+            # public Observables export (kept):
+            :born_probability
         ]
         # ADD table (record!(::CircuitBuilder) is a method of record!, no new name)
         add = [
@@ -53,7 +57,7 @@ using QuantumCircuitsMPS
         @test isempty(extra) || error("Exports beyond manifest KEEP+ADD: $extra")
         @test isempty(missing_) ||
               error("Manifest KEEP+ADD symbols not exported: $missing_")
-        @test length(actual) == 82
+        @test length(actual) == 70
 
         # REMOVE-table symbols must not be exported
         removed = (:simulate, :simulate_circuits, :run_circuit!, :CircuitSimulation,

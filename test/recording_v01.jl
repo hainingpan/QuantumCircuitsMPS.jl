@@ -30,13 +30,13 @@ end
         apply!(c, HaarRandom(), Bricklayer(:even))
         apply_with_prob!(c;
             outcomes = [
-                (probability = 0.05, gate = Measurement(:Z),
+                (probability = 0.05, gate = Measure(:Z),
                 geometry = EachSite(2:(L - 1)))
             ])
         with_markers && record!(c)
         apply!(c, HaarRandom(), Bricklayer(:odd))
         apply_with_prob!(c; outcomes = [
-            (probability = 0.05, gate = Measurement(:Z), geometry = AllSites())
+            (probability = 0.05, gate = Measure(:Z), geometry = AllSites())
         ])
         with_markers && record!(c)
     end
@@ -261,7 +261,7 @@ end
             apply!(c, HaarRandom(), Bricklayer(:even))
             apply_with_prob!(c;
                 outcomes = [
-                    (probability = 0.01, gate = Measurement(:Z), geometry = AllSites())
+                    (probability = 0.01, gate = Measure(:Z), geometry = AllSites())
                 ])
         end
         state = fresh_state(L)

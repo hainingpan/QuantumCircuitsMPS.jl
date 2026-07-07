@@ -32,7 +32,7 @@ end
             Circuit(L = 4, bc = :periodic) do c
                 apply_with_prob!(c;
                     outcomes = [
-                        (probability = 0.3, gate = Measurement(:Z), geometry = AllSites()),      # K=4
+                        (probability = 0.3, gate = Measure(:Z), geometry = AllSites()),      # K=4
                         (probability = 0.3, gate = HaarRandom(),
                             geometry = Bricklayer(:odd))    # K=2
                     ])
@@ -211,11 +211,11 @@ end
         make_circuit() = Circuit(L = 6, bc = :periodic) do c
             apply!(c, HaarRandom(), Bricklayer(:even))
             apply_with_prob!(c; outcomes = [
-                (probability = 0.5, gate = Measurement(:Z), geometry = AllSites())
+                (probability = 0.5, gate = Measure(:Z), geometry = AllSites())
             ])
             apply!(c, HaarRandom(), Bricklayer(:odd))
             apply_with_prob!(c; outcomes = [
-                (probability = 0.5, gate = Measurement(:Z), geometry = AllSites())
+                (probability = 0.5, gate = Measure(:Z), geometry = AllSites())
             ])
         end
         s1 = _ure_state(6; born = 1)
@@ -329,7 +329,7 @@ end
         circuit = Circuit(L = 6, bc = :periodic) do c
             apply!(c, HaarRandom(), Bricklayer(:even))                              # op 1
             apply_with_prob!(c; outcomes = [
-                (probability = 0.5, gate = Measurement(:Z), geometry = AllSites())])      # op 2
+                (probability = 0.5, gate = Measure(:Z), geometry = AllSites())])      # op 2
             apply!(c, HaarRandom(), Bricklayer(:odd))                               # op 3
             apply_with_prob!(c; outcomes = [
                 (probability = 0.5, gate = Reset(), geometry = EachSite(2:5))])           # op 4
@@ -353,12 +353,12 @@ end
         @test all(e -> e.op_idx in (1, 3), [e for e in gs if e.gate_label == "Haar"])
         @test all(e -> e.op_idx == 2, [e for e in gs if e.gate_label == "Meas"])
         @test all(e -> e.op_idx == 4, [e for e in gs if e.gate_label == "Rst"])
-        # every engine-level Measurement/Reset application Born-samples once
+        # every engine-level Measure/Reset application Born-samples once
         @test length(ms) == count(e -> e.gate_label in ("Meas", "Rst"), gs)
 
         # Outside an engine run (eager apply!) the context is 0 — documented
         st2 = _ure_state(4; log_events = true)
-        apply!(st2, Measurement(:Z), SingleSite(1))
+        apply!(st2, Measure(:Z), SingleSite(1))
         ms2 = measurements(st2)
         @test length(ms2) == 1
         @test ms2[1].step == 0 && ms2[1].op_idx == 0

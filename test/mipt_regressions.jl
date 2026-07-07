@@ -88,7 +88,7 @@ end
         apply!(c, HaarRandom(), Bricklayer(:odd))   # pairs (1,2),(3,4)
     end
     meas_circuit = Circuit(L = L, bc = :open) do c
-        apply!(c, Measurement(:Z), SingleSite(1))
+        apply!(c, Measure(:Z), SingleSite(1))
     end
 
     p0_expected = NaN
@@ -143,7 +143,7 @@ end
             apply_with_prob!(c;
                 outcomes = [
                     (probability = c.params[:p],
-                    gate = Measurement(:Z), geometry = AllSites())
+                    gate = Measure(:Z), geometry = AllSites())
                 ])
         end
         circuit_half2 = Circuit(L = L, bc = bc, p = p) do c
@@ -151,7 +151,7 @@ end
             apply_with_prob!(c;
                 outcomes = [
                     (probability = c.params[:p],
-                    gate = Measurement(:Z), geometry = AllSites())
+                    gate = Measure(:Z), geometry = AllSites())
                 ])
         end
 
@@ -197,11 +197,11 @@ end
 
     # Backward-compat guard: pbc_fold_start=1 reproduces the original
     # hardcoded fold order exactly (pre-pbc_fold_start behavior).
-    phy_ram, ram_phy = compute_basis_mapping(8, :periodic; pbc_fold_start = 1)
+    phy_ram, ram_phy = QuantumCircuitsMPS.compute_basis_mapping(8, :periodic; pbc_fold_start = 1)
     @test ram_phy == [1, 8, 2, 7, 3, 6, 4, 5]
 
     # Default pbc_fold_start (L÷4+1): fold origin shifted for half-cut alignment.
-    phy_ram, ram_phy = compute_basis_mapping(8, :periodic)
+    phy_ram, ram_phy = QuantumCircuitsMPS.compute_basis_mapping(8, :periodic)
     @test ram_phy == [3, 2, 4, 1, 5, 8, 6, 7]
 
     # Valid permutations
@@ -215,7 +215,7 @@ end
     end
 
     # OBC: identity mapping (no folding)
-    phy_ram_obc, ram_phy_obc = compute_basis_mapping(8, :open)
+    phy_ram_obc, ram_phy_obc = QuantumCircuitsMPS.compute_basis_mapping(8, :open)
     @test ram_phy_obc == collect(1:8)
     @test phy_ram_obc == collect(1:8)
 
@@ -223,13 +223,13 @@ end
     # half of the RAM order must be exactly the first half of physical sites
     # (as a set), for a range of even L.
     for L in [4, 6, 8, 10, 12]
-        _, ram_phy_L = compute_basis_mapping(L, :periodic)
+        _, ram_phy_L = QuantumCircuitsMPS.compute_basis_mapping(L, :periodic)
         @test Set(ram_phy_L[1:(L ÷ 2)]) == Set(1:(L ÷ 2))
     end
 
     # Mutual-inverse property holds for the default fold across L.
     for L in [4, 6, 8, 10, 12]
-        phy_ram_L, ram_phy_L = compute_basis_mapping(L, :periodic)
+        phy_ram_L, ram_phy_L = QuantumCircuitsMPS.compute_basis_mapping(L, :periodic)
         for i in 1:L
             @test ram_phy_L[phy_ram_L[i]] == i
             @test phy_ram_L[ram_phy_L[i]] == i
@@ -237,10 +237,10 @@ end
     end
 
     # OBC ignores pbc_fold_start entirely (identity mapping regardless).
-    _, ram_phy_obc2 = compute_basis_mapping(8, :open; pbc_fold_start = 5)
+    _, ram_phy_obc2 = QuantumCircuitsMPS.compute_basis_mapping(8, :open; pbc_fold_start = 5)
     @test ram_phy_obc2 == collect(1:8)
 
     # Invalid pbc_fold_start values must be rejected for periodic BC.
-    @test_throws ArgumentError compute_basis_mapping(8, :periodic; pbc_fold_start = 0)
-    @test_throws ArgumentError compute_basis_mapping(8, :periodic; pbc_fold_start = 9)
+    @test_throws ArgumentError QuantumCircuitsMPS.compute_basis_mapping(8, :periodic; pbc_fold_start = 0)
+    @test_throws ArgumentError QuantumCircuitsMPS.compute_basis_mapping(8, :periodic; pbc_fold_start = 9)
 end

@@ -36,10 +36,10 @@ function case_a()
     circuit = Circuit(L = L, bc = :periodic) do c
         apply!(c, HaarRandom(), Bricklayer(:even))
         apply_with_prob!(c; outcomes = [
-            (probability = p, gate = Measurement(:Z), geometry = AllSites())])
+            (probability = p, gate = Measure(:Z), geometry = AllSites())])
         apply!(c, HaarRandom(), Bricklayer(:odd))
         apply_with_prob!(c; outcomes = [
-            (probability = p, gate = Measurement(:Z), geometry = AllSites())])
+            (probability = p, gate = Measure(:Z), geometry = AllSites())])
     end
     registry = RNGRegistry(gates_spacetime = 42, born_measurement = 1, gates_realization = 2)
     state = SimulationState(L = L, bc = :periodic, maxdim = 64, rng = registry)

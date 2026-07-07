@@ -58,7 +58,7 @@ end
         @test QuantumCircuitsMPS.needs_normalization(CZ()) == false
         @test QuantumCircuitsMPS.needs_normalization(Hadamard()) == false
         @test QuantumCircuitsMPS.needs_normalization(Rx(0.3)) == false
-        @test QuantumCircuitsMPS.needs_normalization(Measurement(:Z)) == false
+        @test QuantumCircuitsMPS.needs_normalization(Measure(:Z)) == false
         @test QuantumCircuitsMPS.needs_normalization(Reset()) == false
         # true for projective gates
         @test QuantumCircuitsMPS.needs_normalization(Projection(0)) == true
@@ -73,7 +73,7 @@ end
         @test QuantumCircuitsMPS.is_measurement(Projection(0)) == false
         @test QuantumCircuitsMPS.is_measurement(Reset()) == false
         @test QuantumCircuitsMPS.is_measurement(SpinSectorProjection(P01)) == false
-        @test QuantumCircuitsMPS.is_measurement(Measurement(:Z)) == true
+        @test QuantumCircuitsMPS.is_measurement(Measure(:Z)) == true
         @test QuantumCircuitsMPS.is_measurement(SpinSectorMeasurement([0, 1])) == true
     end
 
@@ -92,15 +92,15 @@ end
     @testset "execute! validates support vs region size" begin
         state = _fresh_state()
         @test_throws ArgumentError QuantumCircuitsMPS.execute!(state, PauliX(), [1, 2])
-        @test_throws ArgumentError QuantumCircuitsMPS.execute!(state, Measurement(:Z), [
+        @test_throws ArgumentError QuantumCircuitsMPS.execute!(state, Measure(:Z), [
             1, 2])
         @test_throws ArgumentError QuantumCircuitsMPS.execute!(state, Reset(), [1, 2])
     end
 
-    @testset "Measurement via execute! (Born collapse, normalized)" begin
+    @testset "Measure via execute! (Born collapse, normalized)" begin
         state = _fresh_state()
         QuantumCircuitsMPS.execute!(state, PauliX(), [3])  # |0010>
-        @test QuantumCircuitsMPS.execute!(state, Measurement(:Z), [3]) === nothing
+        @test QuantumCircuitsMPS.execute!(state, Measure(:Z), [3]) === nothing
         @test born_probability(state, 3, 1) ≈ 1.0 atol = 1e-12  # deterministic outcome
         @test norm(state.mps) ≈ 1.0 atol = 1e-10
     end
@@ -121,10 +121,10 @@ end
         apply!(state, Reset(), SingleSite(2))
         @test born_probability(state, 2, 0) ≈ 1.0 atol = 1e-12
 
-        # AllSites: Measurement measures every site independently
+        # AllSites: Measure measures every site independently
         state2 = _fresh_state()
         apply!(state2, PauliX(), SingleSite(1))
-        apply!(state2, Measurement(:Z), AllSites())
+        apply!(state2, Measure(:Z), AllSites())
         @test born_probability(state2, 1, 1) ≈ 1.0 atol = 1e-12
         @test born_probability(state2, 2, 0) ≈ 1.0 atol = 1e-12
 
@@ -154,15 +154,15 @@ end
         apply!(state, Reset(), sc)
         @test born_probability(state, 2, 0) ≈ 1.0 atol = 1e-12  # reset at pos 2
         @test born_probability(state, 1, 1) ≈ 1.0 atol = 1e-12  # untouched
-        @test current_position(sc) == 3                          # advanced
+        @test QuantumCircuitsMPS.current_position(sc) == 3                          # advanced
 
-        # Measurement on a staircase: same position semantics
+        # Measure on a staircase: same position semantics
         state2 = _fresh_state(L = 4)
         apply!(state2, PauliX(), SingleSite(3))
         sc2 = StaircaseLeft(3)
-        apply!(state2, Measurement(:Z), sc2)
+        apply!(state2, Measure(:Z), sc2)
         @test born_probability(state2, 3, 1) ≈ 1.0 atol = 1e-12
-        @test current_position(sc2) == 2
+        @test QuantumCircuitsMPS.current_position(sc2) == 2
 
         # Pointer: 1-site gate at position, NO auto-advance
         state3 = _fresh_state(L = 4)
@@ -170,13 +170,13 @@ end
         ptr = Pointer(2)
         apply!(state3, Reset(), ptr)
         @test born_probability(state3, 2, 0) ≈ 1.0 atol = 1e-12
-        @test current_position(ptr) == 2  # unchanged
+        @test QuantumCircuitsMPS.current_position(ptr) == 2  # unchanged
 
         # Staircase with a 2-site gate still applies at the pair (existing behavior)
         state4 = _fresh_state(L = 4)
         sc4 = StaircaseRight(1)
         apply!(state4, HaarRandom(), sc4)
-        @test current_position(sc4) == 2
+        @test QuantumCircuitsMPS.current_position(sc4) == 2
         @test norm(state4.mps) ≈ 1.0 atol = 1e-10
     end
 
@@ -231,9 +231,9 @@ end
             @test born_probability(state, i, 0) ≈ 1.0 atol = 1e-12
         end
 
-        # Measurement through the engine's deterministic compound path
+        # Measure through the engine's deterministic compound path
         circuit2 = Circuit(L = 4, bc = :periodic) do c
-            apply!(c, Measurement(:Z), AllSites())
+            apply!(c, Measure(:Z), AllSites())
         end
         state2 = _fresh_state(L = 4)
         apply!(state2, Hadamard(), SingleSite(1))

@@ -173,12 +173,12 @@ end
             apply!(c, HaarRandom(), Bricklayer(:even))
             apply_with_prob!(c;
                 outcomes = [
-                    (probability = 0.15, gate = Measurement(:Z), geometry = AllSites())
+                    (probability = 0.15, gate = Measure(:Z), geometry = AllSites())
                 ])
             apply!(c, HaarRandom(), Bricklayer(:odd))
             apply_with_prob!(c;
                 outcomes = [
-                    (probability = 0.15, gate = Measurement(:Z), geometry = AllSites())
+                    (probability = 0.15, gate = Measure(:Z), geometry = AllSites())
                 ])
         end
         @test expected_draws(mipt, 1) == 2L
@@ -207,7 +207,7 @@ end
         srn = Circuit(L = L, bc = :periodic) do c
             apply_with_prob!(c;
                 outcomes = [
-                    (probability = 0.3, gate = Measurement(:Z),
+                    (probability = 0.3, gate = Measure(:Z),
                     geometry = EachSite(2:(L - 1)))
                 ])
         end
@@ -235,7 +235,7 @@ end
                 (type = :stochastic,
                 rng = :gates_spacetime,
                 outcomes = [
-                    (probability = 0.3, gate = Measurement(:Z), geometry = AllSites()),      # K=4
+                    (probability = 0.3, gate = Measure(:Z), geometry = AllSites()),      # K=4
                     (probability = 0.3, gate = HaarRandom(), geometry = Bricklayer(:odd))    # K=2
                 ])
             ])
@@ -280,13 +280,13 @@ end
                 apply_with_prob!(c;
                     outcomes = [
                         (
-                        probability = 0.15, gate = Measurement(:Z), geometry = AllSites())
+                        probability = 0.15, gate = Measure(:Z), geometry = AllSites())
                     ])
                 apply!(c, HaarRandom(), Bricklayer(:odd))
                 apply_with_prob!(c;
                     outcomes = [
                         (
-                        probability = 0.15, gate = Measurement(:Z), geometry = AllSites())
+                        probability = 0.15, gate = Measure(:Z), geometry = AllSites())
                     ])
             end
         end
@@ -316,7 +316,7 @@ end
             Circuit(L = L, bc = :periodic) do c
                 apply_with_prob!(c;
                     outcomes = [
-                        (probability = 0.3, gate = Measurement(:Z),
+                        (probability = 0.3, gate = Measure(:Z),
                         geometry = EachSite(2:(L - 1)))
                     ])
             end

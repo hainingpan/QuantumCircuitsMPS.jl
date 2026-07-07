@@ -390,7 +390,7 @@ function simulate!(circuit::Circuit, state::SimulationState;
 end
 
 # Gate execution is uniform: the engine calls execute!(state, gate, sites)
-# (Core/apply.jl) for every gate. Gate-specific behavior (Measurement, Reset,
+# (Core/apply.jl) for every gate. Gate-specific behavior (Measure, Reset,
 # user gates) lives in execute! methods + traits, NOT in engine type-checks.
 # The former execute_gate! special-casing was removed in v0.1 (Task 8).
 

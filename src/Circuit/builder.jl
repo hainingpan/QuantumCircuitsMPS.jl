@@ -184,7 +184,7 @@ would silently ignore the markers.
 ```julia
 circuit = Circuit(L=L, bc=:periodic) do c
     apply!(c, HaarRandom(), Bricklayer(:even))
-    apply_with_prob!(c; outcomes=[(probability=p, gate=Measurement(:Z), geometry=EachSite(2:L-1))])
+    apply_with_prob!(c; outcomes=[(probability=p, gate=Measure(:Z), geometry=EachSite(2:L-1))])
     record!(c)              # record all tracked observables here
     apply!(c, HaarRandom(), Bricklayer(:odd))
     record!(c, :entropy)    # record only :entropy here

@@ -94,7 +94,7 @@ end
         err = try
             apply_with_prob!(st;
                 outcomes = [
-                    (probability = 0.3, gate = Measurement(:Z), geometry = AllSites()),      # K=4
+                    (probability = 0.3, gate = Measure(:Z), geometry = AllSites()),      # K=4
                     (probability = 0.3, gate = HaarRandom(), geometry = Bricklayer(:odd))])  # K=2
             nothing
         catch e
@@ -147,10 +147,10 @@ end
         circuit = Circuit(L = L, bc = :periodic) do c
             apply!(c, HaarRandom(), Bricklayer(:even))
             apply_with_prob!(c; outcomes = [
-                (probability = p, gate = Measurement(:Z), geometry = AllSites())])
+                (probability = p, gate = Measure(:Z), geometry = AllSites())])
             apply!(c, HaarRandom(), Bricklayer(:odd))
             apply_with_prob!(c; outcomes = [
-                (probability = p, gate = Measurement(:Z), geometry = AllSites())])
+                (probability = p, gate = Measure(:Z), geometry = AllSites())])
         end
         st_lazy = _eager_test_state(L = L)
         track!(st_lazy, :entropy => EntanglementEntropy(cut = L ÷ 2))
@@ -163,11 +163,11 @@ end
             apply!(st_eager, HaarRandom(), Bricklayer(:even))
             apply_with_prob!(st_eager;
                 outcomes = [
-                    (probability = p, gate = Measurement(:Z), geometry = AllSites())])
+                    (probability = p, gate = Measure(:Z), geometry = AllSites())])
             apply!(st_eager, HaarRandom(), Bricklayer(:odd))
             apply_with_prob!(st_eager;
                 outcomes = [
-                    (probability = p, gate = Measurement(:Z), geometry = AllSites())])
+                    (probability = p, gate = Measure(:Z), geometry = AllSites())])
             record!(st_eager)
         end
 
@@ -215,7 +215,7 @@ end
         @test length(m_lazy) == n_steps
         @test all(abs.(m_lazy .- m_eager) .<= 1e-14)
         # Staircase positions advanced AND synced identically in the eager loop
-        @test current_position(left) == current_position(right)
+        @test QuantumCircuitsMPS.current_position(left) == QuantumCircuitsMPS.current_position(right)
     end
 
     @testset "fixed draw count: K coins per call, data-independent" begin
@@ -224,7 +224,7 @@ end
         twin = copy(get_rng(st.rng_registry, :gates_spacetime))
         # p tiny → almost all identity selections; coins still consumed
         apply_with_prob!(st; outcomes = [
-            (probability = 0.01, gate = Measurement(:Z), geometry = AllSites())])
+            (probability = 0.01, gate = Measure(:Z), geometry = AllSites())])
         for _ in 1:L   # exactly K = L scalar coins
             rand(twin)
         end
@@ -244,7 +244,7 @@ end
         # Measurement outcomes carry the same eager sentinels
         st2 = _eager_test_state(L = L, log_events = true)
         apply_with_prob!(st2; outcomes = [
-            (probability = 1.0, gate = Measurement(:Z), geometry = AllSites())])
+            (probability = 1.0, gate = Measure(:Z), geometry = AllSites())])
         ms = measurements(st2)
         @test length(ms) == L
         @test all(m -> m.step == 0 && m.op_idx == 0, ms)

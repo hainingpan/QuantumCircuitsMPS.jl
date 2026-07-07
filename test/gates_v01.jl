@@ -313,7 +313,7 @@ end
             @test pg.inner isa HaarRandom
             @test pg.region_geometry isa Bricklayer
             # broadcast geometries accepted
-            @test ProductGate(Measurement(:Z), AllSites()) isa ProductGate
+            @test ProductGate(Measure(:Z), AllSites()) isa ProductGate
             @test ProductGate(PauliX(), EachSite(2:5)) isa ProductGate
             # set geometries rejected
             @test_throws ArgumentError ProductGate(CZ(), Sites(1:4))
@@ -477,7 +477,7 @@ end
                 log_events = true)
             initialize!(state, ProductState(binary_int = 0))
             apply!(state, Hadamard(), SingleSite(1))
-            pg = ProductGate(Measurement(:Z), AllSites())
+            pg = ProductGate(Measure(:Z), AllSites())
             @test QCM.is_measurement(pg)   # trait delegates to inner
             apply!(state, pg)
             @test length(QCM.measurements(state)) == L   # one Born sample per site

@@ -1141,11 +1141,11 @@ end
         @test length(state.observables[:dw]) == 15
     end
 
-    @testset "Stochastic AllSites with Measurement — per-site independent" begin
+    @testset "Stochastic AllSites with Measure — per-site independent" begin
         L = 4
         c = Circuit(L = L, bc = :open) do b
             apply_with_prob!(b; outcomes = [
-                (probability = 0.5, gate = Measurement(:Z), geometry = AllSites())
+                (probability = 0.5, gate = Measure(:Z), geometry = AllSites())
             ])
         end
 
@@ -1177,7 +1177,7 @@ end
         # Two states with same seed should produce identical results
         circuit = Circuit(L = 4, bc = :periodic) do c
             apply_with_prob!(c; outcomes = [
-                (probability = 0.3, gate = Measurement(:Z), geometry = AllSites())
+                (probability = 0.3, gate = Measure(:Z), geometry = AllSites())
             ])
         end
 
@@ -1264,7 +1264,7 @@ end
         L = 4
         circuit = Circuit(L = L, bc = :periodic) do c
             apply_with_prob!(c; outcomes = [
-                (probability = 0.3, gate = Measurement(:Z), geometry = AllSites())
+                (probability = 0.3, gate = Measure(:Z), geometry = AllSites())
             ])
         end
 
@@ -1496,7 +1496,7 @@ end
         p = 0.3
         c = Circuit(L = L, bc = :open) do b
             apply_with_prob!(b; outcomes = [
-                (probability = p, gate = Measurement(:Z), geometry = AllSites())
+                (probability = p, gate = Measure(:Z), geometry = AllSites())
             ])
         end
 
@@ -1524,7 +1524,7 @@ end
         p = 0.3
         c = Circuit(L = L, bc = :open) do b
             apply_with_prob!(b; outcomes = [
-                (probability = p, gate = Measurement(:Z), geometry = AllSites())
+                (probability = p, gate = Measure(:Z), geometry = AllSites())
             ])
         end
 
@@ -1552,7 +1552,7 @@ end
         # p=0.0: rand() < 0.0 is always false → zero ops
         c_zero = Circuit(L = L, bc = :open) do b
             apply_with_prob!(b; outcomes = [
-                (probability = 0.0, gate = Measurement(:Z), geometry = AllSites())
+                (probability = 0.0, gate = Measure(:Z), geometry = AllSites())
             ])
         end
         total_zero = sum(length(expand_circuit(c_zero; seed = s, n_steps = 1)[1])
@@ -1562,7 +1562,7 @@ end
         # p=1.0: rand() < 1.0 is always true → L ops every time
         c_one = Circuit(L = L, bc = :open) do b
             apply_with_prob!(b; outcomes = [
-                (probability = 1.0, gate = Measurement(:Z), geometry = AllSites())
+                (probability = 1.0, gate = Measure(:Z), geometry = AllSites())
             ])
         end
         total_one = sum(length(expand_circuit(c_one; seed = s, n_steps = 1)[1])
@@ -1578,9 +1578,9 @@ end
         c = Circuit(L = L, bc = :periodic) do b
             apply_with_prob!(b;
                 outcomes = [
-                    (probability = 0.5, gate = Measurement(:Z),
+                    (probability = 0.5, gate = Measure(:Z),
                         geometry = Bricklayer(:odd)),
-                    (probability = 0.5, gate = Measurement(:Z),
+                    (probability = 0.5, gate = Measure(:Z),
                         geometry = Bricklayer(:even))
                 ])
         end
@@ -1611,7 +1611,7 @@ end
         L = 4
         circuit = Circuit(L = L, bc = :open) do c
             apply_with_prob!(c; outcomes = [
-                (probability = 0.5, gate = Measurement(:Z), geometry = AllSites())
+                (probability = 0.5, gate = Measure(:Z), geometry = AllSites())
             ])
         end
 

@@ -58,20 +58,6 @@ end
         @test QuantumCircuitsMPS.gate_label(Measure()) == "Meas"
     end
 
-    @testset "Measure without feedback == Measurement (bit-identical)" begin
-        for seed in (1, 7, 42)
-            st1 = _fb_state(seeds = (seed, seed + 100, seed + 200))
-            st2 = _fb_state(seeds = (seed, seed + 100, seed + 200))
-            apply!(st1, HaarRandom(), Bricklayer(:odd))
-            apply!(st2, HaarRandom(), Bricklayer(:odd))
-            apply!(st1, Measurement(:Z), SingleSite(2))
-            apply!(st2, Measure(:Z), SingleSite(2))
-            for i in 1:4
-                @test born_probability(st1, i, 0) == born_probability(st2, i, 0)
-            end
-        end
-    end
-
     @testset "Measure consumes exactly one :born_measurement draw" begin
         st = _fb_state(seeds = (11, 22, 33))
         apply!(st, Hadamard(), SingleSite(1))
