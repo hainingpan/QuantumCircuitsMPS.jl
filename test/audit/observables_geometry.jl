@@ -274,14 +274,13 @@ end
         @test_throws Exception DomainWall(order = 1)(cs, 1)
 
         # EXPECTED behavior after T14: a clean, informative ArgumentError.
-        # T14 flips these two to plain @test.
-        @test_broken (try
+        @test (try
             StringOrder(1, 3)(cs)
             false
         catch e
             e isa ArgumentError
         end)
-        @test_broken (try
+        @test (try
             DomainWall(order = 1)(cs, 1)
             false
         catch e

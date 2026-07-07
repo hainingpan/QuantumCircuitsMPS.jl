@@ -19,12 +19,19 @@ function (bp::BornProbability)(state)
 end
 
 """
-    born_probability(state::SimulationState, physical_site::Int, outcome::Int) -> Float64
+    born_probability(state::SimulationState{MPSBackend}, physical_site::Int, outcome::Int) -> Float64
 
 Compute Born probability P(outcome | state) at a physical site.
 Converts physical site to RAM index for MPS access.
+
+This is the MPS-backend implementation. `SimulationState{StateVectorBackend}`
+and `SimulationState{CliffordBackend}` have their own, more specific
+overrides (see `src/StateVector/measurement.jl`, `src/Clifford/measurement.jl`);
+narrowing this signature to `MPSBackend` ensures any future/unknown backend
+gets a clear `MethodError` here instead of silently crashing on a
+backend-specific field (`state.backend.mps`) that doesn't exist.
 """
-function born_probability(state, physical_site::Int, outcome::Int)
+function born_probability(state::SimulationState{MPSBackend}, physical_site::Int, outcome::Int)
     # Convert physical site to RAM index
     ram_idx = state.phy_ram[physical_site]
 

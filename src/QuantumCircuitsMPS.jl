@@ -79,6 +79,7 @@ include("StateVector/string_order.jl")
 include("Clifford/measurement.jl")
 include("Clifford/entanglement.jl")
 include("Clifford/magnetization.jl")
+include("Clifford/observables.jl")
 
 # API
 include("API/probabilistic.jl")
