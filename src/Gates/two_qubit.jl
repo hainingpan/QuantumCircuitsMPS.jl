@@ -133,33 +133,24 @@ end
     build_operator(gate::CZ, sites::Vector{Index}, local_dim::Int) -> ITensor
 
 Build CZ gate operator. Qubit-only (`local_dim == 2`).
+
+Vectorized construction (T21): reshape the fixed `gate_matrix(::CZ)` into a
+4-index tensor and hand it directly to `ITensor(...)`, following the same
+output-primed-first, input-unprimed-second, reverse-site-order convention as
+`MatrixGate` (see `matrix_gate.jl:98-110`) — eliminates the 16 scalar
+`setindex!` calls of the previous per-application loop. Verified bitwise
+identical to the prior loop-based construction (element-by-element `==`).
 """
 function build_operator(
         gate::CZ, sites::Vector{<:Index}, local_dim::Int; rng = nothing, kwargs...)
     length(sites) == 2 || throw(ArgumentError("CZ requires exactly 2 sites"))
     _check_qubit_two_site(gate, local_dim)
 
-    s1, s2 = sites[1], sites[2]
-
-    # CZ matrix: diagonal with -1 at |11⟩
-    # |00⟩→|00⟩, |01⟩→|01⟩, |10⟩→|10⟩, |11⟩→-|11⟩
-    op_tensor = ITensor(ComplexF64, s1', s2', dag(s1), dag(s2))
-
-    for i1 in 1:local_dim, i2 in 1:local_dim
-
-        for j1 in 1:local_dim, j2 in 1:local_dim
-
-            if i1 == j1 && i2 == j2  # diagonal
-                if i1 == local_dim && i2 == local_dim  # |11⟩ state
-                    op_tensor[s1' => i1, s2' => i2, s1 => j1, s2 => j2] = -1.0 + 0.0im
-                else
-                    op_tensor[s1' => i1, s2' => i2, s1 => j1, s2 => j2] = 1.0 + 0.0im
-                end
-            end
-        end
-    end
-
-    return op_tensor
+    U = gate_matrix(gate)
+    T = reshape(U, ntuple(_ -> local_dim, 4))
+    out_inds = [prime(s) for s in Iterators.reverse(sites)]
+    in_inds = collect(Iterators.reverse(sites))
+    return ITensor(T, out_inds..., in_inds...)
 end
 
 """
@@ -187,48 +178,41 @@ gate_matrix(::SWAP) = ComplexF64[1 0 0 0; 0 0 1 0; 0 1 0 0; 0 0 0 1]
 
 Build CNOT gate operator. Control = sites[1], target = sites[2].
 Qubit-only (`local_dim == 2`).
+
+Vectorized construction (T21): reshape the fixed `gate_matrix(::CNOT)` into a
+4-index tensor, same convention as `CZ`/`MatrixGate` above. Verified bitwise
+identical to the prior loop-based construction (element-by-element `==`).
 """
 function build_operator(
         gate::CNOT, sites::Vector{<:Index}, local_dim::Int; rng = nothing, kwargs...)
     length(sites) == 2 || throw(ArgumentError("CNOT requires exactly 2 sites"))
     _check_qubit_two_site(gate, local_dim)
 
-    s1, s2 = sites[1], sites[2]
-
-    # CNOT: control=s1, target=s2
-    # |00⟩→|00⟩, |01⟩→|01⟩, |10⟩→|11⟩, |11⟩→|10⟩
-    op_tensor = ITensor(ComplexF64, s1', s2', dag(s1), dag(s2))
-
-    for j1 in 1:local_dim, j2 in 1:local_dim
-
-        i1 = j1  # control unchanged
-        i2 = (j1 == local_dim) ? (local_dim + 1 - j2) : j2  # flip target iff control is |1⟩
-        op_tensor[s1' => i1, s2' => i2, s1 => j1, s2 => j2] = 1.0 + 0.0im
-    end
-
-    return op_tensor
+    U = gate_matrix(gate)
+    T = reshape(U, ntuple(_ -> local_dim, 4))
+    out_inds = [prime(s) for s in Iterators.reverse(sites)]
+    in_inds = collect(Iterators.reverse(sites))
+    return ITensor(T, out_inds..., in_inds...)
 end
 
 """
     build_operator(gate::SWAP, sites::Vector{Index}, local_dim::Int) -> ITensor
 
 Build SWAP gate operator. Qubit-only (`local_dim == 2`).
+
+Vectorized construction (T21): reshape the fixed `gate_matrix(::SWAP)` into a
+4-index tensor, same convention as `CZ`/`CNOT`/`MatrixGate` above. Verified
+bitwise identical to the prior loop-based construction (element-by-element
+`==`).
 """
 function build_operator(
         gate::SWAP, sites::Vector{<:Index}, local_dim::Int; rng = nothing, kwargs...)
     length(sites) == 2 || throw(ArgumentError("SWAP requires exactly 2 sites"))
     _check_qubit_two_site(gate, local_dim)
 
-    s1, s2 = sites[1], sites[2]
-
-    # SWAP: |00⟩→|00⟩, |01⟩→|10⟩, |10⟩→|01⟩, |11⟩→|11⟩
-    op_tensor = ITensor(ComplexF64, s1', s2', dag(s1), dag(s2))
-
-    for j1 in 1:local_dim, j2 in 1:local_dim
-
-        i1, i2 = j2, j1  # swap the two site values
-        op_tensor[s1' => i1, s2' => i2, s1 => j1, s2 => j2] = 1.0 + 0.0im
-    end
-
-    return op_tensor
+    U = gate_matrix(gate)
+    T = reshape(U, ntuple(_ -> local_dim, 4))
+    out_inds = [prime(s) for s in Iterators.reverse(sites)]
+    in_inds = collect(Iterators.reverse(sites))
+    return ITensor(T, out_inds..., in_inds...)
 end
