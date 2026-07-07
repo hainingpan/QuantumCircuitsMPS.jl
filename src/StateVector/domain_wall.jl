@@ -41,10 +41,12 @@ function _projector_product_expectation_sv(
     L = state.L
     d = state.local_dim
     ψ = state.backend.ψ
+    strides_zero = [d^(L - s) for s in sites_zero]
+    stride_one = d^(L - site_one)
     total = 0.0
     for n0 in 0:(length(ψ) - 1)
-        ok = all(((n0 ÷ d^(L - s)) % d) == 0 for s in sites_zero) &&
-             ((n0 ÷ d^(L - site_one)) % d) == 1
+        ok = all(_sv_digit(n0, stride, d) == 0 for stride in strides_zero) &&
+             _sv_digit(n0, stride_one, d) == 1
         if ok
             total += abs2(ψ[n0 + 1])
         end

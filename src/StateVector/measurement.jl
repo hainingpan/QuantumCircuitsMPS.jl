@@ -15,15 +15,17 @@ For a state vector `ψ` of length `d^L`, sums `|ψ_n|²` over all basis integers
 `outcome`. Site 1 is MSB (slowest index).
 
 Digit extraction: for 0-indexed basis integer `n`, physical site `s` (1-indexed, site 1 = MSB),
-and local dimension `d`: `digit = (n ÷ d^(L-s)) % d`.
+and local dimension `d`: `digit = (n ÷ d^(L-s)) % d` (see [`_sv_digit`](@ref); the
+loop-invariant stride `d^(L-s)` is hoisted out of the loop).
 """
 function born_probability(state::SimulationState{StateVectorBackend}, physical_site::Int, outcome::Int)
     ψ = state.backend.ψ
     L = state.L
     d = state.local_dim
+    stride = d^(L - physical_site)
     total = 0.0
     for n0 in 0:(length(ψ) - 1)
-        digit = (n0 ÷ d^(L - physical_site)) % d
+        digit = _sv_digit(n0, stride, d)
         if digit == outcome
             total += abs2(ψ[n0 + 1])
         end

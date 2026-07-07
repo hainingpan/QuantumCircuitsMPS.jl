@@ -48,34 +48,43 @@ function (obs::StringOrder)(state::SimulationState{StateVectorBackend})
     # Qubit (d=2): both digits give exp(±iπ) = -1 unconditionally
     @inline _expsz(digit::Int) = d == 3 ? (digit == 1 ? 1.0 : -1.0) : -1.0
 
+    # Digit extraction: site 1 = MSB convention (matches all other SV
+    # observables); loop-invariant strides d^(L-s) hoisted out of the n0 loop
+    # (shared _sv_digit helper, see src/StateVector/StateVector.jl).
+    stride_i = d^(L - i_phys)
+    stride_j = d^(L - j_phys)
+
     total = 0.0
-    @inbounds for n0 in 0:(length(ψ) - 1)
-        # Extract the local digit at physical site s from basis index n0
-        # Convention: site 1 = MSB (matches all other SV observables)
-
-        if obs.order == 1
-            # O¹(i,j) = Sz[i] · Π_{k=i+1}^{j-1} exp(iπ·Sz[k]) · Sz[j]
-            di = (n0 ÷ d^(L - i_phys)) % d
-            dj = (n0 ÷ d^(L - j_phys)) % d
+    if obs.order == 1
+        # O¹(i,j) = Sz[i] · Π_{k=i+1}^{j-1} exp(iπ·Sz[k]) · Sz[j]
+        string_strides = [d^(L - k) for k in (i_phys + 1):(j_phys - 1)]
+        @inbounds for n0 in 0:(length(ψ) - 1)
+            di = _sv_digit(n0, stride_i, d)
+            dj = _sv_digit(n0, stride_j, d)
             eigenvalue = _sz(di) * _sz(dj)
-            for k in (i_phys + 1):(j_phys - 1)
-                dk = (n0 ÷ d^(L - k)) % d
+            for stride in string_strides
+                dk = _sv_digit(n0, stride, d)
                 eigenvalue *= _expsz(dk)
             end
-        else  # order == 2
-            # O²(n,m) = Sz[n]·Sz[n+1] · Π_{k=n+2}^{m-2} exp(iπ·Sz[k]) · Sz[m-1]·Sz[m]
-            di = (n0 ÷ d^(L - i_phys)) % d
-            dip1 = (n0 ÷ d^(L - (i_phys + 1))) % d
-            djm1 = (n0 ÷ d^(L - (j_phys - 1))) % d
-            dj = (n0 ÷ d^(L - j_phys)) % d
-            eigenvalue = _sz(di) * _sz(dip1) * _sz(djm1) * _sz(dj)
-            for k in (i_phys + 2):(j_phys - 2)
-                dk = (n0 ÷ d^(L - k)) % d
-                eigenvalue *= _expsz(dk)
-            end
+            total += abs2(ψ[n0 + 1]) * eigenvalue
         end
-
-        total += abs2(ψ[n0 + 1]) * eigenvalue
+    else  # order == 2
+        # O²(n,m) = Sz[n]·Sz[n+1] · Π_{k=n+2}^{m-2} exp(iπ·Sz[k]) · Sz[m-1]·Sz[m]
+        stride_ip1 = d^(L - (i_phys + 1))
+        stride_jm1 = d^(L - (j_phys - 1))
+        string_strides = [d^(L - k) for k in (i_phys + 2):(j_phys - 2)]
+        @inbounds for n0 in 0:(length(ψ) - 1)
+            di = _sv_digit(n0, stride_i, d)
+            dip1 = _sv_digit(n0, stride_ip1, d)
+            djm1 = _sv_digit(n0, stride_jm1, d)
+            dj = _sv_digit(n0, stride_j, d)
+            eigenvalue = _sz(di) * _sz(dip1) * _sz(djm1) * _sz(dj)
+            for stride in string_strides
+                dk = _sv_digit(n0, stride, d)
+                eigenvalue *= _expsz(dk)
+            end
+            total += abs2(ψ[n0 + 1]) * eigenvalue
+        end
     end
     return total
 end

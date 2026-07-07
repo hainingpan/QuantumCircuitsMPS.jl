@@ -52,6 +52,18 @@ function apply_gate_sv!(ψ::Vector{ComplexF64}, U::Matrix{ComplexF64},
     return vec(new_A)
 end
 
+# === Shared digit-extraction helper for SV observables ===
+
+"""
+    _sv_digit(n0, stride, d) -> Int
+
+Extract the base-`d` digit of the 0-indexed basis integer `n0` at the
+physical site whose precomputed stride is `stride = d^(L - s)` (site 1 = MSB
+convention shared by all state-vector observables). Callers hoist the
+loop-invariant `d^(L - s)` power out of their inner loops and pass it in.
+"""
+@inline _sv_digit(n0::Int, stride::Int, d::Int) = (n0 ÷ stride) % d
+
 # === gate_matrix resolution dispatch ===
 # gate_matrix has ONE signature for most gates (no extra args), but HaarRandom
 # needs (gate, rng; local_dim) — dispatch via multiple methods, not an if/isa check.

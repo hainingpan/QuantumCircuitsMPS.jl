@@ -21,9 +21,10 @@ function (m::Magnetization)(state::SimulationState{StateVectorBackend})
     ψ = state.backend.ψ
     total = 0.0
     for site in 1:L
+        stride = d^(L - site)
         p0 = 0.0
         for n0 in 0:(length(ψ) - 1)
-            digit = (n0 ÷ d^(L - site)) % d
+            digit = _sv_digit(n0, stride, d)
             if digit == 0
                 p0 += abs2(ψ[n0 + 1])
             end
