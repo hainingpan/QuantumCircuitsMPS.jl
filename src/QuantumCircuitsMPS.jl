@@ -97,7 +97,7 @@ include("Plotting/Plotting.jl")
 
 # === PUBLIC API EXPORTS ===
 # State
-export SimulationState, initialize!, ProductState, RandomMPS
+export SimulationState, initialize!, ProductState, RandomMPS, RandomStateVector
 # Event log (opt-in via SimulationState(...; log_events=true)).
 # Event TYPES (CircuitEvent, GateApplied, MeasurementOutcome) and log_event! are
 # internal — use qualified names (manifest KEEP+ADD tables list only the accessors).

@@ -196,6 +196,8 @@ end
 
 Initialize state with a random MPS.
 Requires RNGRegistry with :state_init stream attached to state.
+The MPS is drawn deterministically from the registry's `:state_init`
+stream: the same seed produces an identical MPS.
 """
 function initialize!(state::SimulationState, init::RandomMPS)
     if state.rng_registry === nothing
@@ -206,11 +208,8 @@ function initialize!(state::SimulationState, init::RandomMPS)
         ))
     end
 
-    # Use ITensorMPS randomMPS with specified bond dimension
-    # Note: ITensorMPS 0.3+ uses Random.default_rng() internally
-    # For reproducibility with our RNG, we'd need to seed it
-    # For now, just use the specified bond_dim
-    state.backend.mps = randomMPS(state.backend.sites; linkdims = init.bond_dim)
+    rng = get_rng(state.rng_registry, :state_init)
+    state.backend.mps = random_mps(rng, state.backend.sites; linkdims = init.bond_dim)
 
     return nothing
 end
