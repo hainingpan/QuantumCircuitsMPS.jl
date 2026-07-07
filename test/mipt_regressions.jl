@@ -38,20 +38,20 @@ end
     L = 6
     cut = L ÷ 2
     for seed in 1:3
-        state = SimulationState(L=L, bc=:open, maxdim=2^L, cutoff=1e-14,
-            rng=RNGRegistry(gates_spacetime=3*(seed-1)+1,
-                            born_measurement=3*(seed-1)+2,
-                            gates_realization=3*(seed-1)+3))
-        initialize!(state, ProductState(binary_int=0))
-        track!(state, :entropy => EntanglementEntropy(cut=cut))
+        state = SimulationState(L = L, bc = :open, maxdim = 2^L, cutoff = 1e-14,
+            rng = RNGRegistry(gates_spacetime = 3*(seed-1)+1,
+                born_measurement = 3*(seed-1)+2,
+                gates_realization = 3*(seed-1)+3))
+        initialize!(state, ProductState(binary_int = 0))
+        track!(state, :entropy => EntanglementEntropy(cut = cut))
 
-        circuit = Circuit(L=L, bc=:open) do c
+        circuit = Circuit(L = L, bc = :open) do c
             apply!(c, HaarRandom(), Bricklayer(:even))
             apply!(c, HaarRandom(), Bricklayer(:odd))
         end
 
         for step in 1:4
-            simulate!(circuit, state; n_steps=1, record_when=:every_step)
+            simulate!(circuit, state; n_steps = 1, record_when = :every_step)
             S_mps = state.observables[:entropy][end]
             S_dense = _dense_entropy_halfcut(state, cut)
             @test abs(S_mps - S_dense) < 1e-8
@@ -70,8 +70,8 @@ end
     #
     # Part A: exact Born probabilities on the initial product state.
     L = 4
-    state0 = SimulationState(L=L, bc=:open)
-    initialize!(state0, ProductState(binary_int=0))
+    state0 = SimulationState(L = L, bc = :open)
+    initialize!(state0, ProductState(binary_int = 0))
     for site in 1:L
         p0 = born_probability(state0, site, 0)
         p1 = born_probability(state0, site, 1)
@@ -84,10 +84,10 @@ end
     # probability. The Haar gate is DETERMINISTIC across trials (fixed
     # gates_realization seed); only the Born-measurement stream varies.
     N = 400
-    haar_circuit = Circuit(L=L, bc=:open) do c
+    haar_circuit = Circuit(L = L, bc = :open) do c
         apply!(c, HaarRandom(), Bricklayer(:odd))   # pairs (1,2),(3,4)
     end
-    meas_circuit = Circuit(L=L, bc=:open) do c
+    meas_circuit = Circuit(L = L, bc = :open) do c
         apply!(c, Measurement(:Z), SingleSite(1))
     end
 
@@ -97,12 +97,12 @@ end
     all_collapsed = true
     all_normalized = true
     for trial in 1:N
-        state = SimulationState(L=L, bc=:open, maxdim=16, cutoff=1e-14,
-            rng=RNGRegistry(gates_spacetime=1,
-                            born_measurement=1000 + trial,
-                            gates_realization=7))
-        initialize!(state, ProductState(binary_int=0))
-        simulate!(haar_circuit, state; n_steps=1, record_when=:final_only)
+        state = SimulationState(L = L, bc = :open, maxdim = 16, cutoff = 1e-14,
+            rng = RNGRegistry(gates_spacetime = 1,
+                born_measurement = 1000 + trial,
+                gates_realization = 7))
+        initialize!(state, ProductState(binary_int = 0))
+        simulate!(haar_circuit, state; n_steps = 1, record_when = :final_only)
 
         p0 = born_probability(state, 1, 0)
         p1 = born_probability(state, 1, 1)
@@ -113,7 +113,7 @@ end
             gate_deterministic &= abs(p0 - p0_expected) < 1e-10
         end
 
-        simulate!(meas_circuit, state; n_steps=1, record_when=:final_only)
+        simulate!(meas_circuit, state; n_steps = 1, record_when = :final_only)
         p0_after = born_probability(state, 1, 0)
         all_collapsed &= (p0_after > 1 - 1e-8) || (p0_after < 1e-8)
         n_zero += (p0_after > 0.5)
@@ -136,43 +136,47 @@ end
     # recording (after EACH measurement round) must give L-independent
     # entropy deep in the area-law phase (p=0.5).
     # Mirrors the phase-averaged recording protocol (full analysis: validation-srn branch).
-    function phase_avg_S(; L, p, seed, bc=:open, n_steps=2*L, maxdim=2^20,
-                          cutoff=1e-10, burn_in=max(L, 8))
-        circuit_half1 = Circuit(L=L, bc=bc, p=p) do c
+    function phase_avg_S(; L, p, seed, bc = :open, n_steps = 2*L, maxdim = 2^20,
+            cutoff = 1e-10, burn_in = max(L, 8))
+        circuit_half1 = Circuit(L = L, bc = bc, p = p) do c
             apply!(c, HaarRandom(), Bricklayer(:even))
-            apply_with_prob!(c; outcomes=[
-                (probability=c.params[:p], gate=Measurement(:Z), geometry=AllSites())
-            ])
+            apply_with_prob!(c;
+                outcomes = [
+                    (probability = c.params[:p],
+                    gate = Measurement(:Z), geometry = AllSites())
+                ])
         end
-        circuit_half2 = Circuit(L=L, bc=bc, p=p) do c
+        circuit_half2 = Circuit(L = L, bc = bc, p = p) do c
             apply!(c, HaarRandom(), Bricklayer(:odd))
-            apply_with_prob!(c; outcomes=[
-                (probability=c.params[:p], gate=Measurement(:Z), geometry=AllSites())
-            ])
+            apply_with_prob!(c;
+                outcomes = [
+                    (probability = c.params[:p],
+                    gate = Measurement(:Z), geometry = AllSites())
+                ])
         end
 
-        state = SimulationState(L=L, bc=bc, maxdim=maxdim, cutoff=cutoff,
-            rng=RNGRegistry(gates_spacetime=3*(seed-1)+1,
-                            born_measurement=3*(seed-1)+2,
-                            gates_realization=3*(seed-1)+3))
-        initialize!(state, ProductState(binary_int=0))
-        track!(state, :entropy => EntanglementEntropy(cut=L÷2))
+        state = SimulationState(L = L, bc = bc, maxdim = maxdim, cutoff = cutoff,
+            rng = RNGRegistry(gates_spacetime = 3*(seed-1)+1,
+                born_measurement = 3*(seed-1)+2,
+                gates_realization = 3*(seed-1)+3))
+        initialize!(state, ProductState(binary_int = 0))
+        track!(state, :entropy => EntanglementEntropy(cut = L÷2))
 
         for period in 1:n_steps
-            simulate!(circuit_half1, state; n_steps=1, record_when=:every_step)
-            simulate!(circuit_half2, state; n_steps=1, record_when=:every_step)
+            simulate!(circuit_half1, state; n_steps = 1, record_when = :every_step)
+            simulate!(circuit_half2, state; n_steps = 1, record_when = :every_step)
         end
 
         records = state.observables[:entropy]
-        post_burn = records[(2*burn_in+1):end]
+        post_burn = records[(2 * burn_in + 1):end]
         n_avg_periods = min(4, length(post_burn) ÷ 2)
-        post_burn_tail = post_burn[(end - 2*n_avg_periods + 1):end]
+        post_burn_tail = post_burn[(end - 2 * n_avg_periods + 1):end]
         return mean(post_burn_tail)
     end
 
     p = 0.5
-    S6 = [phase_avg_S(L=6, p=p, seed=s) for s in 1:50]
-    S8 = [phase_avg_S(L=8, p=p, seed=s) for s in 51:100]
+    S6 = [phase_avg_S(L = 6, p = p, seed = s) for s in 1:50]
+    S8 = [phase_avg_S(L = 8, p = p, seed = s) for s in 51:100]
 
     mean6, mean8 = mean(S6), mean(S8)
     sem6 = std(S6) / sqrt(length(S6))
@@ -182,7 +186,8 @@ end
     tol = max(3 * (sem6 + sem8), 0.1)
 
     @test delta < tol   # area law: S is L-independent at p=0.5
-    @info "Phase-averaged S regression" mean6=round(mean6, digits=4) mean8=round(mean8, digits=4) delta=round(delta, digits=4) tol=round(tol, digits=4)
+    @info "Phase-averaged S regression" mean6=round(mean6, digits = 4) mean8=round(mean8, digits = 4) delta=round(
+        delta, digits = 4) tol=round(tol, digits = 4)
 end
 
 @testset "RAM bipartition: compute_basis_mapping returns correct folded order" begin
@@ -192,7 +197,7 @@ end
 
     # Backward-compat guard: pbc_fold_start=1 reproduces the original
     # hardcoded fold order exactly (pre-pbc_fold_start behavior).
-    phy_ram, ram_phy = compute_basis_mapping(8, :periodic; pbc_fold_start=1)
+    phy_ram, ram_phy = compute_basis_mapping(8, :periodic; pbc_fold_start = 1)
     @test ram_phy == [1, 8, 2, 7, 3, 6, 4, 5]
 
     # Default pbc_fold_start (L÷4+1): fold origin shifted for half-cut alignment.
@@ -219,7 +224,7 @@ end
     # (as a set), for a range of even L.
     for L in [4, 6, 8, 10, 12]
         _, ram_phy_L = compute_basis_mapping(L, :periodic)
-        @test Set(ram_phy_L[1:L÷2]) == Set(1:L÷2)
+        @test Set(ram_phy_L[1:(L ÷ 2)]) == Set(1:(L ÷ 2))
     end
 
     # Mutual-inverse property holds for the default fold across L.
@@ -232,10 +237,10 @@ end
     end
 
     # OBC ignores pbc_fold_start entirely (identity mapping regardless).
-    _, ram_phy_obc2 = compute_basis_mapping(8, :open; pbc_fold_start=5)
+    _, ram_phy_obc2 = compute_basis_mapping(8, :open; pbc_fold_start = 5)
     @test ram_phy_obc2 == collect(1:8)
 
     # Invalid pbc_fold_start values must be rejected for periodic BC.
-    @test_throws ArgumentError compute_basis_mapping(8, :periodic; pbc_fold_start=0)
-    @test_throws ArgumentError compute_basis_mapping(8, :periodic; pbc_fold_start=9)
+    @test_throws ArgumentError compute_basis_mapping(8, :periodic; pbc_fold_start = 0)
+    @test_throws ArgumentError compute_basis_mapping(8, :periodic; pbc_fold_start = 9)
 end

@@ -29,10 +29,12 @@ mutable struct CircuitBuilder
     L::Int
     bc::Symbol
     operations::Vector{NamedTuple}
-    params::Dict{Symbol,Any}
+    params::Dict{Symbol, Any}
 end
 
-CircuitBuilder(L::Int, bc::Symbol, params::Dict{Symbol,Any}=Dict{Symbol,Any}()) = CircuitBuilder(L, bc, NamedTuple[], params)
+function CircuitBuilder(L::Int, bc::Symbol, params::Dict{Symbol, Any} = Dict{Symbol, Any}())
+    CircuitBuilder(L, bc, NamedTuple[], params)
+end
 
 """
     apply!(builder::CircuitBuilder, gate, geometry)
@@ -50,7 +52,7 @@ end
 ```
 """
 function apply!(builder::CircuitBuilder, gate, geometry)
-    push!(builder.operations, (type=:deterministic, gate=gate, geometry=geometry))
+    push!(builder.operations, (type = :deterministic, gate = gate, geometry = geometry))
     return nothing
 end
 
@@ -97,9 +99,9 @@ end
 ```
 """
 function apply_with_prob!(
-    builder::CircuitBuilder;
-    outcomes::Vector{<:NamedTuple{(:probability, :gate, :geometry)}},
-    kwargs...
+        builder::CircuitBuilder;
+        outcomes::Vector{<:NamedTuple{(:probability, :gate, :geometry)}},
+        kwargs...
 )
     # (iv) rng= kwarg was hard-removed in v0.1 — fail loudly, never ignore
     if haskey(kwargs, :rng)
@@ -126,7 +128,7 @@ function apply_with_prob!(
         throw(ArgumentError("Probabilities sum to $total_prob (must be ≤ 1)"))
     end
 
-    op = (type=:stochastic, rng=:gates_spacetime, outcomes=collect(outcomes))
+    op = (type = :stochastic, rng = :gates_spacetime, outcomes = collect(outcomes))
 
     # (i) Equal-K rule: every outcome must expand to the same element count.
     # _op_element_count (Circuit/draws.jl) throws an ArgumentError naming
@@ -138,7 +140,7 @@ function apply_with_prob!(
     # and identity does not advance staircases — silently freezing the CIPT
     # random walk. Make that a build-time error.
     has_walker = any(o -> (o.geometry isa AbstractStaircase) || (o.geometry isa Pointer),
-                     outcomes)
+        outcomes)
     if has_walker && total_prob < 1.0 - 1e-10
         throw(ArgumentError(
             "Stochastic operation with staircase/Pointer geometry requires Σp = 1 " *
@@ -191,7 +193,7 @@ simulate!(circuit, state; n_steps=25, record_when=:marks)
 ```
 """
 function record!(builder::CircuitBuilder, names::Symbol...)
-    push!(builder.operations, (type=:record_mark, names=Symbol[names...]))
+    push!(builder.operations, (type = :record_mark, names = Symbol[names...]))
     return nothing
 end
 
@@ -232,8 +234,8 @@ function Circuit(f::Function; L::Int, bc::Symbol, kwargs...)
     haskey(kwargs, :n_steps) && throw(ArgumentError(
         "Circuit no longer accepts n_steps. Pass it to simulate!(circuit, state; n_steps=...) instead."
     ))
-    params = Dict{Symbol,Any}(kwargs)
+    params = Dict{Symbol, Any}(kwargs)
     builder = CircuitBuilder(L, bc, NamedTuple[], params)
     f(builder)
-    return Circuit(L=L, bc=bc, operations=builder.operations, params=params)
+    return Circuit(L = L, bc = bc, operations = builder.operations, params = params)
 end

@@ -120,7 +120,8 @@ export StaircaseLeft, StaircaseRight
 export Pointer, move!
 export EachSite, Sites, elements, element_count, is_broadcast  # v0.1 geometry vocabulary
 # Observables
-export AbstractObservable, DomainWall, BornProbability, EntanglementEntropy, StringOrder, Magnetization
+export AbstractObservable, DomainWall, BornProbability, EntanglementEntropy, StringOrder,
+       Magnetization
 export track!, record!, list_observables
 # API — legacy entry points (simulate, simulate_circuits, run_circuit!,
 # CircuitSimulation, with_state, current_state, record_every, record_at_circuits,
@@ -135,8 +136,10 @@ export print_circuit
 # Visualization (provided by Luxor extension)
 # _plot_circuit_impl is defined in ext/QuantumCircuitsMPSLuxorExt.jl when Luxor is loaded
 function _plot_circuit_impl end
-function plot_circuit(circuit::Circuit; n_steps::Int=1, gates_spacetime::Int=0, filename::Union{String,Nothing}=nothing)
-    Base.invokelatest(_plot_circuit_impl, circuit; n_steps=n_steps, gates_spacetime=gates_spacetime, filename=filename)
+function plot_circuit(circuit::Circuit; n_steps::Int = 1, gates_spacetime::Int = 0,
+        filename::Union{String, Nothing} = nothing)
+    Base.invokelatest(_plot_circuit_impl, circuit; n_steps = n_steps,
+        gates_spacetime = gates_spacetime, filename = filename)
 end
 export plot_circuit
 

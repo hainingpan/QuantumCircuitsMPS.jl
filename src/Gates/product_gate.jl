@@ -95,11 +95,13 @@ struct ProductGate <: AbstractGate
     end
 end
 
-support(pg::ProductGate) = throw(ArgumentError(
-    "ProductGate has no fixed support: it expands to the union of " *
-    "elements($(typeof(pg.region_geometry)), L, bc), which depends on the " *
-    "system size. Apply it via apply!(x, pg) (geometry omitted) or with " *
-    "Sites(union) — see the ProductGate docstring."))
+function support(pg::ProductGate)
+    throw(ArgumentError(
+        "ProductGate has no fixed support: it expands to the union of " *
+        "elements($(typeof(pg.region_geometry)), L, bc), which depends on the " *
+        "system size. Apply it via apply!(x, pg) (geometry omitted) or with " *
+        "Sites(union) — see the ProductGate docstring."))
+end
 
 # The product is a measurement iff its inner gate is (each element Born-samples).
 is_measurement(pg::ProductGate) = is_measurement(pg.inner)
@@ -158,7 +160,7 @@ function execute!(state::SimulationState, pg::ProductGate, region::Vector{Int})
         execute!(state, pg.inner, elem)
         if state.event_log !== nothing
             log_event!(state, GateApplied(state.event_step, state.event_op_idx,
-                                          i, gate_label(pg.inner), elem))
+                i, gate_label(pg.inner), elem))
         end
     end
     return nothing
@@ -212,7 +214,7 @@ function apply!(builder::CircuitBuilder, pg::ProductGate, geometry)
         "of elements($(typeof(pg.region_geometry)), L=$(builder.L), " *
         "bc=$(builder.bc))), got Sites with sites $(given). " *
         "Use apply!(c, pg) to fill the region in automatically."))
-    push!(builder.operations, (type=:deterministic, gate=pg, geometry=geometry))
+    push!(builder.operations, (type = :deterministic, gate = pg, geometry = geometry))
     return nothing
 end
 

@@ -57,7 +57,7 @@ Base.@kwdef struct Circuit
     L::Int
     bc::Symbol
     operations::Vector{NamedTuple} = NamedTuple[]
-    params::Dict{Symbol,Any} = Dict{Symbol,Any}()
+    params::Dict{Symbol, Any} = Dict{Symbol, Any}()
 end
 
 """

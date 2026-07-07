@@ -23,10 +23,11 @@ const QCM = QuantumCircuitsMPS
 using QuantumCircuitsMPS: GateApplied  # internal since Task 14 (not in manifest)
 
 # Helper: fresh |0...0⟩ qubit state
-function _fresh_state(L::Int; seeds=(gates_spacetime=11, gates_realization=22, born_measurement=33))
-    state = SimulationState(L=L, bc=:periodic, maxdim=64,
-        rng=RNGRegistry(; seeds...))
-    initialize!(state, ProductState(binary_int=0))
+function _fresh_state(L::Int; seeds = (
+        gates_spacetime = 11, gates_realization = 22, born_measurement = 33))
+    state = SimulationState(L = L, bc = :periodic, maxdim = 64,
+        rng = RNGRegistry(; seeds...))
+    initialize!(state, ProductState(binary_int = 0))
     return state
 end
 
@@ -56,8 +57,8 @@ end
     @testset "HaarRandom(2) matrix embedding matches MatrixGate convention" begin
         seed = 20260703
         sites2 = siteinds("Qubit", 2)
-        reg = RNGRegistry(gates_spacetime=1, gates_realization=seed, born_measurement=2)
-        op = QCM.build_operator(HaarRandom(), sites2, 2; rng=reg)
+        reg = RNGRegistry(gates_spacetime = 1, gates_realization = seed, born_measurement = 2)
+        op = QCM.build_operator(HaarRandom(), sites2, 2; rng = reg)
 
         # Twin: verbatim reproduction of the pre-refactor algorithm
         rng_twin = MersenneTwister(seed)
@@ -79,13 +80,13 @@ end
 
     @testset "HaarRandom(n) unitarity, n = 1, 2, 3" begin
         for n in 1:3
-            reg = RNGRegistry(gates_spacetime=1, gates_realization=100 + n, born_measurement=2)
+            reg = RNGRegistry(gates_spacetime = 1, gates_realization = 100 + n, born_measurement = 2)
             sitesn = siteinds("Qubit", n)
             N = 2^n
             op = if n == 1
-                QCM.build_operator(HaarRandom(1), sitesn[1], 2; rng=reg)
+                QCM.build_operator(HaarRandom(1), sitesn[1], 2; rng = reg)
             else
-                QCM.build_operator(HaarRandom(n), sitesn, 2; rng=reg)
+                QCM.build_operator(HaarRandom(n), sitesn, 2; rng = reg)
             end
             ord = if n == 1
                 (sitesn[1], prime(sitesn[1]))
@@ -99,9 +100,9 @@ end
 
     @testset "HaarRandom(n) support-mismatch errors" begin
         sites2 = siteinds("Qubit", 2)
-        reg = RNGRegistry(gates_spacetime=1, gates_realization=5, born_measurement=2)
-        @test_throws ArgumentError QCM.build_operator(HaarRandom(3), sites2, 2; rng=reg)
-        @test_throws ArgumentError QCM.build_operator(HaarRandom(2), sites2[1], 2; rng=reg)
+        reg = RNGRegistry(gates_spacetime = 1, gates_realization = 5, born_measurement = 2)
+        @test_throws ArgumentError QCM.build_operator(HaarRandom(3), sites2, 2; rng = reg)
+        @test_throws ArgumentError QCM.build_operator(HaarRandom(2), sites2[1], 2; rng = reg)
     end
 
     @testset "HaarRandom apply! end-to-end (norm preserved)" begin
@@ -221,7 +222,8 @@ end
     # =====================================================================
     @testset "Named parametrized gates: exact matrices" begin
         θ = 1.234
-        @test QCM.gate_matrix(Rx(θ)) == ComplexF64[cos(θ/2) -im*sin(θ/2); -im*sin(θ/2) cos(θ/2)]
+        @test QCM.gate_matrix(Rx(θ)) ==
+              ComplexF64[cos(θ/2) -im*sin(θ/2); -im*sin(θ/2) cos(θ/2)]
         @test QCM.gate_matrix(Ry(θ)) == ComplexF64[cos(θ/2) -sin(θ/2); sin(θ/2) cos(θ/2)]
         @test QCM.gate_matrix(Rz(θ)) == ComplexF64[exp(-im*θ/2) 0; 0 exp(im*θ/2)]
 
@@ -306,7 +308,6 @@ end
     # ProductGate (Task 11): product layer as ONE gate (K = 1 in outcomes)
     # =====================================================================
     @testset "ProductGate (v0.1)" begin
-
         @testset "construction validation" begin
             pg = ProductGate(HaarRandom(), Bricklayer(:even))
             @test pg.inner isa HaarRandom
@@ -332,9 +333,12 @@ end
         end
 
         @testset "canonical region" begin
-            @test QCM._product_region(ProductGate(CZ(), Bricklayer(:even)), 8, :periodic) == collect(1:8)
-            @test QCM._product_region(ProductGate(CZ(), Bricklayer(:even)), 8, :open) == collect(2:7)
-            @test QCM._product_region(ProductGate(PauliX(), EachSite(2:5)), 8, :periodic) == collect(2:5)
+            @test QCM._product_region(ProductGate(CZ(), Bricklayer(:even)), 8, :periodic) ==
+                  collect(1:8)
+            @test QCM._product_region(ProductGate(CZ(), Bricklayer(:even)), 8, :open) ==
+                  collect(2:7)
+            @test QCM._product_region(ProductGate(PauliX(), EachSite(2:5)), 8, :periodic) ==
+                  collect(2:5)
         end
 
         @testset "eager apply! == element-wise inner application (RNG per element)" begin
@@ -379,7 +383,7 @@ end
             L = 8
             pg = ProductGate(CZ(), Bricklayer(:odd))
             # omitted geometry records Sites(union)
-            c = Circuit(L=L, bc=:periodic) do c
+            c = Circuit(L = L, bc = :periodic) do c
                 apply!(c, pg)
             end
             @test length(c.operations) == 1
@@ -387,34 +391,34 @@ end
             @test c.operations[1].geometry isa Sites
             @test sort(c.operations[1].geometry.sites) == collect(1:L)
             # explicit Sites(union) accepted
-            c2 = Circuit(L=L, bc=:periodic) do c
+            c2 = Circuit(L = L, bc = :periodic) do c
                 apply!(c, pg, Sites(1:L))
             end
             @test c2.operations[1].geometry isa Sites
             # wrong region / wrong geometry error at BUILD time
-            @test_throws ArgumentError Circuit(L=L, bc=:periodic) do c
+            @test_throws ArgumentError Circuit(L = L, bc = :periodic) do c
                 apply!(c, pg, Sites(1:4))
             end
-            @test_throws ArgumentError Circuit(L=L, bc=:periodic) do c
+            @test_throws ArgumentError Circuit(L = L, bc = :periodic) do c
                 apply!(c, pg, Bricklayer(:odd))
             end
         end
 
         @testset "deterministic circuit: L/2 inner applications in canonical order" begin
             L = 8
-            c = Circuit(L=L, bc=:periodic) do c
+            c = Circuit(L = L, bc = :periodic) do c
                 apply!(c, ProductGate(CZ(), Bricklayer(:odd)))
             end
-            state = SimulationState(L=L, bc=:periodic, maxdim=64,
-                rng=RNGRegistry(gates_spacetime=1, gates_realization=2, born_measurement=3),
-                log_events=true)
-            initialize!(state, ProductState(binary_int=0))
-            simulate!(c, state; n_steps=1)
+            state = SimulationState(L = L, bc = :periodic, maxdim = 64,
+                rng = RNGRegistry(gates_spacetime = 1, gates_realization = 2, born_measurement = 3),
+                log_events = true)
+            initialize!(state, ProductState(binary_int = 0))
+            simulate!(c, state; n_steps = 1)
             evs = [e for e in QCM.events(state) if e isa GateApplied]
             cz = [e for e in evs if e.gate_label == "CZ"]
             @test length(cz) == L ÷ 2
             @test [e.sites for e in cz] == elements(Bricklayer(:odd), L, :periodic)
-            @test [e.element_idx for e in cz] == collect(1:L÷2)
+            @test [e.element_idx for e in cz] == collect(1:(L ÷ 2))
             @test all(e.step == 1 for e in cz)
             # engine wrapper event carries the product label + union region
             wrap = [e for e in evs if e.gate_label == "∏CZ"]
@@ -425,22 +429,24 @@ end
         @testset "correlated layer choice: K=1, never mixed within a step" begin
             L = 8
             n_steps = 20
-            c = Circuit(L=L, bc=:periodic) do c
-                apply_with_prob!(c; outcomes=[
-                    (probability=0.5, gate=ProductGate(HaarRandom(), Bricklayer(:even)),
-                     geometry=Sites(1:L)),
-                    (probability=0.5, gate=ProductGate(CZ(), Bricklayer(:even)),
-                     geometry=Sites(1:L)),
-                ])
+            c = Circuit(L = L, bc = :periodic) do c
+                apply_with_prob!(c;
+                    outcomes = [
+                        (probability = 0.5,
+                            gate = ProductGate(HaarRandom(), Bricklayer(:even)),
+                            geometry = Sites(1:L)),
+                        (probability = 0.5, gate = ProductGate(CZ(), Bricklayer(:even)),
+                            geometry = Sites(1:L))
+                    ])
             end
             # the whole product is ONE element (K = 1): one coin per step
             @test expected_draws(c, n_steps) == n_steps
             seed = 42
-            state = SimulationState(L=L, bc=:periodic, maxdim=64,
-                rng=RNGRegistry(gates_spacetime=seed, gates_realization=2, born_measurement=3),
-                log_events=true)
-            initialize!(state, ProductState(binary_int=0))
-            simulate!(c, state; n_steps=n_steps)
+            state = SimulationState(L = L, bc = :periodic, maxdim = 64,
+                rng = RNGRegistry(gates_spacetime = seed, gates_realization = 2, born_measurement = 3),
+                log_events = true)
+            initialize!(state, ProductState(binary_int = 0))
+            simulate!(c, state; n_steps = n_steps)
             evs = [e for e in QCM.events(state) if e isa GateApplied]
             saw_haar_step = false
             saw_cz_step = false
@@ -448,7 +454,8 @@ end
                 labels = Set(e.gate_label for e in evs if e.step == s)
                 # per step: ALL-Haar or ALL-CZ, never mixed
                 @test labels == Set(["Haar", "∏Haar"]) || labels == Set(["CZ", "∏CZ"])
-                inner_evs = [e for e in evs if e.step == s && e.gate_label in ("Haar", "CZ")]
+                inner_evs = [e
+                             for e in evs if e.step == s && e.gate_label in ("Haar", "CZ")]
                 @test length(inner_evs) == L ÷ 2   # full layer each step (Σp = 1)
                 saw_haar_step |= ("Haar" in labels)
                 saw_cz_step |= ("CZ" in labels)
@@ -465,10 +472,10 @@ end
 
         @testset "measurement inner gate (Born sampling per element)" begin
             L = 4
-            state = SimulationState(L=L, bc=:periodic, maxdim=64,
-                rng=RNGRegistry(gates_spacetime=1, gates_realization=2, born_measurement=3),
-                log_events=true)
-            initialize!(state, ProductState(binary_int=0))
+            state = SimulationState(L = L, bc = :periodic, maxdim = 64,
+                rng = RNGRegistry(gates_spacetime = 1, gates_realization = 2, born_measurement = 3),
+                log_events = true)
+            initialize!(state, ProductState(binary_int = 0))
             apply!(state, Hadamard(), SingleSite(1))
             pg = ProductGate(Measurement(:Z), AllSites())
             @test QCM.is_measurement(pg)   # trait delegates to inner
@@ -483,5 +490,4 @@ end
             @test_throws ArgumentError QCM.compute_sites(Sites([9]), 1, 8, :periodic)
         end
     end
-
 end

@@ -64,7 +64,10 @@ function _measure_single_site!(state::SimulationState{CliffordBackend}, site::In
     else
         born_measurement_rng = get_rng(state.rng_registry, :born_measurement)
         o = rand(born_measurement_rng) < 0.5 ? 0 : 1
-        QuantumClifford.phases(QuantumClifford.stabilizerview(state.backend.tableau))[anticom_index] = (o == 0 ? 0x00 : 0x02)
+        QuantumClifford.phases(QuantumClifford.stabilizerview(state.backend.tableau))[anticom_index] = (o ==
+                                                                                                        0 ?
+                                                                                                        0x00 :
+                                                                                                        0x02)
         o
     end
     if state.event_log !== nothing

@@ -6,7 +6,7 @@ Observable for Born rule probability P(measurement outcome | state) at a physica
 struct BornProbability <: AbstractObservable
     site::Int      # Physical site index
     outcome::Int   # 0 or 1
-    
+
     function BornProbability(site::Int, outcome::Int)
         outcome in (0, 1) || throw(ArgumentError("outcome must be 0 or 1"))
         new(site, outcome)
@@ -27,11 +27,11 @@ Converts physical site to RAM index for MPS access.
 function born_probability(state, physical_site::Int, outcome::Int)
     # Convert physical site to RAM index
     ram_idx = state.phy_ram[physical_site]
-    
+
     # Use ITensorMPS expect() with projector operator
     # Proj0 = |0⟩⟨0|, Proj1 = |1⟩⟨1|
     proj_op = outcome == 0 ? "Proj0" : "Proj1"
-    
+
     # expect() returns Vector for all sites, index by RAM position
     # Divide by ⟨ψ|ψ⟩ to handle slight norm drift; for normalized MPS this is a no-op.
     mps_norm_sq = real(inner(state.backend.mps, state.backend.mps))

@@ -40,12 +40,12 @@ Outcomes without a registered gate are left untouched. Duplicate outcome
 keys and empty argument lists are `ArgumentError`s.
 """
 struct OnOutcome <: AbstractFeedback
-    actions::Dict{Int,AbstractGate}
+    actions::Dict{Int, AbstractGate}
 
-    function OnOutcome(pairs::Pair{Int,<:AbstractGate}...)
+    function OnOutcome(pairs::Pair{Int, <:AbstractGate}...)
         isempty(pairs) && throw(ArgumentError(
             "OnOutcome requires at least one `outcome => gate` pair, e.g. OnOutcome(1 => PauliX())"))
-        actions = Dict{Int,AbstractGate}()
+        actions = Dict{Int, AbstractGate}()
         for (outcome, gate) in pairs
             haskey(actions, outcome) && throw(ArgumentError(
                 "OnOutcome: duplicate action for outcome $outcome"))
@@ -76,9 +76,11 @@ end
 _wrap_feedback(::Nothing) = nothing
 _wrap_feedback(fb::AbstractFeedback) = fb
 _wrap_feedback(f::Function) = CallbackFeedback(f)
-_wrap_feedback(x) = throw(ArgumentError(
-    "feedback must be an AbstractFeedback (e.g. OnOutcome(1 => PauliX())) " *
-    "or a function (state, sites, outcome) -> ...; got $(typeof(x))"))
+function _wrap_feedback(x)
+    throw(ArgumentError(
+        "feedback must be an AbstractFeedback (e.g. OnOutcome(1 => PauliX())) " *
+        "or a function (state, sites, outcome) -> ...; got $(typeof(x))"))
+end
 
 """
     Measure(basis::Symbol=:Z; feedback=nothing)
@@ -116,10 +118,11 @@ support `feedback=` in v0.1 (informative error).
 """
 struct Measure <: AbstractGate
     basis::Symbol
-    feedback::Union{Nothing,AbstractFeedback}
+    feedback::Union{Nothing, AbstractFeedback}
 
-    function Measure(basis::Symbol=:Z; feedback=nothing)
-        basis == :Z || throw(ArgumentError("Only :Z basis supported currently. Got: $basis"))
+    function Measure(basis::Symbol = :Z; feedback = nothing)
+        basis == :Z ||
+            throw(ArgumentError("Only :Z basis supported currently. Got: $basis"))
         return new(basis, _wrap_feedback(feedback))
     end
 end

@@ -12,7 +12,7 @@ For two-qubit gates, the pair is (position, position+1) with PBC wrap.
 """
 mutable struct Pointer <: AbstractGeometry
     _position::Int
-    
+
     Pointer(start::Int) = new(start)
 end
 
@@ -45,7 +45,7 @@ Move the pointer in the specified direction.
 
 This is the PUBLIC API for pointer movement, unlike advance!() which is internal.
 """
-function move!(p::Pointer, direction::Symbol, L::Int, bc::Symbol=:periodic)
+function move!(p::Pointer, direction::Symbol, L::Int, bc::Symbol = :periodic)
     if direction == :left
         if bc == :periodic
             p._position = p._position == 1 ? L : p._position - 1

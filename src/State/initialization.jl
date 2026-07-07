@@ -45,12 +45,12 @@ struct ProductState <: AbstractInitialState
     binary_decimal::Union{Nothing, Float64}
     bitstring::Union{Nothing, String}
     spin_state::Union{Nothing, String}
-    
-    function ProductState(; 
-        binary_int::Union{Nothing, Integer}=nothing,
-        binary_decimal::Union{Nothing, AbstractFloat}=nothing,
-        bitstring::Union{Nothing, AbstractString}=nothing,
-        spin_state::Union{Nothing, AbstractString}=nothing
+
+    function ProductState(;
+            binary_int::Union{Nothing, Integer} = nothing,
+            binary_decimal::Union{Nothing, AbstractFloat} = nothing,
+            bitstring::Union{Nothing, AbstractString} = nothing,
+            spin_state::Union{Nothing, AbstractString} = nothing
     )
         # Validate exactly one parameter is specified
         params_specified = sum([
@@ -59,7 +59,7 @@ struct ProductState <: AbstractInitialState
             bitstring !== nothing,
             spin_state !== nothing
         ])
-        
+
         if params_specified == 0
             throw(ArgumentError(
                 "ProductState requires exactly one of: binary_int, binary_decimal, bitstring, or spin_state"
@@ -69,23 +69,23 @@ struct ProductState <: AbstractInitialState
                 "ProductState requires exactly one of: binary_int, binary_decimal, bitstring, or spin_state"
             ))
         end
-        
+
         # Convert to appropriate types
         bi = binary_int === nothing ? nothing : BigInt(binary_int)
         bd = binary_decimal === nothing ? nothing : Float64(binary_decimal)
         bs = bitstring === nothing ? nothing : String(bitstring)
         ss = spin_state === nothing ? nothing : String(spin_state)
-        
+
         # Validate bitstring contains only 0/1
         if bs !== nothing && !all(c in ('0', '1') for c in bs)
             throw(ArgumentError("bitstring must contain only '0' and '1' characters"))
         end
-        
+
         # Validate spin_state is not empty
         if ss !== nothing && isempty(ss)
             throw(ArgumentError("spin_state cannot be an empty string"))
         end
-        
+
         return new(bi, bd, bs, ss)
     end
 end
@@ -98,7 +98,7 @@ Requires RNGRegistry with :state_init stream.
 """
 struct RandomMPS <: AbstractInitialState
     bond_dim::Int
-    
+
     function RandomMPS(; bond_dim::Int = 1)
         return new(bond_dim)
     end
@@ -113,7 +113,7 @@ Uses CT.jl MSB ordering: site 1 = MSB, site L = LSB.
 """
 function initialize!(state::SimulationState, init::ProductState)
     L = state.L
-    
+
     # Handle uniform spin_state branch early
     if init.spin_state !== nothing
         state_names_physical = fill(init.spin_state, L)
@@ -122,11 +122,11 @@ function initialize!(state::SimulationState, init::ProductState)
         state.backend.mps = MPS(state.backend.sites, ram_state_names)
         return nothing
     end
-    
+
     # Convert init specification to bit pattern string
     bit_pattern_str::String = if init.binary_int !== nothing
         # Convert integer to binary string, padded to L digits
-        lpad(string(init.binary_int, base=2), L, "0")
+        lpad(string(init.binary_int, base = 2), L, "0")
     elseif init.binary_decimal !== nothing
         # Parse binary decimal: 0.101 → "101"
         decimal_str = string(init.binary_decimal)
@@ -159,10 +159,10 @@ function initialize!(state::SimulationState, init::ProductState)
     else
         throw(ArgumentError("ProductState has no initialization method specified"))
     end
-    
+
     # bit_pattern_str[i] is the bit value at PHYSICAL site i (MSB at site 1)
     vec_int_pos = [string(c) for c in bit_pattern_str]
-    
+
     # Map to state names based on site_type
     site_type = state.site_type
     state_names_physical = if site_type == "Qubit"
@@ -180,14 +180,14 @@ function initialize!(state::SimulationState, init::ProductState)
     else
         throw(ArgumentError("Unknown site_type: $site_type"))
     end
-    
+
     # Reorder to RAM order using ram_phy
     # ram_state_names[ram_idx] = state name for RAM site ram_idx
     ram_state_names = [state_names_physical[state.ram_phy[i]] for i in 1:L]
-    
+
     # Create MPS from state names
     state.backend.mps = MPS(state.backend.sites, ram_state_names)
-    
+
     return nothing
 end
 
@@ -205,12 +205,12 @@ function initialize!(state::SimulationState, init::RandomMPS)
             "state = SimulationState(..., rng=RNGRegistry(...))"
         ))
     end
-    
+
     # Use ITensorMPS randomMPS with specified bond dimension
     # Note: ITensorMPS 0.3+ uses Random.default_rng() internally
     # For reproducibility with our RNG, we'd need to seed it
     # For now, just use the specified bond_dim
-    state.backend.mps = randomMPS(state.backend.sites; linkdims=init.bond_dim)
-    
+    state.backend.mps = randomMPS(state.backend.sites; linkdims = init.bond_dim)
+
     return nothing
 end

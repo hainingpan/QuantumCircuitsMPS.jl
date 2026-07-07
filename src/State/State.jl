@@ -36,7 +36,7 @@ Supported site_type values:
 - "S=1": spin-1 (local_dim=3)
 - "Qudit": arbitrary dimension (requires local_dim parameter)
 """
-mutable struct SimulationState{B<:AbstractBackend}
+mutable struct SimulationState{B <: AbstractBackend}
     backend::B
     phy_ram::Vector{Int}
     ram_phy::Vector{Int}
@@ -105,38 +105,40 @@ Parameters:
 For "Qudit" site type, local_dim specifies the dimension (e.g., local_dim=4 for d=4).
 """
 function SimulationState(;
-    L::Int,
-    bc::Symbol,
-    site_type::String = "Qubit",
-    local_dim::Int = 2,
-    cutoff::Float64 = 1e-10,
-    maxdim::Int = 100,
-    rng = nothing,  # RNGRegistry, attached later or passed here
-    log_events::Bool = false,
-    backend::Symbol = :mps,
-    engine::Symbol = :builtin,
-    pbc_fold_start::Int = L÷4+1
+        L::Int,
+        bc::Symbol,
+        site_type::String = "Qubit",
+        local_dim::Int = 2,
+        cutoff::Float64 = 1e-10,
+        maxdim::Int = 100,
+        rng = nothing,  # RNGRegistry, attached later or passed here
+        log_events::Bool = false,
+        backend::Symbol = :mps,
+        engine::Symbol = :builtin,
+        pbc_fold_start::Int = L÷4+1
 )
     # Validate bc
-    bc in (:open, :periodic) || throw(ArgumentError("bc must be :open or :periodic, got $bc"))
-    engine in (:builtin, :optimized) || throw(ArgumentError("engine must be :builtin or :optimized, got $engine"))
-    
+    bc in (:open, :periodic) ||
+        throw(ArgumentError("bc must be :open or :periodic, got $bc"))
+    engine in (:builtin, :optimized) ||
+        throw(ArgumentError("engine must be :builtin or :optimized, got $engine"))
+
     # Auto-detect local_dim from site_type if not explicitly set
     if site_type == "S=1" && local_dim == 2  # default not overridden
         local_dim = 3
     end
-    
+
     if backend == :mps
         # Compute basis mapping (OBC works now, PBC throws until Task 4)
-        phy_ram, ram_phy = compute_basis_mapping(L, bc; pbc_fold_start=pbc_fold_start)
-        
+        phy_ram, ram_phy = compute_basis_mapping(L, bc; pbc_fold_start = pbc_fold_start)
+
         # Create site indices in RAM order
         if site_type == "Qudit"
-            sites = siteinds("Qudit", L; dim=local_dim)
+            sites = siteinds("Qudit", L; dim = local_dim)
         else
             sites = siteinds(site_type, L)
         end
-        
+
         backend_obj = MPSBackend(nothing, sites, cutoff, maxdim)
     elseif backend == :statevector
         # No MPS bond-dimension folding concept for state vectors: identity mapping.
@@ -155,7 +157,7 @@ function SimulationState(;
     else
         throw(ArgumentError("backend must be :mps, :statevector, or :clifford, got $backend"))
     end
-    
+
     # Return state with backend's underlying state = nothing (deferred to initialize!)
     return SimulationState(
         backend_obj,

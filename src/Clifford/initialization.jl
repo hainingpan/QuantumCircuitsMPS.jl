@@ -33,7 +33,7 @@ function initialize!(state::SimulationState{CliffordBackend}, init::ProductState
     # MPS/StateVector paths)
     bit_pattern_str::String = if init.binary_int !== nothing
         # Convert integer to binary string, padded to L digits
-        lpad(string(init.binary_int, base=2), L, "0")
+        lpad(string(init.binary_int, base = 2), L, "0")
     elseif init.binary_decimal !== nothing
         # Parse binary decimal: 0.101 → "101"
         decimal_str = string(init.binary_decimal)

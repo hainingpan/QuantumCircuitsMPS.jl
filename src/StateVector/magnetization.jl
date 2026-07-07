@@ -14,7 +14,8 @@ Only the `:Z` axis is currently supported for the state-vector backend;
 backend, but no state-vector implementation exists for them yet).
 """
 function (m::Magnetization)(state::SimulationState{StateVectorBackend})
-    m.axis == :Z || throw(ArgumentError("Magnetization for the state-vector backend currently only supports :Z axis, got $(m.axis)"))
+    m.axis == :Z ||
+        throw(ArgumentError("Magnetization for the state-vector backend currently only supports :Z axis, got $(m.axis)"))
     L = state.L
     d = state.local_dim
     ψ = state.backend.ψ

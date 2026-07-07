@@ -50,9 +50,11 @@ apply! loops internally over all pairs.
 """
 struct Bricklayer <: AbstractGeometry
     parity::Symbol
-    
+
     function Bricklayer(parity::Symbol)
-        parity in (:odd, :even, :nn, :nnn, :nnn_odd_1, :nnn_odd_2, :nnn_even_1, :nnn_even_2) || throw(ArgumentError("Bricklayer parity must be :odd, :even, :nn, :nnn, :nnn_odd_1, :nnn_odd_2, :nnn_even_1, or :nnn_even_2, got $parity"))
+        parity in
+        (:odd, :even, :nn, :nnn, :nnn_odd_1, :nnn_odd_2, :nnn_even_1, :nnn_even_2) ||
+            throw(ArgumentError("Bricklayer parity must be :odd, :even, :nn, :nnn, :nnn_odd_1, :nnn_odd_2, :nnn_even_1, or :nnn_even_2, got $parity"))
         new(parity)
     end
 end

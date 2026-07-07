@@ -14,7 +14,8 @@ struct Magnetization <: AbstractObservable
     axis::Symbol
 
     function Magnetization(axis::Symbol)
-        axis in (:X, :Y, :Z) || throw(ArgumentError("Magnetization axis must be :X, :Y, or :Z"))
+        axis in (:X, :Y, :Z) ||
+            throw(ArgumentError("Magnetization axis must be :X, :Y, or :Z"))
         new(axis)
     end
 end

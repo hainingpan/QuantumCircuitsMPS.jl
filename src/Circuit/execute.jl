@@ -192,11 +192,12 @@ end
 - `every_n_gates`, `every_n_steps`: Helper functions for common patterns
 """
 function simulate!(circuit::Circuit, state::SimulationState;
-                   n_steps::Int=1,
-                   record_when::Union{Symbol,Function}=:every_step)
+        n_steps::Int = 1,
+        record_when::Union{Symbol, Function} = :every_step)
     # Validation
     n_steps >= 1 || throw(ArgumentError("n_steps must be >= 1, got $n_steps"))
-    if record_when isa Symbol && record_when ∉ (:every_step, :every_gate, :final_only, :marks)
+    if record_when isa Symbol &&
+       record_when ∉ (:every_step, :every_gate, :final_only, :marks)
         throw(ArgumentError("Unknown record_when symbol: $record_when. Valid options: :every_step, :every_gate, :final_only, :marks"))
     end
 
@@ -220,7 +221,7 @@ function simulate!(circuit::Circuit, state::SimulationState;
     # Marker ordinals: 1-based position among the circuit's :record_mark
     # pseudo-ops (stable across steps) — exposed to predicates as
     # ctx.mark_index.
-    mark_ordinals = Dict{Int,Int}()
+    mark_ordinals = Dict{Int, Int}()
     let m = 0
         for (i, op) in enumerate(circuit.operations)
             if op.type == :record_mark
@@ -252,10 +253,13 @@ function simulate!(circuit::Circuit, state::SimulationState;
                         set_event_context!(state, step, op_idx, element_idx)
                         execute!(state, op.gate, sites)
                         if state.event_log !== nothing
-                            log_event!(state, GateApplied(step, op_idx, element_idx, gate_label(op.gate), sites))
+                            log_event!(state,
+                                GateApplied(
+                                    step, op_idx, element_idx, gate_label(op.gate), sites))
                         end
                         gate_idx += 1
-                        ctx = RecordingContext(step, gate_idx, op_idx, element_idx, op.gate, false, false, 0)
+                        ctx = RecordingContext(
+                            step, gate_idx, op_idx, element_idx, op.gate, false, false, 0)
                         set_flag, record_now = _evaluate_recording(record_when, ctx, step, n_steps)
                         should_record_this_step |= set_flag
                         record_now && record!(state)
@@ -263,18 +267,21 @@ function simulate!(circuit::Circuit, state::SimulationState;
                 else
                     # Set geometry: a single region (support-aware for
                     # staircases via compute_sites_dispatch).
-                    sites = compute_sites_dispatch(geo, op.gate, step, circuit.L, circuit.bc)
+                    sites = compute_sites_dispatch(
+                        geo, op.gate, step, circuit.L, circuit.bc)
                     set_event_context!(state, step, op_idx, 1)
                     execute!(state, op.gate, sites)
                     if state.event_log !== nothing
-                        log_event!(state, GateApplied(step, op_idx, 1, gate_label(op.gate), sites))
+                        log_event!(state, GateApplied(
+                            step, op_idx, 1, gate_label(op.gate), sites))
                     end
                     # Advance staircase after deterministic application
                     if geo isa AbstractStaircase
                         advance!(geo, circuit.L, circuit.bc)
                     end
                     gate_idx += 1
-                    ctx = RecordingContext(step, gate_idx, op_idx, 1, op.gate, false, false, 0)
+                    ctx = RecordingContext(
+                        step, gate_idx, op_idx, 1, op.gate, false, false, 0)
                     set_flag, record_now = _evaluate_recording(record_when, ctx, step, n_steps)
                     should_record_this_step |= set_flag
                     record_now && record!(state)
@@ -294,9 +301,10 @@ function simulate!(circuit::Circuit, state::SimulationState;
                 # Precompute broadcast element lists (fixed within the op);
                 # set geometries resolve lazily at selection time because
                 # staircase/Pointer positions are mutable and support-aware.
-                elem_lists = Union{Nothing, Vector{Vector{Int}}}[
-                    is_broadcast(o.geometry) ? elements(o.geometry, circuit.L, circuit.bc) : nothing
-                    for o in outcomes]
+                elem_lists = Union{Nothing, Vector{Vector{Int}}}[is_broadcast(o.geometry) ?
+                                                                 elements(o.geometry, circuit.L, circuit.bc) :
+                                                                 nothing
+                                                                 for o in outcomes]
 
                 for k in 1:K
                     sel = select_outcome_index(actual_rng, probs)
@@ -304,12 +312,14 @@ function simulate!(circuit::Circuit, state::SimulationState;
                     if sel != 0
                         outcome = outcomes[sel]
                         sites = elem_lists[sel] === nothing ?
-                            compute_sites_dispatch(outcome.geometry, outcome.gate, step, circuit.L, circuit.bc) :
-                            elem_lists[sel][k]
+                                compute_sites_dispatch(
+                            outcome.geometry, outcome.gate, step, circuit.L, circuit.bc) :
+                                elem_lists[sel][k]
                         set_event_context!(state, step, op_idx, k)
                         execute!(state, outcome.gate, sites)
                         if state.event_log !== nothing
-                            log_event!(state, GateApplied(step, op_idx, k, gate_label(outcome.gate), sites))
+                            log_event!(state, GateApplied(
+                                step, op_idx, k, gate_label(outcome.gate), sites))
                         end
                         # Advance only the SELECTED staircase; identity does
                         # NOT advance (guarded against at build time by the
@@ -322,7 +332,8 @@ function simulate!(circuit::Circuit, state::SimulationState;
                     end
                     # Element-slot counter advances REGARDLESS of outcome.
                     gate_idx += 1
-                    ctx = RecordingContext(step, gate_idx, op_idx, k, applied_gate, false, false, 0)
+                    ctx = RecordingContext(
+                        step, gate_idx, op_idx, k, applied_gate, false, false, 0)
                     set_flag, record_now = _evaluate_recording(record_when, ctx, step, n_steps)
                     should_record_this_step |= set_flag
                     # :every_gate records only on actual gate application
@@ -344,7 +355,8 @@ function simulate!(circuit::Circuit, state::SimulationState;
                     # Predicates see marks as events (at_mark=true); a true
                     # return uses the usual flag semantics — ONE record at
                     # the end of the step.
-                    ctx = RecordingContext(step, gate_idx, op_idx, 0, nothing, false, true, mark_index)
+                    ctx = RecordingContext(
+                        step, gate_idx, op_idx, 0, nothing, false, true, mark_index)
                     set_flag, _ = _evaluate_recording(record_when, ctx, step, n_steps)
                     should_record_this_step |= set_flag
                 end

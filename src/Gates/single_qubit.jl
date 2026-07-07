@@ -23,9 +23,10 @@ outcome=0 projects onto |0⟩, outcome=1 projects onto |1⟩.
 """
 struct Projection <: AbstractGate
     outcome::Int
-    
+
     function Projection(outcome::Int)
-        outcome in (0, 1) || throw(ArgumentError("Projection outcome must be 0 or 1, got $outcome"))
+        outcome in (0, 1) ||
+            throw(ArgumentError("Projection outcome must be 0 or 1, got $outcome"))
         new(outcome)
     end
 end

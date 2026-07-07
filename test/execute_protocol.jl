@@ -34,22 +34,21 @@ function QuantumCircuitsMPS.execute!(state::SimulationState, ::MyFlipExecuteTest
     return nothing
 end
 
-function _fresh_state(; L=4, bc=:periodic, site_type="Qubit", maxdim=64,
-                        seeds=(gates_spacetime=42, gates_realization=2, born_measurement=3))
-    state = SimulationState(L=L, bc=bc, site_type=site_type, maxdim=maxdim,
-        rng=RNGRegistry(gates_spacetime=seeds.gates_spacetime,
-                        gates_realization=seeds.gates_realization,
-                        born_measurement=seeds.born_measurement))
+function _fresh_state(; L = 4, bc = :periodic, site_type = "Qubit", maxdim = 64,
+        seeds = (gates_spacetime = 42, gates_realization = 2, born_measurement = 3))
+    state = SimulationState(L = L, bc = bc, site_type = site_type, maxdim = maxdim,
+        rng = RNGRegistry(gates_spacetime = seeds.gates_spacetime,
+            gates_realization = seeds.gates_realization,
+            born_measurement = seeds.born_measurement))
     if site_type == "S=1"
-        initialize!(state, ProductState(spin_state="Z0"))
+        initialize!(state, ProductState(spin_state = "Z0"))
     else
-        initialize!(state, ProductState(binary_int=0))
+        initialize!(state, ProductState(binary_int = 0))
     end
     return state
 end
 
 @testset "execute! protocol + traits" begin
-
     @testset "trait defaults and opt-ins" begin
         # needs_normalization: default false for unitaries & measurement-like gates
         @test QuantumCircuitsMPS.needs_normalization(PauliX()) == false
@@ -93,7 +92,8 @@ end
     @testset "execute! validates support vs region size" begin
         state = _fresh_state()
         @test_throws ArgumentError QuantumCircuitsMPS.execute!(state, PauliX(), [1, 2])
-        @test_throws ArgumentError QuantumCircuitsMPS.execute!(state, Measurement(:Z), [1, 2])
+        @test_throws ArgumentError QuantumCircuitsMPS.execute!(state, Measurement(:Z), [
+            1, 2])
         @test_throws ArgumentError QuantumCircuitsMPS.execute!(state, Reset(), [1, 2])
     end
 
@@ -146,7 +146,7 @@ end
 
     @testset "staircase/Pointer with 1-site gates: position semantics + advance" begin
         # Reset on a staircase applies at the CURRENT position, then advances
-        state = _fresh_state(L=4)
+        state = _fresh_state(L = 4)
         for i in 1:4
             apply!(state, PauliX(), SingleSite(i))  # |1111>
         end
@@ -157,7 +157,7 @@ end
         @test current_position(sc) == 3                          # advanced
 
         # Measurement on a staircase: same position semantics
-        state2 = _fresh_state(L=4)
+        state2 = _fresh_state(L = 4)
         apply!(state2, PauliX(), SingleSite(3))
         sc2 = StaircaseLeft(3)
         apply!(state2, Measurement(:Z), sc2)
@@ -165,7 +165,7 @@ end
         @test current_position(sc2) == 2
 
         # Pointer: 1-site gate at position, NO auto-advance
-        state3 = _fresh_state(L=4)
+        state3 = _fresh_state(L = 4)
         apply!(state3, PauliX(), SingleSite(2))
         ptr = Pointer(2)
         apply!(state3, Reset(), ptr)
@@ -173,7 +173,7 @@ end
         @test current_position(ptr) == 2  # unchanged
 
         # Staircase with a 2-site gate still applies at the pair (existing behavior)
-        state4 = _fresh_state(L=4)
+        state4 = _fresh_state(L = 4)
         sc4 = StaircaseRight(1)
         apply!(state4, HaarRandom(), sc4)
         @test current_position(sc4) == 2
@@ -199,16 +199,16 @@ end
     @testset "SpinSectorMeasurement Born path preserved through execute!" begin
         # Z0 x Z0 two-spin-1 state: overlaps S=0,1,2 sectors; forced to {0,1}
         # (OBC so physical sites 1,2 are RAM-adjacent, as SpinSector* requires)
-        state = _fresh_state(L=4, bc=:open, site_type="S=1", maxdim=128)
+        state = _fresh_state(L = 4, bc = :open, site_type = "S=1", maxdim = 128)
         gate = SpinSectorMeasurement([0, 1])
         apply!(state, gate, AdjacentPair(1))
         @test norm(state.mps) ≈ 1.0 atol = 1e-10  # trait-normalized after collapse
 
         # Determinism: same seeds -> same collapsed state (RAM-order ⟨Sz⟩)
-        state_a = _fresh_state(L=4, bc=:open, site_type="S=1", maxdim=128)
+        state_a = _fresh_state(L = 4, bc = :open, site_type = "S=1", maxdim = 128)
         apply!(state_a, SpinSectorMeasurement([0, 1]), AdjacentPair(1))
         za = ITensorMPS.expect(state_a.mps, "Sz")
-        state_b = _fresh_state(L=4, bc=:open, site_type="S=1", maxdim=128)
+        state_b = _fresh_state(L = 4, bc = :open, site_type = "S=1", maxdim = 128)
         apply!(state_b, SpinSectorMeasurement([0, 1]), AdjacentPair(1))
         zb = ITensorMPS.expect(state_b.mps, "Sz")
         @test za ≈ zb atol = 1e-14
@@ -217,29 +217,29 @@ end
     @testset "Circuit engine uses uniform execute! (Reset in stochastic branch)" begin
         # CIPT-style circuit exercising the engine's Reset path (formerly
         # special-cased in execute_gate!)
-        circuit = Circuit(L=4, bc=:periodic) do c
-            apply_with_prob!(c; outcomes=[
-                (probability=1.0, gate=Reset(), geometry=StaircaseRight(1))
+        circuit = Circuit(L = 4, bc = :periodic) do c
+            apply_with_prob!(c; outcomes = [
+                (probability = 1.0, gate = Reset(), geometry = StaircaseRight(1))
             ])
         end
-        state = _fresh_state(L=4)
+        state = _fresh_state(L = 4)
         for i in 1:4
             apply!(state, PauliX(), SingleSite(i))  # |1111>
         end
-        simulate!(circuit, state; n_steps=4, record_when=:final_only)
+        simulate!(circuit, state; n_steps = 4, record_when = :final_only)
         for i in 1:4
             @test born_probability(state, i, 0) ≈ 1.0 atol = 1e-12
         end
 
         # Measurement through the engine's deterministic compound path
-        circuit2 = Circuit(L=4, bc=:periodic) do c
+        circuit2 = Circuit(L = 4, bc = :periodic) do c
             apply!(c, Measurement(:Z), AllSites())
         end
-        state2 = _fresh_state(L=4)
+        state2 = _fresh_state(L = 4)
         apply!(state2, Hadamard(), SingleSite(1))
-        simulate!(circuit2, state2; n_steps=1, record_when=:final_only)
+        simulate!(circuit2, state2; n_steps = 1, record_when = :final_only)
         p0 = born_probability(state2, 1, 0)
-        @test isapprox(p0, 1.0; atol=1e-12) || isapprox(p0, 0.0; atol=1e-12)  # collapsed
+        @test isapprox(p0, 1.0; atol = 1e-12) || isapprox(p0, 0.0; atol = 1e-12)  # collapsed
         @test norm(state2.mps) ≈ 1.0 atol = 1e-10
     end
 end

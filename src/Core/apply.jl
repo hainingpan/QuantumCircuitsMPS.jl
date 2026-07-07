@@ -226,22 +226,23 @@ function _apply_single!(state::SimulationState, gate::AbstractGate, phy_sites::V
     if support(gate) != length(phy_sites)
         throw(ArgumentError("Gate support $(support(gate)) does not match sites $(length(phy_sites))"))
     end
-    
+
     # Convert physical sites to RAM indices
     ram_sites = [state.phy_ram[ps] for ps in phy_sites]
-    
+
     # Build operator with state.backend.sites indices (in physical pair order)
     op = _build_gate_operator(state, gate, phy_sites, ram_sites)
-    
+
     # Apply operator using CT.jl algorithm
-    apply_op_internal!(state.backend.mps, op, state.backend.sites, state.backend.cutoff, state.backend.maxdim)
-    
+    apply_op_internal!(state.backend.mps, op, state.backend.sites,
+        state.backend.cutoff, state.backend.maxdim)
+
     # Contract 3.5: Normalization via the needs_normalization trait
     # (true for Projection/SpinSectorProjection/SpinSectorMeasurement and any
     # user gate that opts in; unitaries default to false — NO normalize)
     if needs_normalization(gate)
         normalize!(state.backend.mps)
-        truncate!(state.backend.mps; cutoff=state.backend.cutoff)
+        truncate!(state.backend.mps; cutoff = state.backend.cutoff)
     end
 end
 
@@ -250,17 +251,18 @@ end
 
 Build the operator tensor for the gate.
 """
-function _build_gate_operator(state::SimulationState, gate::AbstractGate, phy_sites::Vector{Int}, ram_sites::Vector{Int})
+function _build_gate_operator(state::SimulationState, gate::AbstractGate,
+        phy_sites::Vector{Int}, ram_sites::Vector{Int})
     if length(ram_sites) == 1
         # Single-site gate. rng is passed for gates that need randomness
         # (e.g. HaarRandom(1)); all other single-site gates absorb it via kwargs.
         site_idx = state.backend.sites[ram_sites[1]]
-        return build_operator(gate, site_idx, state.local_dim; rng=state.rng_registry)
+        return build_operator(gate, site_idx, state.local_dim; rng = state.rng_registry)
     else
         # Multi-site gate: use indices in RAM order
         site_indices = [state.backend.sites[rs] for rs in ram_sites]
-        return build_operator(gate, site_indices, state.local_dim; 
-                              rng=state.rng_registry, mps=state.backend.mps, ram_sites=ram_sites)
+        return build_operator(gate, site_indices, state.local_dim;
+            rng = state.rng_registry, mps = state.backend.mps, ram_sites = ram_sites)
     end
 end
 
@@ -271,47 +273,49 @@ Apply operator to MPS following CT.jl algorithm (lines 147-172).
 
 Contract 3.6: Index matching via Index comparison, NOT tag parsing.
 """
-function apply_op_internal!(mps::MPS, op::ITensor, sites::Vector{Index}, cutoff::Float64, maxdim::Int)
+function apply_op_internal!(
+        mps::MPS, op::ITensor, sites::Vector{Index}, cutoff::Float64, maxdim::Int)
     # Get RAM site indices from operator indices (Contract 3.6)
     i_list = get_op_ram_sites(op, sites)
     sort!(i_list)
-    
+
     # Orthogonalize MPS to first site
     orthogonalize!(mps, i_list[1])
-    
+
     # Contract MPS tensors in range
     mps_ij = mps[i_list[1]]
-    for idx in i_list[1]+1:i_list[end]
+    for idx in (i_list[1] + 1):i_list[end]
         mps_ij *= mps[idx]
     end
-    
+
     # Apply operator
     mps_ij *= op
     noprime!(mps_ij)
-    
+
     if length(i_list) == 1
         # Single-site: direct assignment
         mps[i_list[1]] = mps_ij
     else
         # Multi-site: SVD chain reconstruction
         lefttags = (i_list[1] == 1) ? nothing : tags(linkind(mps, i_list[1] - 1))
-        
-        for idx in i_list[1]:i_list[end]-1
+
+        for idx in i_list[1]:(i_list[end] - 1)
             if idx == 1
                 inds1 = [siteind(mps, 1)]
             else
-                inds1 = [findindex(mps[idx-1], lefttags), findindex(mps[idx], "Site")]
+                inds1 = [findindex(mps[idx - 1], lefttags), findindex(mps[idx], "Site")]
             end
-            
+
             lefttags = tags(linkind(mps, idx))
-            U, S, V = svd(mps_ij, inds1; cutoff=cutoff, lefttags=lefttags, maxdim=maxdim)
+            U, S, V = svd(
+                mps_ij, inds1; cutoff = cutoff, lefttags = lefttags, maxdim = maxdim)
             mps[idx] = U
             mps_ij = S * V
         end
-        
+
         mps[i_list[end]] = mps_ij
     end
-    
+
     return nothing
 end
 
@@ -324,13 +328,13 @@ Does NOT parse tags.
 function get_op_ram_sites(op::ITensor, sites::Vector{Index})
     op_inds = inds(op)
     ram_sites = Int[]
-    
+
     for op_idx in op_inds
         # Only process unprimed indices (inputs)
         if plev(op_idx) != 0
             continue
         end
-        
+
         # Find matching site by Index comparison
         found = false
         for (ram_idx, site_idx) in enumerate(sites)
@@ -340,11 +344,11 @@ function get_op_ram_sites(op::ITensor, sites::Vector{Index})
                 break
             end
         end
-        
+
         if !found
             error("Operator index $op_idx not found in state sites")
         end
     end
-    
+
     return ram_sites
 end

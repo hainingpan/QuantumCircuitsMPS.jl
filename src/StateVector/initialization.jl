@@ -22,7 +22,8 @@ Verified outputs: Qubit "0"->[1,0], "1"->[0,1]; S=1 "Up"->[1,0,0], "Z0"->[0,1,0]
 "Dn"->[0,0,1].
 """
 function _local_basis_vector(site_type::String, local_dim::Int, name::String)
-    single_site = site_type == "Qudit" ? siteinds("Qudit", 1; dim=local_dim)[1] : siteinds(site_type, 1)[1]
+    single_site = site_type == "Qudit" ? siteinds("Qudit", 1; dim = local_dim)[1] :
+                  siteinds(site_type, 1)[1]
     t = ITensors.state(single_site, name)
     return Array(t, single_site)
 end
@@ -38,7 +39,8 @@ tensor index, matching the MPS backend's documented MSB convention
 documented in `src/Gates/matrix_gate.jl` (used by `gate_matrix`).
 """
 function _product_state_vector(site_type::String, local_dim::Int, state_names_physical::Vector{String})
-    vecs = [_local_basis_vector(site_type, local_dim, name) for name in state_names_physical]
+    vecs = [_local_basis_vector(site_type, local_dim, name)
+            for name in state_names_physical]
     ψ_real = reduce(kron, vecs)
     return Vector{ComplexF64}(ψ_real)
 end
@@ -73,7 +75,7 @@ function initialize!(state::SimulationState{StateVectorBackend}, init::ProductSt
     # Convert init specification to bit pattern string (identical logic to MPS path)
     bit_pattern_str::String = if init.binary_int !== nothing
         # Convert integer to binary string, padded to L digits
-        lpad(string(init.binary_int, base=2), L, "0")
+        lpad(string(init.binary_int, base = 2), L, "0")
     elseif init.binary_decimal !== nothing
         # Parse binary decimal: 0.101 → "101"
         decimal_str = string(init.binary_decimal)

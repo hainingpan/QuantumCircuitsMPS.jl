@@ -25,7 +25,7 @@ For AKLT: Repeated application of P₀+P₁ should converge to ground state.
 """
 struct SpinSectorProjection <: AbstractGate
     projector::Matrix{Float64}
-    
+
     function SpinSectorProjection(projector::Matrix{Float64})
         # Validate projector is 9×9 (two spin-1 particles)
         size(projector) == (9, 9) || throw(ArgumentError(
@@ -67,8 +67,8 @@ After application, the measurement outcome S can be retrieved from state history
 """
 struct SpinSectorMeasurement <: AbstractGate
     sectors::Vector{Int}
-    
-    function SpinSectorMeasurement(sectors::Vector{Int}=[0, 1, 2]; feedback=nothing)
+
+    function SpinSectorMeasurement(sectors::Vector{Int} = [0, 1, 2]; feedback = nothing)
         # feedback= is NOT supported for SpinSectorMeasurement in v0.1
         # (deferred to v0.2 — see docs/api_surface_v0.1.md). Erroring here is
         # deliberate: silently ignoring it would be an implicit behavior trap.
@@ -102,13 +102,15 @@ Build projector operator for two spin-1 sites.
 Returns ITensor representation of the projector matrix.
 """
 function build_operator(gate::SpinSectorProjection, sites::Vector{<:Index}, local_dim::Int; kwargs...)
-    length(sites) == 2 || throw(ArgumentError("SpinSectorProjection requires exactly 2 sites"))
-    local_dim == 3 || throw(ArgumentError("SpinSectorProjection requires local_dim=3 (spin-1)"))
-    
+    length(sites) == 2 ||
+        throw(ArgumentError("SpinSectorProjection requires exactly 2 sites"))
+    local_dim == 3 ||
+        throw(ArgumentError("SpinSectorProjection requires local_dim=3 (spin-1)"))
+
     # Convert 9×9 matrix to ITensor
     # sites = [site_i, site_j] for two adjacent spins
     site_i, site_j = sites
-    
+
     # Reshape 9×9 matrix to (3,3,3,3) tensor
     # 
     # The 9×9 projector matrix has basis ordering (m1, m2) where:
@@ -125,11 +127,11 @@ function build_operator(gate::SpinSectorProjection, sites::Vector{<:Index}, loca
     #
     # ITensor construction must match: ITensor(data, j, i, j', i')
     proj_tensor = reshape(gate.projector, local_dim, local_dim, local_dim, local_dim)
-    
+
     # Create ITensor with correct index ordering to match matrix basis
     # The reshaped tensor has (m2=site_j fast, m1=site_i slow) for both row and col
     op_tensor = ITensor(proj_tensor, site_j, site_i, site_j', site_i')
-    
+
     return op_tensor
 end
 
@@ -152,60 +154,61 @@ Computes ⟨ψ|P|ψ⟩ by:
 # Returns
 - Probability p = ⟨ψ|P|ψ⟩ (real, non-negative)
 """
-function compute_two_site_born_probability(mps::MPS, projector::Matrix{Float64}, ram_sites::Vector{Int}, local_dim::Int)
+function compute_two_site_born_probability(
+        mps::MPS, projector::Matrix{Float64}, ram_sites::Vector{Int}, local_dim::Int)
     # Get sorted RAM indices (must be adjacent for SpinSectorMeasurement)
     sorted_sites = sort(ram_sites)
     i_ram, j_ram = sorted_sites[1], sorted_sites[2]
-    
+
     # Sanity check: sites must be adjacent
     if j_ram != i_ram + 1
         error("SpinSectorMeasurement requires adjacent sites, got RAM indices $i_ram and $j_ram")
     end
-    
+
     # Get site indices from MPS
     site_i = siteind(mps, i_ram)
     site_j = siteind(mps, j_ram)
-    
+
     # Build projector ITensor with correct index structure
     # Projector is 9×9, reshape to (3,3,3,3) tensor
     # Basis ordering: m2 (site_j) is fast, m1 (site_i) is slow
     proj_tensor = reshape(projector, local_dim, local_dim, local_dim, local_dim)
     P_op = ITensor(proj_tensor, site_j, site_i, site_j', site_i')
-    
+
     # Make copy and orthogonalize to the bond between i and j
     psi = copy(mps)
     orthogonalize!(psi, i_ram)
-    
+
     # Contract the two-site block: T = A_i * A_j
     # When orthogonalized to i_ram, we have ⟨ψ|P|ψ⟩ = ⟨T|P|T⟩ (local expectation)
     T = psi[i_ram] * psi[j_ram]
-    
+
     # Compute ⟨T|P|T⟩ = Tr[T† P T]
     # = (T†)_{j',i'} P_{j',i',j,i} T_{j,i}
     # = sum over all indices of conj(T) * P * T
-    
+
     # Method: compute P|T⟩ first, then contract with conj(T)
     # P_op has indices (j, i, j', i') acting as P_{out, in} = P_{(j,i), (j',i')}
     # We want (P T)_{j', i'} = P_{j',i',j,i} T_{j,i}
     # Then ⟨T|P|T⟩ = conj(T_{j',i'}) (PT)_{j',i'}
-    
+
     # Apply projector: P|T⟩ → has indices (j', i') after contraction over (j, i)
     P_T = T * P_op  # Contracts over site_j and site_i → leaves site_j' and site_i'
-    
+
     # Now compute overlap ⟨T|P|T⟩ = (dag(T) * P_T)
     # dag(T) has same indices but conjugated values
     # To contract with P_T (which has primed indices), we need dag(T) with primed indices
     T_dag_primed = prime(dag(T), "Site")  # Now has indices (site_j', site_i')
-    
+
     # Contract T_dag_primed with P_T
     # Both have (site_j', site_i') plus possibly link indices
     overlap_tensor = T_dag_primed * P_T
-    
+
     # The result should be a scalar (all site indices contracted)
     # Link indices might remain if not at edges - but for orthogonalized MPS at i_ram,
     # the two-site block should give a scalar when contracted properly
     result = scalar(overlap_tensor)
-    
+
     # Return real part, ensuring non-negative (numerical precision)
     return max(real(result), 0.0)
 end
@@ -232,23 +235,26 @@ Implements the Born rule measurement:
 # Returns
 - ITensor projector onto the randomly sampled spin sector
 """
-function build_operator(gate::SpinSectorMeasurement, sites::Vector{<:Index}, local_dim::Int; rng, mps, ram_sites)
-    length(sites) == 2 || throw(ArgumentError("SpinSectorMeasurement requires exactly 2 sites"))
-    local_dim == 3 || throw(ArgumentError("SpinSectorMeasurement requires local_dim=3 (spin-1)"))
-    
+function build_operator(gate::SpinSectorMeasurement, sites::Vector{<:Index},
+        local_dim::Int; rng, mps, ram_sites)
+    length(sites) == 2 ||
+        throw(ArgumentError("SpinSectorMeasurement requires exactly 2 sites"))
+    local_dim == 3 ||
+        throw(ArgumentError("SpinSectorMeasurement requires local_dim=3 (spin-1)"))
+
     # === Step 1: Compute Born probabilities for each allowed sector ===
     probs = Float64[]
     projectors = Matrix{Float64}[]
-    
+
     for S in gate.sectors
         P_S = total_spin_projector(S)
         push!(projectors, P_S)
-        
+
         # Compute ⟨ψ|P_S|ψ⟩ via MPS contraction
         prob = compute_two_site_born_probability(mps, P_S, ram_sites, local_dim)
         push!(probs, prob)
     end
-    
+
     # === Step 2: Normalize probabilities over allowed sectors ===
     total_prob = sum(probs)
     if total_prob < 1e-14
@@ -256,12 +262,12 @@ function build_operator(gate::SpinSectorMeasurement, sites::Vector{<:Index}, loc
               "Probabilities: $probs. The state may already be in an orthogonal sector.")
     end
     probs ./= total_prob
-    
+
     # === Step 3: Sample from the probability distribution ===
     # Get the born_measurement RNG stream for reproducibility
     born_measurement_rng = get_rng(rng, :born_measurement)
     r = rand(born_measurement_rng)
-    
+
     cumprob = 0.0
     chosen_idx = length(probs)  # Default to last if rounding issues
     for (idx, p) in enumerate(probs)
@@ -271,17 +277,17 @@ function build_operator(gate::SpinSectorMeasurement, sites::Vector{<:Index}, loc
             break
         end
     end
-    
+
     # === Step 4: Return the chosen projector as ITensor ===
     P_chosen = projectors[chosen_idx]
     site_i, site_j = sites
-    
+
     # Reshape 9×9 matrix to (3,3,3,3) tensor
     # Same basis ordering as SpinSectorProjection: m2 (site_j) is fast, m1 (site_i) is slow
     proj_tensor = reshape(P_chosen, local_dim, local_dim, local_dim, local_dim)
-    
+
     # Create ITensor with correct index ordering to match matrix basis
     op_tensor = ITensor(proj_tensor, site_j, site_i, site_j', site_i')
-    
+
     return op_tensor
 end

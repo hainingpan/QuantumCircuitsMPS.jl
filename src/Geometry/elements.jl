@@ -102,15 +102,15 @@ function elements end
 function elements(geo::Bricklayer, L::Int, bc::Symbol)
     # CANONICAL enumeration (moved verbatim from get_compound_elements).
     # Order is an API contract — do not change.
-    pairs = Tuple{Int,Int}[]
+    pairs = Tuple{Int, Int}[]
     if geo.parity == :odd
         # NN odd pairs: (1,2), (3,4), (5,6), ...
-        for i in 1:2:L-1
+        for i in 1:2:(L - 1)
             push!(pairs, (i, i+1))
         end
     elseif geo.parity == :even
         # NN even pairs: (2,3), (4,5), ...
-        for i in 2:2:L-1
+        for i in 2:2:(L - 1)
             push!(pairs, (i, i+1))
         end
         # For PBC, also include (L, 1)
@@ -120,10 +120,10 @@ function elements(geo::Bricklayer, L::Int, bc::Symbol)
     elseif geo.parity == :nn
         # All NN pairs: combines :odd and :even
         # For L=12 periodic: 12 pairs covering all bonds
-        for i in 1:2:L-1  # Odd pairs: (1,2), (3,4), ...
+        for i in 1:2:(L - 1)  # Odd pairs: (1,2), (3,4), ...
             push!(pairs, (i, i+1))
         end
-        for i in 2:2:L-1  # Even pairs: (2,3), (4,5), ...
+        for i in 2:2:(L - 1)  # Even pairs: (2,3), (4,5), ...
             push!(pairs, (i, i+1))
         end
         if bc == :periodic
@@ -133,22 +133,22 @@ function elements(geo::Bricklayer, L::Int, bc::Symbol)
         # All NNN pairs: combines 4 sublayers
         # For L=12 periodic: 12 pairs covering all NNN bonds
         # Sublayer 1: (1,3), (5,7), (9,11)
-        for i in 1:4:L-2
+        for i in 1:4:(L - 2)
             push!(pairs, (i, i+2))
         end
         # Sublayer 2: (3,5), (7,9)
-        for i in 3:4:L-2
+        for i in 3:4:(L - 2)
             push!(pairs, (i, i+2))
         end
         if bc == :periodic && L >= 4
             push!(pairs, (L-1, 1))  # (11,1) for L=12
         end
         # Sublayer 3: (2,4), (6,8), (10,12)
-        for i in 2:4:L-2
+        for i in 2:4:(L - 2)
             push!(pairs, (i, i+2))
         end
         # Sublayer 4: (4,6), (8,10)
-        for i in 4:4:L-2
+        for i in 4:4:(L - 2)
             push!(pairs, (i, i+2))
         end
         if bc == :periodic && L >= 4
@@ -156,12 +156,12 @@ function elements(geo::Bricklayer, L::Int, bc::Symbol)
         end
     elseif geo.parity == :nnn_odd_1
         # NNN odd sublayer 1: (1,3), (5,7), (9,11), ... (stride 4, offset 1)
-        for i in 1:4:L-2
+        for i in 1:4:(L - 2)
             push!(pairs, (i, i+2))
         end
     elseif geo.parity == :nnn_odd_2
         # NNN odd sublayer 2: (3,5), (7,9), (11,1), ... (stride 4, offset 3)
-        for i in 3:4:L-2
+        for i in 3:4:(L - 2)
             push!(pairs, (i, i+2))
         end
         if bc == :periodic && L >= 4
@@ -169,12 +169,12 @@ function elements(geo::Bricklayer, L::Int, bc::Symbol)
         end
     elseif geo.parity == :nnn_even_1
         # NNN even sublayer 1: (2,4), (6,8), (10,12), ... (stride 4, offset 2)
-        for i in 2:4:L-2
+        for i in 2:4:(L - 2)
             push!(pairs, (i, i+2))
         end
     elseif geo.parity == :nnn_even_2
         # NNN even sublayer 2: (4,6), (8,10), (12,2), ... (stride 4, offset 4)
-        for i in 4:4:L-2
+        for i in 4:4:(L - 2)
             push!(pairs, (i, i+2))
         end
         if bc == :periodic && L >= 4

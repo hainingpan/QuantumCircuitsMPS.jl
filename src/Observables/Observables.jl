@@ -47,9 +47,9 @@ QuantumCircuitsMPS.record_value(obs::MyObs, state; i1=nothing) = ...
 This is a MECHANISM hook only — it must return the same `Float64` the
 observable's `obs(state)` protocol defines.
 """
-record_value(obs::AbstractObservable, state; i1::Union{Int,Nothing}=nothing) = obs(state)
+record_value(obs::AbstractObservable, state; i1::Union{Int, Nothing} = nothing) = obs(state)
 
-function record_value(obs::DomainWall, state; i1::Union{Int,Nothing}=nothing)
+function record_value(obs::DomainWall, state; i1::Union{Int, Nothing} = nothing)
     if obs.i1_fn !== nothing
         # i1_fn is set - call observable without i1, it will use i1_fn
         return obs(state)
@@ -79,7 +79,7 @@ Each observable's value is obtained through the `record_value` hook
   grow. Naming an untracked observable throws an `ArgumentError`. Used by
   selective `record!(c, names...)` circuit markers.
 """
-function record!(state; i1::Union{Int,Nothing}=nothing, only=nothing)
+function record!(state; i1::Union{Int, Nothing} = nothing, only = nothing)
     if only !== nothing
         for name in only
             haskey(state.observable_specs, name) || throw(ArgumentError(
@@ -90,7 +90,7 @@ function record!(state; i1::Union{Int,Nothing}=nothing, only=nothing)
     end
     for (name, obs) in state.observable_specs
         (only === nothing || name in only) || continue
-        push!(state.observables[name], record_value(obs, state; i1=i1))
+        push!(state.observables[name], record_value(obs, state; i1 = i1))
     end
     return nothing
 end
@@ -109,5 +109,6 @@ obs_types = list_observables()
 ```
 """
 function list_observables()::Vector{String}
-    return ["DomainWall", "BornProbability", "EntanglementEntropy", "StringOrder", "Magnetization"]
+    return ["DomainWall", "BornProbability",
+        "EntanglementEntropy", "StringOrder", "Magnetization"]
 end

@@ -33,13 +33,15 @@ function compute_site_staircase_right(start::Int, step::Int, L::Int, bc::Symbol)
     # Validation
     step < 1 && throw(ArgumentError("step must be >= 1, got $step"))
     L < 2 && throw(ArgumentError("L must be >= 2 for staircase geometry, got $L"))
-    bc ∉ [:periodic, :open] && throw(ArgumentError("bc must be :periodic or :open, got $bc"))
-    (start < 1 || start > L) && throw(ArgumentError("start must be in range 1:$L, got $start"))
-    
+    bc ∉ [:periodic, :open] &&
+        throw(ArgumentError("bc must be :periodic or :open, got $bc"))
+    (start < 1 || start > L) &&
+        throw(ArgumentError("start must be in range 1:$L, got $start"))
+
     # Compute position after (step-1) advances
     # step=1 means 0 advances (initial position)
     advances = step - 1
-    
+
     if bc == :periodic
         # PBC: cycles over 1:L
         # Apply advances: each advance does pos = (pos % L) + 1
@@ -56,7 +58,7 @@ function compute_site_staircase_right(start::Int, step::Int, L::Int, bc::Symbol)
             pos = (pos % max_pos) + 1
         end
     end
-    
+
     return pos
 end
 
@@ -91,12 +93,14 @@ function compute_site_staircase_left(start::Int, step::Int, L::Int, bc::Symbol)
     # Validation
     step < 1 && throw(ArgumentError("step must be >= 1, got $step"))
     L < 2 && throw(ArgumentError("L must be >= 2 for staircase geometry, got $L"))
-    bc ∉ [:periodic, :open] && throw(ArgumentError("bc must be :periodic or :open, got $bc"))
-    (start < 1 || start > L) && throw(ArgumentError("start must be in range 1:$L, got $start"))
-    
+    bc ∉ [:periodic, :open] &&
+        throw(ArgumentError("bc must be :periodic or :open, got $bc"))
+    (start < 1 || start > L) &&
+        throw(ArgumentError("start must be in range 1:$L, got $start"))
+
     # Compute position after (step-1) advances
     advances = step - 1
-    
+
     if bc == :periodic
         # PBC: cycles over 1:L (backwards)
         # Apply advances: each advance does pos = (pos == 1 ? L : pos - 1)
@@ -112,7 +116,7 @@ function compute_site_staircase_left(start::Int, step::Int, L::Int, bc::Symbol)
             pos = pos == 1 ? max_pos : pos - 1
         end
     end
-    
+
     return pos
 end
 
@@ -144,17 +148,18 @@ compute_pair_staircase(5, 5, :open)      # Throws error (no site 6)
 function compute_pair_staircase(pos::Int, L::Int, bc::Symbol)
     # Validation
     L < 2 && throw(ArgumentError("L must be >= 2 for staircase geometry, got $L"))
-    bc ∉ [:periodic, :open] && throw(ArgumentError("bc must be :periodic or :open, got $bc"))
+    bc ∉ [:periodic, :open] &&
+        throw(ArgumentError("bc must be :periodic or :open, got $bc"))
     (pos < 1 || pos > L) && throw(ArgumentError("pos must be in range 1:$L, got $pos"))
-    
+
     # OBC-specific validation: cannot form pair at position L
     if bc == :open && pos == L
         throw(ArgumentError("Cannot form adjacent pair at position $pos with open boundary conditions (would require site $(L+1))"))
     end
-    
+
     # Compute second site with PBC wrapping
     second = (pos == L && bc == :periodic) ? 1 : pos + 1
-    
+
     return [pos, second]
 end
 
@@ -211,7 +216,8 @@ Compute sites for StaircaseRight geometry based on gate support.
 - For single-site gates (support == 1): `[pos]`
 - For two-site gates (support == 2): `[pos, pos+1]` with PBC wrapping
 """
-function compute_sites(geo::StaircaseRight, step::Int, L::Int, bc::Symbol, gate::AbstractGate)
+function compute_sites(
+        geo::StaircaseRight, step::Int, L::Int, bc::Symbol, gate::AbstractGate)
     pos = geo._position  # Read current position directly (step ignored; advance! manages progression)
     if support(gate) == 1
         return [pos]
@@ -236,7 +242,8 @@ Compute sites for StaircaseLeft geometry based on gate support.
 - For single-site gates (support == 1): `[pos]`
 - For two-site gates (support == 2): `[pos, pos+1]` with PBC wrapping
 """
-function compute_sites(geo::StaircaseLeft, step::Int, L::Int, bc::Symbol, gate::AbstractGate)
+function compute_sites(
+        geo::StaircaseLeft, step::Int, L::Int, bc::Symbol, gate::AbstractGate)
     pos = geo._position  # Read current position directly (step ignored; advance! manages progression)
     if support(gate) == 1
         return [pos]

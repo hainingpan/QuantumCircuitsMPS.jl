@@ -64,10 +64,10 @@ function (obs::StringOrder)(state::SimulationState{StateVectorBackend})
             end
         else  # order == 2
             # O²(n,m) = Sz[n]·Sz[n+1] · Π_{k=n+2}^{m-2} exp(iπ·Sz[k]) · Sz[m-1]·Sz[m]
-            di   = (n0 ÷ d^(L - i_phys)) % d
+            di = (n0 ÷ d^(L - i_phys)) % d
             dip1 = (n0 ÷ d^(L - (i_phys + 1))) % d
             djm1 = (n0 ÷ d^(L - (j_phys - 1))) % d
-            dj   = (n0 ÷ d^(L - j_phys)) % d
+            dj = (n0 ÷ d^(L - j_phys)) % d
             eigenvalue = _sz(di) * _sz(dip1) * _sz(djm1) * _sz(dj)
             for k in (i_phys + 2):(j_phys - 2)
                 dk = (n0 ÷ d^(L - k)) % d

@@ -7,7 +7,6 @@ using Test
 using QuantumCircuitsMPS
 
 @testset "Legacy API removal (v0.1.0, Task 14)" begin
-
     @testset "EXPORTS: surface == manifest KEEP + ADD (docs/api_surface_v0.1.md)" begin
         # KEEP table (61 symbols; includes the CT.jl-parity internal exports)
         keep = [
@@ -30,14 +29,14 @@ using QuantumCircuitsMPS
             :advance!, :get_sites, :current_position, :reset!,
             :compute_site_staircase_right, :compute_site_staircase_left,
             :compute_pair_staircase, :apply_op_internal!, :born_probability,
-            :compute_basis_mapping, :physical_to_ram, :ram_to_physical,
+            :compute_basis_mapping, :physical_to_ram, :ram_to_physical
         ]
         # ADD table (record!(::CircuitBuilder) is a method of record!, no new name)
         add = [
             :EachSite, :Sites, :Measure, :OnOutcome, :MatrixGate,
             :Rx, :Ry, :Rz, :Hadamard, :ProductGate,
             :events, :measurements, :expected_draws,
-            :CNOT, :PhaseGate, :SWAP, :RandomClifford,  # Clifford backend gates (Task 11)
+            :CNOT, :PhaseGate, :SWAP, :RandomClifford  # Clifford backend gates (Task 11)
         ]
         # Geometry contract helpers documented in the KEEP table's
         # AbstractGeometry row ("Gains canonical elements(geo, L, bc),
@@ -48,16 +47,17 @@ using QuantumCircuitsMPS
         actual = Set(names(QuantumCircuitsMPS))
         delete!(actual, :QuantumCircuitsMPS)  # module name itself (Task 2 gotcha)
 
-        extra   = sort!(collect(setdiff(actual, expected)))
+        extra = sort!(collect(setdiff(actual, expected)))
         missing_ = sort!(collect(setdiff(expected, actual)))
         @test isempty(extra) || error("Exports beyond manifest KEEP+ADD: $extra")
-        @test isempty(missing_) || error("Manifest KEEP+ADD symbols not exported: $missing_")
+        @test isempty(missing_) ||
+              error("Manifest KEEP+ADD symbols not exported: $missing_")
         @test length(actual) == 81
 
         # REMOVE-table symbols must not be exported
         removed = (:simulate, :simulate_circuits, :run_circuit!, :CircuitSimulation,
-                   :with_state, :current_state, :record_every, :record_at_circuits,
-                   :record_always, :get_state, :get_observables, :circuits_run)
+            :with_state, :current_state, :record_every, :record_at_circuits,
+            :record_always, :get_state, :get_observables, :circuits_run)
         for name in removed
             @test !(name in actual)
         end

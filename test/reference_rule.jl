@@ -39,11 +39,10 @@ function reference_select(rng, probs::Vector{Float64}, K::Int)::Vector{Int}
 end
 
 @testset "reference_rule" begin
-
     @testset "(i) consumes exactly K draws (data-independent)" begin
         for (probs, K) in [([0.2, 0.3], 17), ([0.5], 1), ([0.1, 0.1, 0.1], 1000),
-                           (fill(0.1, 10), 64), (Float64[], 5)]
-            rng  = MersenneTwister(42)
+            (fill(0.1, 10), 64), (Float64[], 5)]
+            rng = MersenneTwister(42)
             twin = MersenneTwister(42)
             reference_select(rng, probs, K)
             for _ in 1:K
@@ -83,11 +82,11 @@ end
               (rand(MersenneTwister(7)) < 0.3 ? 1 : 0)
         # and across many seeds for robustness
         for seed in 1:100, p in (0.0, 0.25, 0.5, 0.9)
+
             @test reference_select(MersenneTwister(seed), [p], 1)[1] ==
                   (rand(MersenneTwister(seed)) < p ? 1 : 0)
         end
     end
-
 end
 
 println("REFERENCE-RULE: PASS")

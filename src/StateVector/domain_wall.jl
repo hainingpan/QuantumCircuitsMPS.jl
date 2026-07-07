@@ -19,7 +19,7 @@ function domain_wall(state::SimulationState{StateVectorBackend}, i1::Int, order:
     for j in 1:L
         weight = Float64((L - j + 1)^order)
 
-        sites_zero = phy_list[1:j-1]
+        sites_zero = phy_list[1:(j - 1)]
         site_one = phy_list[j]
 
         prob = _projector_product_expectation_sv(state, sites_zero, site_one)
@@ -36,13 +36,15 @@ Compute ⟨ψ| (∏_k P0_k) P1 |ψ⟩ for the state-vector backend via direct
 basis-state summation: sum |ψ_n|² over all basis states where every site in
 `sites_zero` has digit 0 and `site_one` has digit 1.
 """
-function _projector_product_expectation_sv(state::SimulationState{StateVectorBackend}, sites_zero::Vector{Int}, site_one::Int)
+function _projector_product_expectation_sv(
+        state::SimulationState{StateVectorBackend}, sites_zero::Vector{Int}, site_one::Int)
     L = state.L
     d = state.local_dim
     ψ = state.backend.ψ
     total = 0.0
     for n0 in 0:(length(ψ) - 1)
-        ok = all(((n0 ÷ d^(L - s)) % d) == 0 for s in sites_zero) && ((n0 ÷ d^(L - site_one)) % d) == 1
+        ok = all(((n0 ÷ d^(L - s)) % d) == 0 for s in sites_zero) &&
+             ((n0 ÷ d^(L - site_one)) % d) == 1
         if ok
             total += abs2(ψ[n0 + 1])
         end

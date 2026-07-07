@@ -24,7 +24,7 @@ apply!(state, Measurement(:Z), AllSites())     # Measure all qubits
 """
 struct Measurement <: AbstractGate
     axis::Symbol
-    
+
     function Measurement(axis::Symbol)
         axis == :Z || throw(ArgumentError("Only :Z axis supported currently. Got: $axis"))
         new(axis)
