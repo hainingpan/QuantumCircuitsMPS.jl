@@ -91,39 +91,32 @@ struct ProductState <: AbstractInitialState
 end
 
 """
-    RandomMPS(; bond_dim::Int)
+    _bit_pattern_string(init::ProductState, L::Int, local_dim::Int) -> String
 
-Random MPS with specified bond dimension.
-Requires RNGRegistry with :state_init stream.
+Derive the physical-site bit-pattern string (site 1 = MSB, site L = LSB) from
+a `ProductState`'s `binary_int`/`binary_decimal`/`bitstring` specification,
+padded or truncated to `L` characters. Shared verbatim by all three backends'
+`initialize!(::SimulationState, ::ProductState)` methods (MPS:
+`src/State/initialization.jl`, state-vector: `src/StateVector/initialization.jl`,
+Clifford: `src/Clifford/initialization.jl`) — previously copy-pasted
+identically in all three.
+
+Does NOT handle `init.spin_state` — callers must branch on `spin_state`
+*before* calling this function, since each backend treats it differently
+(MPS/state-vector build a uniform product state from it directly; Clifford
+rejects it since it is qubit-only). Assumes exactly one of
+`binary_int`/`binary_decimal`/`bitstring` is set (enforced by the
+`ProductState` inner constructor); the final `else` branch is an
+unreachable-in-practice defensive fallback preserved verbatim from the
+pre-refactor code.
+
+`local_dim` is currently UNUSED by the derivation itself (only `L` affects
+padding/truncation) but is accepted as part of the signature for forward
+compatibility with an arbitrary spin-`S` generalization of `ProductState`
+(planned future work) — kept so that extension does not require touching
+call sites again.
 """
-struct RandomMPS <: AbstractInitialState
-    bond_dim::Int
-
-    function RandomMPS(; bond_dim::Int = 1)
-        return new(bond_dim)
-    end
-end
-
-"""
-    initialize!(state::SimulationState, init::ProductState)
-
-Initialize state with a product state based on specified initialization method.
-Supports binary_int, binary_decimal, or bitstring.
-Uses CT.jl MSB ordering: site 1 = MSB, site L = LSB.
-"""
-function initialize!(state::SimulationState, init::ProductState)
-    L = state.L
-
-    # Handle uniform spin_state branch early
-    if init.spin_state !== nothing
-        state_names_physical = fill(init.spin_state, L)
-        # Reorder to RAM order using ram_phy
-        ram_state_names = [state_names_physical[state.ram_phy[i]] for i in 1:L]
-        state.backend.mps = MPS(state.backend.sites, ram_state_names)
-        return nothing
-    end
-
-    # Convert init specification to bit pattern string
+function _bit_pattern_string(init::ProductState, L::Int, local_dim::Int)
     bit_pattern_str::String = if init.binary_int !== nothing
         # Convert integer to binary string, padded to L digits
         lpad(string(init.binary_int, base = 2), L, "0")
@@ -159,6 +152,44 @@ function initialize!(state::SimulationState, init::ProductState)
     else
         throw(ArgumentError("ProductState has no initialization method specified"))
     end
+    return bit_pattern_str
+end
+
+"""
+    RandomMPS(; bond_dim::Int)
+
+Random MPS with specified bond dimension.
+Requires RNGRegistry with :state_init stream.
+"""
+struct RandomMPS <: AbstractInitialState
+    bond_dim::Int
+
+    function RandomMPS(; bond_dim::Int = 1)
+        return new(bond_dim)
+    end
+end
+
+"""
+    initialize!(state::SimulationState, init::ProductState)
+
+Initialize state with a product state based on specified initialization method.
+Supports binary_int, binary_decimal, or bitstring.
+Uses CT.jl MSB ordering: site 1 = MSB, site L = LSB.
+"""
+function initialize!(state::SimulationState, init::ProductState)
+    L = state.L
+
+    # Handle uniform spin_state branch early
+    if init.spin_state !== nothing
+        state_names_physical = fill(init.spin_state, L)
+        # Reorder to RAM order using ram_phy
+        ram_state_names = [state_names_physical[state.ram_phy[i]] for i in 1:L]
+        state.backend.mps = MPS(state.backend.sites, ram_state_names)
+        return nothing
+    end
+
+    # Convert init specification to bit pattern string
+    bit_pattern_str = _bit_pattern_string(init, L, state.local_dim)
 
     # bit_pattern_str[i] is the bit value at PHYSICAL site i (MSB at site 1)
     vec_int_pos = [string(c) for c in bit_pattern_str]
