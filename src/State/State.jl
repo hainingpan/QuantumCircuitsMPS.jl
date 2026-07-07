@@ -11,11 +11,14 @@ const RNGRegistryType = Any
 Main simulation state container holding the numerical backend and metadata.
 
 Fields:
-- backend: the numerical backend (`MPSBackend` or `StateVectorBackend`), holding
-  backend-specific state such as the MPS/statevector, site indices, and SVD
-  truncation parameters. For backward compatibility, `state.mps`, `state.sites`,
-  `state.cutoff`, and `state.maxdim` are transparently forwarded to
-  `state.backend.<name>` via `getproperty`/`setproperty!` when `B == MPSBackend`.
+- backend: the numerical backend (`MPSBackend`, `StateVectorBackend`, or
+  `CliffordBackend`), holding backend-specific state such as the
+  MPS/statevector/tableau, site indices, and SVD truncation parameters.
+  When `B == MPSBackend`, the property names `state.mps`, `state.sites`,
+  `state.cutoff`, and `state.maxdim` are SUPPORTED API: they forward
+  transparently (read and write) to `state.backend.<name>` via
+  `getproperty`/`setproperty!` (see
+  `Base.getproperty(::SimulationState{MPSBackend}, ::Symbol)`).
 - phy_ram: physical site -> RAM index mapping
 - ram_phy: RAM index -> physical site mapping
 - L: system size
@@ -53,12 +56,34 @@ mutable struct SimulationState{B <: AbstractBackend}
     event_element_idx::Int
 end
 
-# === Backward-compatibility layer: state.mps/sites/cutoff/maxdim forwarding ===
-# Existing code (both not-yet-updated src/ internals and ALL test files) accesses
-# these fields directly on `state`. This layer forwards them transparently to
-# the MPSBackend fields, so no other file needs to change for correctness.
+# === MPS-backend property forwarding: state.mps/sites/cutoff/maxdim ===
+# SUPPORTED API (v0.4.0 decision, T19): a usage census found 42 call sites
+# (36 `.mps` + 6 `.sites`, all in test/) against the plan's ≤25 retirement
+# threshold, so the forwarding layer is KEPT and declared supported rather
+# than retired. src/ internals use `state.backend.<field>` directly.
 const _MPS_BACKEND_COMPAT_FIELDS = (:mps, :sites, :cutoff, :maxdim)
 
+"""
+    Base.getproperty(state::SimulationState{MPSBackend}, name::Symbol)
+
+Property forwarding for the MPS backend — SUPPORTED API (not a deprecation
+shim). For `state::SimulationState{MPSBackend}`, the four property names
+
+- `state.mps`     → `state.backend.mps`
+- `state.sites`   → `state.backend.sites`
+- `state.cutoff`  → `state.backend.cutoff`
+- `state.maxdim`  → `state.backend.maxdim`
+
+forward transparently to the `MPSBackend` fields, for both reads and writes
+(`Base.setproperty!` forwards the same four names). All other property names
+resolve to `SimulationState`'s own fields.
+
+This convenience is MPS-only by design: `SimulationState{StateVectorBackend}`
+and `SimulationState{CliffordBackend}` have no such forwarding (their payloads
+are reached explicitly via `state.backend.ψ` / `state.backend.tableau`), so
+accessing `state.mps` on them raises a `FieldError` — a loud signal that
+MPS-specific code received a non-MPS state.
+"""
 function Base.getproperty(s::SimulationState{MPSBackend}, name::Symbol)
     if name in _MPS_BACKEND_COMPAT_FIELDS
         return getfield(getfield(s, :backend), name)

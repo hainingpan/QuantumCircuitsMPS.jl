@@ -2,7 +2,29 @@ using ITensors
 using ITensorMPS
 
 """
+    AbstractObservable
+
 Abstract base type for observable specifications.
+
+Observables are CALLABLE STRUCTS: an instance holds the observable's
+parameters (e.g. the entanglement cut) and is invoked on a state as
+`obs(state) -> Float64`. Register one for recording with
+`track!(state, :name => obs)`; `record!` then appends `obs(state)` (via the
+`record_value` hook) to `state.observables[:name]`.
+
+Backend support is per-method multiple dispatch: the generic call
+`(obs::MyObs)(state)` implements the MPS path, and backend-specific methods
+`(obs::MyObs)(state::SimulationState{StateVectorBackend})` /
+`(obs::MyObs)(state::SimulationState{CliffordBackend})` override it. An
+observable that cannot be computed on a backend defines a method throwing an
+informative `ArgumentError` instead (e.g. `StringOrder` on the Clifford
+backend) — see `docs/src/devdocs/backend_interface.md` for the full
+support matrix.
+
+User-defined observables subtype `AbstractObservable`, implement
+`(obs::MyObs)(state) -> Float64`, and are then accepted by `track!` and
+recorded like the built-ins. Observables needing extra recording-time
+context override the `record_value` hook (see `DomainWall`).
 """
 abstract type AbstractObservable end
 
