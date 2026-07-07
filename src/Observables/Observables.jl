@@ -42,6 +42,12 @@ include("string_order.jl")
 include("magnetization.jl")
 include("pauli_string.jl")
 include("mutual_information.jl")
+# Composed common observables (T38): pure compositions of the above, so they
+# inherit per-backend dispatch — must come after their building blocks.
+include("correlator.jl")
+include("entropy_profile.jl")
+include("tripartite_mutual_information.jl")
+include("magnetization_fluctuations.jl")
 
 # === Observable Tracking API ===
 
@@ -215,5 +221,6 @@ obs_types = list_observables()
 function list_observables()::Vector{String}
     return ["DomainWall", "BornProbability",
         "EntanglementEntropy", "StringOrder", "Magnetization", "PauliString",
-        "MutualInformation"]
+        "MutualInformation", "Correlator", "EntropyProfile",
+        "TripartiteMutualInformation", "MagnetizationFluctuations"]
 end

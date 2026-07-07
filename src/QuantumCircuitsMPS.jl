@@ -8,6 +8,7 @@ using LinearAlgebra
 # Core
 include("Core/basis.jl")
 include("Core/rng.jl")
+include("Core/spin_sites.jl")  # arbitrary spin-S SiteType extension + spin_operators
 
 # Backend
 include("Backend/Backend.jl")
@@ -127,7 +128,9 @@ export EachSite, Sites, elements, element_count, is_broadcast  # v0.1 geometry v
 # Observables
 export AbstractObservable, DomainWall, BornProbability, EntanglementEntropy, StringOrder,
        Magnetization, PauliString,  # PauliString added v0.4.0 (T24)
-       MutualInformation  # MutualInformation added v0.4.0 (T25)
+       MutualInformation,  # MutualInformation added v0.4.0 (T25)
+       Correlator, EntropyProfile, TripartiteMutualInformation,
+       MagnetizationFluctuations  # composed common observables added v0.4.0 (T38)
 export born_probability  # functional form of BornProbability (used in README/Quick Start)
 export track!, record!, list_observables
 # API — legacy entry points (simulate, simulate_circuits, run_circuit!,
