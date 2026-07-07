@@ -42,7 +42,8 @@ using QuantumCircuitsMPS
             :events, :measurements, :expected_draws,
             :CNOT, :PhaseGate, :SWAP, :RandomClifford,  # Clifford backend gates (Task 11)
             :RandomStateVector,  # v0.4.0 (T13): SV random-init exported alongside RandomMPS
-            :PauliString  # v0.4.0 (T24): Pauli-string expectation observable (all 3 backends)
+            :PauliString,  # v0.4.0 (T24): Pauli-string expectation observable (all 3 backends)
+            :MutualInformation  # v0.4.0 (T25): I(A:B) = S(A)+S(B)-S(A∪B) (all 3 backends)
         ]
         # Geometry contract helpers documented in the KEEP table's
         # AbstractGeometry row ("Gains canonical elements(geo, L, bc),
@@ -58,7 +59,7 @@ using QuantumCircuitsMPS
         @test isempty(extra) || error("Exports beyond manifest KEEP+ADD: $extra")
         @test isempty(missing_) ||
               error("Manifest KEEP+ADD symbols not exported: $missing_")
-        @test length(actual) == 71
+        @test length(actual) == 72
 
         # REMOVE-table symbols must not be exported
         removed = (:simulate, :simulate_circuits, :run_circuit!, :CircuitSimulation,

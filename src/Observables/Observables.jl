@@ -35,6 +35,7 @@ include("entanglement.jl")
 include("string_order.jl")
 include("magnetization.jl")
 include("pauli_string.jl")
+include("mutual_information.jl")
 
 # === Observable Tracking API ===
 
@@ -133,5 +134,6 @@ obs_types = list_observables()
 """
 function list_observables()::Vector{String}
     return ["DomainWall", "BornProbability",
-        "EntanglementEntropy", "StringOrder", "Magnetization", "PauliString"]
+        "EntanglementEntropy", "StringOrder", "Magnetization", "PauliString",
+        "MutualInformation"]
 end
