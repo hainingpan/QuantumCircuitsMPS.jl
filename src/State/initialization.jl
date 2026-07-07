@@ -76,6 +76,14 @@ struct ProductState <: AbstractInitialState
         bs = bitstring === nothing ? nothing : String(bitstring)
         ss = spin_state === nothing ? nothing : String(spin_state)
 
+        # Validate binary_int is non-negative (added in v0.4.0 — previously a
+        # negative value was silently accepted, and initialize! then parsed the
+        # sign character of its base-2 string as a bogus state label, producing
+        # a garbage state instead of erroring)
+        if bi !== nothing && bi < 0
+            throw(ArgumentError("binary_int must be non-negative, got $bi"))
+        end
+
         # Validate bitstring contains only 0/1
         if bs !== nothing && !all(c in ('0', '1') for c in bs)
             throw(ArgumentError("bitstring must contain only '0' and '1' characters"))

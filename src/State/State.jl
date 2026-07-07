@@ -142,6 +142,11 @@ function SimulationState(;
         engine::Symbol = :builtin,
         pbc_fold_start::Int = L÷4+1
 )
+    # Validate L (added in v0.4.0 — previously L=0 / negative L were silently
+    # accepted and produced empty, unusable states)
+    L >= 1 ||
+        throw(ArgumentError("L must be a positive integer (L >= 1), got L=$L"))
+
     # Validate bc
     bc in (:open, :periodic) ||
         throw(ArgumentError("bc must be :open or :periodic, got $bc"))
