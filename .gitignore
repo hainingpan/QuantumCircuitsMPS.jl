@@ -20,6 +20,7 @@ Thumbs.db
 # Generated outputs
 examples/output/
 *.bin
+cluster_output/
 
 # Generated example outputs (regenerate by running the notebooks)
 examples/aklt_*.png

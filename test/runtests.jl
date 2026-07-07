@@ -27,4 +27,11 @@ using QuantumCircuitsMPS
     include("gates/test_new_gates.jl")
     include("clifford/test_clifford.jl")
     include("clifford/cross_validation.jl")
+    for dir in ("audit", "regression", "features", "quality")
+        d = joinpath(@__DIR__, dir)
+        isdir(d) || continue
+        for f in sort(readdir(d))
+            endswith(f, ".jl") && include(joinpath(d, f))
+        end
+    end
 end
