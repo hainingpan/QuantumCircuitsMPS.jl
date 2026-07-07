@@ -1,6 +1,11 @@
 # Golden baseline generator — pre-refactor (Task 1, plan api-refactor-v0.1.md)
 # Runs on the CURRENT engine; outputs test/golden/*.json.
 # MUST be run before any src/ edit. Deterministic: two runs => byte-identical files.
+#
+# Dev-only generator for golden JSONs consumed by golden_compare.jl (EXTENDED_TESTS).
+# NOT included by runtests.jl — intentional. Run manually only when you deliberately
+# want to regenerate the golden baseline (e.g. after an intentional, reviewed change
+# to the underlying physics/engine); do NOT run this to "fix" a failing comparison.
 using QuantumCircuitsMPS
 using JSON
 
