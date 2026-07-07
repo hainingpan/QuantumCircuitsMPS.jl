@@ -39,6 +39,22 @@ support(::SpinSectorProjection) = 2
 needs_normalization(::SpinSectorProjection) = true  # coherent projection shrinks norm
 
 """
+    gate_matrix(gate::SpinSectorProjection) -> Matrix{ComplexF64}
+
+State-vector-path equivalent of `build_operator(gate::SpinSectorProjection, ...)`:
+the 9×9 projector as a dense complex matrix (audit fix, T17 — this method was
+missing, so `apply!` on `backend=:statevector` threw `MethodError` and the
+README AKLT protocol could not run on the SV backend).
+
+Basis ordering matches the state-vector engine convention ("first site in the
+gate's argument list = slowest/most-significant digit", see `apply_gate_sv!`):
+projector row/col = `(m1-1)*3 + m2` with `m1` = first site (slow), `m2` =
+second site (fast). Renormalization after application is provided by the
+`needs_normalization` trait above (honored by the SV `_apply_single!` path).
+"""
+gate_matrix(gate::SpinSectorProjection) = ComplexF64.(gate.projector)
+
+"""
     SpinSectorMeasurement(sectors::Vector{Int}=)
 
 True Born measurement of total spin sector for two adjacent spin-1 sites.

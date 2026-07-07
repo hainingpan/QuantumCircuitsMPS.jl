@@ -36,9 +36,10 @@
 #   expect(mps, "Z") → ArgumentError, the "Z" op string is not defined for
 #   ITensor "S=1" sites (src/Observables/magnetization.jl:24). @test_broken;
 #   T39 (arbitrary spin-S) owns the fix.
-# - SpinSectorProjection is NOT applicable on the SV backend (MethodError:
-#   no gate_matrix(::SpinSectorProjection)); the SV AKLT construction below
-#   works around it via MatrixGate(P₀+P₁) + manual renormalization. Pinned.
+# - SpinSectorProjection on the SV backend: originally a MethodError (no
+#   gate_matrix method) — FIXED in T17. The SV AKLT construction below
+#   still uses the MatrixGate(P₀+P₁) + manual renormalization route, which
+#   doubles as an independent cross-check of the gate_matrix fix.
 #
 # odd-L PBC Bricklayer behavior (PINNED, silently partial — recorded in
 # .sisyphus/notepads/v04-findings.md for T27):
@@ -183,15 +184,26 @@ end
         @test_throws ArgumentError StringOrder(1, 9)(s)
     end
 
-    @testset "FINDING: SpinSectorProjection unsupported on SV backend" begin
-        # No gate_matrix(::SpinSectorProjection) method exists — the SV gate
-        # path throws MethodError. Pinned; the AKLT-on-SV construction above
-        # works around it via MatrixGate. (Candidate for T17/T39.)
-        sv = SimulationState(L = 4, bc = :open, backend = :statevector,
-            site_type = "S=1", rng = _rng())
-        initialize!(sv, ProductState(spin_state = "Z0"))
+    @testset "T17 FIX: SpinSectorProjection now supported on SV backend" begin
+        # gate_matrix(::SpinSectorProjection) was missing — the SV gate path
+        # threw MethodError (audit finding, T9 + T11; fixed in T17). Now
+        # verify it applies AND matches the MatrixGate(P01)+normalize
+        # workaround exactly.
         P01 = total_spin_projector(0) + total_spin_projector(1)
-        @test_throws MethodError apply!(sv, SpinSectorProjection(P01), Sites([1, 2]))
+        _mk_sv() = begin
+            s = SimulationState(L = 4, bc = :open, backend = :statevector,
+                site_type = "S=1", rng = _rng())
+            initialize!(s, ProductState(spin_state = "Z0"))
+            s
+        end
+        sv = _mk_sv()
+        apply!(sv, SpinSectorProjection(P01), Sites([1, 2]))
+        @test norm(sv.backend.ψ) ≈ 1.0 atol=1e-12
+        # reference: MatrixGate workaround (independent code path)
+        ref = _mk_sv()
+        apply!(ref, MatrixGate(P01), Sites([1, 2]))
+        normalize!(ref.backend.ψ)
+        @test maximum(abs.(sv.backend.ψ .- ref.backend.ψ)) < 1e-13
     end
 
     # ------------------------------------------------------------------

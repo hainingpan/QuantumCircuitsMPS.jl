@@ -25,12 +25,12 @@
 #    orders). The README's "bit-identical trajectories" claim is therefore
 #    REFUTED in the strict bitwise sense — encoded below as @test_broken.
 #    (Same-BACKEND same-seed reruns ARE bitwise identical — scenario (e).)
-# 2. FINDING: SpinSectorProjection is BROKEN on the SV backend —
-#    `gate_matrix(::SpinSectorProjection)` has no method, so the SV
-#    `_apply_single!` path (src/StateVector/StateVector.jl:59) throws a
-#    MethodError. Encoded as @test_broken; the S=1 MPS-vs-SV cross-check is
-#    still closed below via an equivalent MatrixGate(P01) + renormalize
-#    workaround, which validates the SV S=1 observable formulas against MPS.
+# 2. FINDING (FIXED in T17): SpinSectorProjection was BROKEN on the SV
+#    backend — `gate_matrix(::SpinSectorProjection)` had no method, so the SV
+#    `_apply_single!` path (src/StateVector/StateVector.jl:59) threw a
+#    MethodError. T17 added the method (src/Gates/spin_measurement.jl); the
+#    S=1 MPS-vs-SV cross-check below additionally validates the equivalent
+#    MatrixGate(P01) + renormalize route against MPS.
 # 3. FINDING: the Clifford backend VIOLATES the one-Born-draw-per-measurement
 #    contract (src/Core/apply.jl:105-106): Core `_measure_single_site!`
 #    always consumes exactly one `:born_measurement` draw, while the Clifford
@@ -221,12 +221,12 @@ end
             s
         end
 
-        # FINDING: SpinSectorProjection has NO gate_matrix method, so the SV
-        # backend cannot apply it — `_resolve_gate_matrix_sv` (fallback
-        # `gate_matrix(gate)`, src/StateVector/StateVector.jl:59) throws a
-        # MethodError. The MPS backend works (ITensor build_operator path,
-        # src/Gates/spin_measurement.jl:104). Until fixed, SV cannot run the
-        # AKLT protocol as documented in the README Quick Start.
+        # FINDING (fixed in T17): SpinSectorProjection had NO gate_matrix
+        # method, so the SV backend could not apply it —
+        # `_resolve_gate_matrix_sv` (fallback `gate_matrix(gate)`,
+        # src/StateVector/StateVector.jl:59) threw a MethodError. T17 added
+        # `gate_matrix(::SpinSectorProjection)` (src/Gates/spin_measurement.jl),
+        # so the README AKLT Quick Start now runs on backend=:statevector.
         sv_ssp_works = try
             s = _make_s1(:statevector)
             apply!(s, SpinSectorProjection(P01), [1, 2])
@@ -234,7 +234,7 @@ end
         catch
             false
         end
-        @test_broken sv_ssp_works
+        @test sv_ssp_works
 
         # Gap closure via an EQUIVALENT protocol both backends support:
         # the same 9×9 projector applied as MatrixGate(P01) + explicit
