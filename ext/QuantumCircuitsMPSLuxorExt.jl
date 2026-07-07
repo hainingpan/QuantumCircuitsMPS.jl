@@ -39,7 +39,7 @@ using QuantumCircuitsMPS, Luxor
 circuit = Circuit(L=8, bc=:periodic, n_steps=1) do c
     apply!(c, HaarRandom(), Bricklayer(:even))
     apply_with_prob!(c; rng=:gates_spacetime, outcomes=[
-        (probability=0.15, gate=Measurement(:Z), geometry=AllSites())
+        (probability=0.15, gate=Measure(:Z), geometry=AllSites())
     ])
 end
 
@@ -54,9 +54,6 @@ plot_circuit(circuit; gates_spacetime=42, filename="my_circuit.svg")
 function QuantumCircuitsMPS._plot_circuit_impl(
         circuit::Circuit; n_steps::Int = 1, gates_spacetime::Int = 0,
         filename::Union{String, Nothing} = nothing)
-    # TODO: Known bug - non-adjacent gates (e.g., NNN gates) are not rendered correctly.
-    # The current implementation assumes gates act on adjacent or contiguous qubit ranges.
-
     # Layout constants
     QUBIT_SPACING = 40.0
     ROW_HEIGHT = 60.0  # Height per time step (was COLUMN_WIDTH)
@@ -288,37 +285,47 @@ function QuantumCircuitsMPS._plot_circuit_impl(
                         render_gate_label(center_x, y, op.label, span_width)
                     end
                 else
-                    # Non-adjacent gate: render two boxes + connecting line
+                    # Non-adjacent gate: render labeled boxes at both endpoints,
+                    # connected the SHORT way around. Labels live ON the endpoint
+                    # boxes (never floating over skipped wires, where they would
+                    # collide with other gates packed into the same layer).
                     x_min = min_site * QUBIT_SPACING
                     x_max = max_site * QUBIT_SPACING
 
-                    # Draw boxes at both sites
-                    render_gate_box(x_min, y, GATE_WIDTH, GATE_HEIGHT)
-                    render_gate_box(x_max, y, GATE_WIDTH, GATE_HEIGHT)
+                    # Periodic wrap: the short path between the endpoints crosses
+                    # the boundary (e.g. (7,1) at L=8 acts via 7→8→1), so the
+                    # connector must NOT span the middle of the lattice.
+                    is_periodic_wrap = (circuit.bc == :periodic) && (span > L / 2)
 
-                    # Determine line style: dashed for periodic wrapping, solid for NNN
-                    is_periodic_wrap = (span > L / 2)
+                    if is_periodic_wrap
+                        # Dashed stubs from each endpoint box out to the boundary
+                        # edge, indicating the gate wraps around.
+                        left_edge_x = QUBIT_SPACING - GATE_WIDTH / 2
+                        right_edge_x = L * QUBIT_SPACING + GATE_WIDTH / 2
+                        if x_min - GATE_WIDTH / 2 > left_edge_x
+                            render_connecting_line(
+                                Point(left_edge_x, y), Point(x_min - GATE_WIDTH / 2, y);
+                                dashed = true)
+                        end
+                        if x_max + GATE_WIDTH / 2 < right_edge_x
+                            render_connecting_line(
+                                Point(x_max + GATE_WIDTH / 2, y), Point(right_edge_x, y);
+                                dashed = true)
+                        end
+                    else
+                        # Solid connector between the inner box edges, spanning
+                        # the skipped wire(s).
+                        render_connecting_line(
+                            Point(x_min + GATE_WIDTH / 2, y),
+                            Point(x_max - GATE_WIDTH / 2, y))
+                    end
 
-                    # Draw connecting line between boxes
-                    line_start_x = x_min + GATE_WIDTH / 2
-                    line_end_x = x_max - GATE_WIDTH / 2
-                    render_connecting_line(Point(line_start_x, y), Point(line_end_x, y);
-                        dashed = is_periodic_wrap)
-
-                    # Draw label centered between the two boxes
-                    center_x = (x_min + x_max) / 2
-                    label_width = x_max - x_min
-                    (font_sz, display_label) = calc_font_size(op.label, label_width)
-                    fontsize(font_sz)
-
-                    # Draw white background for label
-                    extents = textextents(display_label)
-                    label_bg_width = extents[3] + 6
-                    label_bg_height = extents[4] + 4
-                    setcolor("white")
-                    box(Point(center_x, y), label_bg_width, label_bg_height, :fill)
-                    setcolor("black")
-                    text(display_label, Point(center_x, y + 5), halign = :center, valign = :center)
+                    # Draw labeled boxes at both endpoint sites (after the
+                    # connector, so the boxes sit on top of it)
+                    for x_site in (x_min, x_max)
+                        render_gate_box(x_site, y, GATE_WIDTH, GATE_HEIGHT)
+                        render_gate_label(x_site, y, op.label, GATE_WIDTH)
+                    end
                 end
             end
         end
