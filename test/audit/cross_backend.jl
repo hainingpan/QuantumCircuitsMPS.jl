@@ -191,6 +191,10 @@ end
         # measurements #6, #8, #9 flip), and the Mz trajectory differs by
         # O(1/L) at intermediate steps. Final Born probabilities happen to
         # re-converge for these seeds; that is NOT guaranteed in general.
+        # T17: deliberately NOT fixed — genuine design question; see the
+        # "DECISION NEEDED: Clifford Born-draw-count contract" block in
+        # .sisyphus/notepads/v04-findings.md and the note in
+        # src/Clifford/measurement.jl. These stay @test_broken until decided.
         @test_broken [m.outcome for m in m_mps] == [m.outcome for m in m_cl]
         @test_broken maximum(abs.(Mz_mps .- Mz_cl)) ≤ 1e-10
     end

@@ -53,6 +53,21 @@ in the Z basis, mutating `state.backend.tableau` in place:
   (50/50), drawn from the `:born_measurement` RNG stream, and the phase of
   the anticommuting stabilizer row is set accordingly.
 
+!!! note "DECISION NEEDED — cross-backend Born-draw-count contract"
+    The MPS/SV core `_measure_single_site!` (Core/apply.jl) ALWAYS consumes
+    exactly one `:born_measurement` draw per measured site, even when the
+    outcome is deterministic; this override consumes ZERO draws for
+    deterministic outcomes. Consequence: after the first deterministic
+    measurement, the `:born_measurement` stream positions drift and Clifford
+    trajectories diverge from MPS/SV under the "same seed" (audit T7 + T11;
+    entropy trajectories still agree — Pauli-frame invariant). Whether
+    Clifford should burn a draw for deterministic outcomes to restore
+    cross-backend lockstep (at the cost of changing all existing seeded
+    Clifford trajectories) is an open design question — see the
+    `DECISION NEEDED: Clifford Born-draw-count contract` block in
+    `.sisyphus/notepads/v04-findings.md` (T17). Do NOT change this
+    consumption pattern without resolving that decision.
+
 Logs a `MeasurementOutcome` event exactly like the default implementation
 (Core/apply.jl) does, and returns the outcome (0 or 1).
 """
