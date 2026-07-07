@@ -1,6 +1,10 @@
 using Test
 using QuantumCircuitsMPS
 
+# Shared test utilities (plain definitions, no @testset) — provides the
+# reference_select oracle to every file below.
+include("testutils.jl")
+
 @testset "QuantumCircuitsMPS Tests" begin
     include("geometry_v01.jl")
     include("gates_v01.jl")
@@ -12,6 +16,7 @@ using QuantumCircuitsMPS
     include("qudit_test.jl")
     include("mipt_regressions.jl")
     include("event_log.jl")
+    include("reference_rule.jl")
     include("unified_rule_engine.jl")
     include("feedback.jl")
     include("eager_probabilistic.jl")

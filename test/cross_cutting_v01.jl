@@ -18,11 +18,8 @@ using QuantumCircuitsMPS
 using QuantumCircuitsMPS: events, measurements            # ITensorMPS also exports `measurements`
 using QuantumCircuitsMPS: GateApplied, MeasurementOutcome # internal since Task 14
 
-# reference_select — the semantic oracle (Task 7); guarded include (the suite
-# already loads it via unified_rule_engine.jl / golden_compare.jl).
-if !@isdefined(reference_select)
-    include("reference_rule.jl")
-end
+# reference_select — the semantic oracle — is provided by test/testutils.jl,
+# which runtests.jl includes unconditionally before any test file.
 
 # ---------------------------------------------------------------------------
 # Helpers

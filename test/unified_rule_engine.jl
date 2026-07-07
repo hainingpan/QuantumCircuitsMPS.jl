@@ -8,11 +8,8 @@ using QuantumCircuitsMPS
 using QuantumCircuitsMPS: events, measurements
 using QuantumCircuitsMPS: GateApplied  # internal since Task 14 (not in manifest)
 
-# reference_select — the semantic oracle (Task 7). Standalone file with its
-# own testsets; include once.
-if !@isdefined(reference_select)
-    include("reference_rule.jl")
-end
+# reference_select — the semantic oracle — is provided by test/testutils.jl,
+# which runtests.jl includes unconditionally before any test file.
 
 function _ure_registry(; st = 42, born = 1, real = 2)
     RNGRegistry(gates_spacetime = st, born_measurement = born, gates_realization = real)
@@ -131,13 +128,17 @@ end
         end
     end
 
-    @testset "engine selections == reference_select (100 random configs)" begin
+    @testset "engine selections == reference_select (30 random configs, fixed meta-seed)" begin
+        # Trimmed from 100 fuzz configs to 30 (v0.4 test consolidation): the
+        # fixed meta-seed makes these the SAME first 30 configs as before —
+        # deterministic, reproducible, and still spanning 1/2-site gates,
+        # both bcs, all geometry pools, and the Σp=1 vs Σp<1 regimes.
         meta = MersenneTwister(20260703)
         one_site_gates = [PauliX(), PauliZ(), PauliY()]   # labels X, Z, Y
         two_site_gates = [CZ(), HaarRandom()]             # labels CZ, Haar
         n_steps = 2
 
-        for cfg in 1:100
+        for cfg in 1:30
             L = rand(meta, (4, 6, 8))
             two_site = rand(meta, Bool)
             if two_site

@@ -45,11 +45,12 @@ using JSON
 using Random
 using Test
 
-# reference_select — the semantic oracle (Task 7). Guarded include so this file
-# works both standalone and when the suite has already loaded reference_rule.jl.
-if !@isdefined(reference_select)
-    include("reference_rule.jl")
-end
+# reference_select — the semantic oracle (test/testutils.jl, no testsets
+# there). Guarded include so this file works both standalone
+# (`julia --project=. test/golden_compare.jl`) and under the suite, where
+# runtests.jl has already loaded testutils.jl before the EXTENDED_TESTS gate
+# includes this file.
+@isdefined(reference_select) || include("testutils.jl")
 
 const GOLDEN_DIR = joinpath(@__DIR__, "golden")
 
