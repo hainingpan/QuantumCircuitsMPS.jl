@@ -73,6 +73,33 @@ is_broadcast(::Bricklayer) = true
 is_broadcast(::EachSite) = true
 
 """
+    _is_static_geometry(geo::AbstractGeometry) -> Bool
+
+Trait: `true` for geometries whose `elements(geo, L, bc)` enumeration is
+provably STEP-INVARIANT (immutable structs with no advancing/movable
+position): `Bricklayer`, `AllSites`, `EachSite`, `Sites`, `SingleSite`,
+`AdjacentPair`.
+
+`false` for mutable geometries — `StaircaseLeft`/`StaircaseRight` (positions
+advance during `simulate!`) and `Pointer` (moved explicitly via `move!`) —
+and, CONSERVATIVELY, for any geometry type not explicitly listed here
+(the fallback is `false`: correctness over performance). Any future compound
+geometry containing a member must only return `true` if EVERY member is
+static.
+
+Used by `simulate!` to decide whether an op's `elements()` result may be
+cached across steps within one `simulate!` call. Never used to cache mutable
+geometries — no invalidation scheme exists by design.
+"""
+_is_static_geometry(::AbstractGeometry) = false   # conservative default
+_is_static_geometry(::Bricklayer) = true
+_is_static_geometry(::AllSites) = true
+_is_static_geometry(::EachSite) = true
+_is_static_geometry(::Sites) = true
+_is_static_geometry(::SingleSite) = true
+_is_static_geometry(::AdjacentPair) = true
+
+"""
     elements(geo::AbstractGeometry, L::Int, bc::Symbol) -> Vector{Vector{Int}}
 
 Canonical element enumeration for a geometry: each inner vector is the sites

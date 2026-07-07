@@ -239,6 +239,19 @@ function simulate!(circuit::Circuit, state::SimulationState;
     # Reset staircase positions once at the start
     _reset_circuit_geometries!(circuit)
 
+    # === Per-call elements() caches (perf, T23) ===
+    # `elements(geo, L, bc)` is recomputed every step in the hot loop; for
+    # provably step-invariant geometries (see `_is_static_geometry`) the
+    # result is cached here, keyed by op index. Scope is STRICTLY local to
+    # this simulate! call — never module-level — so mutable circuits and
+    # concurrent trajectories can never observe stale enumerations.
+    # Mutable geometries (staircases, Pointer) and any geometry not
+    # explicitly whitelisted by `_is_static_geometry` bypass these caches
+    # entirely and are recomputed every step, exactly as before.
+    det_elems_cache = Dict{Int, Vector{Vector{Int}}}()
+    stoch_K_cache = Dict{Int, Int}()
+    stoch_elem_lists_cache = Dict{Int, Vector{Union{Nothing, Vector{Vector{Int}}}}}()
+
     for step in 1:n_steps
         should_record_this_step = false
 
@@ -248,7 +261,14 @@ function simulate!(circuit::Circuit, state::SimulationState;
                 if is_broadcast(geo)
                     # Broadcast geometry: one application per element, in
                     # canonical enumeration order (API contract).
-                    elems = elements(geo, circuit.L, circuit.bc)
+                    # Step-invariant geometries are cached per op index for
+                    # the duration of this simulate! call (T23).
+                    elems = if _is_static_geometry(geo)
+                        get!(() -> elements(geo, circuit.L, circuit.bc),
+                            det_elems_cache, op_idx)
+                    else
+                        elements(geo, circuit.L, circuit.bc)
+                    end
                     for (element_idx, sites) in enumerate(elems)
                         set_event_context!(state, step, op_idx, element_idx)
                         execute!(state, op.gate, sites)
@@ -293,18 +313,33 @@ function simulate!(circuit::Circuit, state::SimulationState;
                 actual_rng = get_rng(state.rng_registry, :gates_spacetime)
                 outcomes = op.outcomes
 
+                # An op's elements() results may be cached across steps only
+                # when EVERY outcome geometry is provably step-invariant
+                # (T23). Any staircase/Pointer/unknown member disables
+                # caching for the WHOLE op — conservative by design.
+                op_cacheable = all(o -> _is_static_geometry(o.geometry), outcomes)
+
                 # Common element count K (equal-K validated at build time;
                 # re-validated here so hand-built Circuits fail loudly too).
-                K = _op_element_count(op, circuit.L, circuit.bc)
+                K = if op_cacheable
+                    get!(() -> _op_element_count(op, circuit.L, circuit.bc),
+                        stoch_K_cache, op_idx)
+                else
+                    _op_element_count(op, circuit.L, circuit.bc)
+                end
                 probs = Float64[Float64(o.probability) for o in outcomes]
 
                 # Precompute broadcast element lists (fixed within the op);
                 # set geometries resolve lazily at selection time because
                 # staircase/Pointer positions are mutable and support-aware.
-                elem_lists = Union{Nothing, Vector{Vector{Int}}}[is_broadcast(o.geometry) ?
-                                                                 elements(o.geometry, circuit.L, circuit.bc) :
-                                                                 nothing
-                                                                 for o in outcomes]
+                _build_elem_lists() = Union{Nothing, Vector{Vector{Int}}}[is_broadcast(o.geometry) ?
+                                                                          elements(
+                                                                              o.geometry, circuit.L, circuit.bc) :
+                                                                          nothing
+                                                                          for o in outcomes]
+                elem_lists = op_cacheable ?
+                             get!(_build_elem_lists, stoch_elem_lists_cache, op_idx) :
+                             _build_elem_lists()
 
                 for k in 1:K
                     sel = select_outcome_index(actual_rng, probs)
