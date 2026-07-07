@@ -43,8 +43,10 @@
 # odd-L PBC Bricklayer behavior (PINNED, silently partial — recorded in
 # .sisyphus/notepads/v04-findings.md for T27):
 #   L=5 PBC :odd  → (1,2),(3,4)              [site 5 unpaired — no wrap pair]
-#   L=5 PBC :even → (2,3),(4,5),(5,1)        [site 5 appears TWICE]
-#   L=5 PBC :nn   → 5 pairs (odd ∪ even)     [site coverage uneven]
+#   L=5 PBC :even → (2,3),(4,5)              [site 1 unpaired — no wrap pair;
+#                                             T17 fixed the former (5,1)
+#                                             double-touch of site 5]
+#   L=5 PBC :nn   → 5 pairs (all ring bonds) [site coverage uneven per layer]
 #   NNN sublayers produce stride-4 partial covers; no error is raised.
 
 using Test
@@ -326,14 +328,27 @@ end
 
     @testset "odd-L PBC Bricklayer behavior (PINNED)" begin
         # Odd L cannot be tiled by disjoint NN pairs. CURRENT behavior is
-        # silently partial/uneven coverage — NO error is raised. Pinned
-        # verbatim so any future change is a deliberate, visible decision
-        # (T27 owns the coverage-policy question; see notepad).
+        # silently partial coverage — NO error is raised. Pinned verbatim
+        # so any future change is a deliberate, visible decision (T27 owns
+        # the coverage-policy question; see notepad).
+        #
+        # T17 FIX: `:even` at odd L under PBC previously ALSO pushed the
+        # wrap pair (L,1), so site L appeared in TWO pairs within one layer
+        # ([[2,3],[4,5],[5,1]] at L=5) — a brickwork layer must touch each
+        # site at most once. The wrap pair is now added only for even L;
+        # odd-L `:even` leaves site 1 unpaired (mirror of `:odd` leaving
+        # site L unpaired). `:nn` (= "ALL NN bonds", not a single layer)
+        # still enumerates all L ring bonds including (L,1).
         L, bc = 5, :periodic
         @test QuantumCircuitsMPS.elements(Bricklayer(:odd), L, bc) ==
               [[1, 2], [3, 4]]                       # site 5 unpaired, no wrap
         @test QuantumCircuitsMPS.elements(Bricklayer(:even), L, bc) ==
-              [[2, 3], [4, 5], [5, 1]]               # site 5 in TWO pairs
+              [[2, 3], [4, 5]]                       # site 1 unpaired, no wrap
+        # each single layer touches every site at most once
+        for parity in (:odd, :even)
+            sites = reduce(vcat, QuantumCircuitsMPS.elements(Bricklayer(parity), L, bc))
+            @test allunique(sites)
+        end
         @test QuantumCircuitsMPS.elements(Bricklayer(:nn), L, bc) ==
               [[1, 2], [3, 4], [2, 3], [4, 5], [5, 1]]
         @test QuantumCircuitsMPS.elements(Bricklayer(:nnn), L, bc) ==

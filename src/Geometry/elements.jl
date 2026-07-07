@@ -85,7 +85,10 @@ order (API contract — RNG coin consumption follows this order):
 - `EachSite(c)` → `[[i] for i in c]` (collection order)
 - `Bricklayer(parity)` → pairs exactly as documented in the README parity
   table (e.g. `:odd` → `[[1,2],[3,4],...]`; `:even` → `[[2,3],...,[L,1]]`
-  for PBC; `:nn` = `:odd` then `:even`; `:nnn` = sublayers 1,2,3,4)
+  for PBC at even `L`; `:nn` = `:odd` then `:even` plus the `(L,1)` wrap
+  bond; `:nnn` = sublayers 1,2,3,4). At odd `L`, single layers (`:odd`,
+  `:even`) leave one site unpaired rather than double-touching a site —
+  see the parity branches below.
 
 Set geometries return a single element `[[sites...]]`:
 - `SingleSite(i)` → `[[i]]`
@@ -113,8 +116,13 @@ function elements(geo::Bricklayer, L::Int, bc::Symbol)
         for i in 2:2:(L - 1)
             push!(pairs, (i, i+1))
         end
-        # For PBC, also include (L, 1)
-        if bc == :periodic
+        # For PBC with EVEN L, also include the wrap pair (L, 1).
+        # At odd L the bulk pairs already end with (L-1, L), so adding
+        # (L, 1) would touch site L twice within one layer — a brickwork
+        # layer must touch each site at most once (audit finding, T17).
+        # Odd L thus leaves site 1 unpaired in :even, mirroring :odd
+        # leaving site L unpaired.
+        if bc == :periodic && iseven(L)
             push!(pairs, (L, 1))
         end
     elseif geo.parity == :nn
