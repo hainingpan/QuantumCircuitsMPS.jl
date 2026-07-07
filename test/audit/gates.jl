@@ -398,21 +398,23 @@ end
     end
 
     # ═══════════════════════════════════════════════════════════════════
-    # FINDING (recorded in .sisyphus/notepads/v04-findings.md, T8):
-    # CZ/CNOT/SWAP build_operator methods take a generic local_dim and do NOT
-    # guard local_dim == 2 (unlike Rx/Ry/Rz/Hadamard, parametrized.jl:72-74).
-    # On S=1 sites they silently build an undocumented qudit generalization
-    # (e.g. CNOT "flips" the trit by reversal iff control is |m=−1⟩). These
-    # @test_broken entries flip green when a guard is added.
+    # FINDING (T8, FIXED in T17): CZ/CNOT/SWAP build_operator methods took a
+    # generic local_dim with NO local_dim == 2 guard (unlike Rx/Ry/Rz/
+    # Hadamard, parametrized.jl:72-74) and silently built undocumented qudit
+    # generalizations on S=1 sites (e.g. CNOT "flipped" the trit by reversal
+    # iff control was |m=−1⟩ — NOT the standard qudit CNOT). T17 decision:
+    # reject non-qubit sites with the same informative ArgumentError as
+    # Rx/Ry/Rz (see _check_qubit_two_site, src/Gates/two_qubit.jl); T39 may
+    # add principled qudit gates later.
     # ═══════════════════════════════════════════════════════════════════
-    @testset "qubit two-site gates on spin-1 sites (unguarded — finding)" begin
+    @testset "qubit two-site gates on spin-1 sites rejected (T17 fix)" begin
         s1_sites = siteinds("S=1", 2)
         for g in (CZ(), CNOT(), SWAP())
-            @test_broken try
+            @test try
                 QCM.build_operator(g, s1_sites, 3)
-                false                       # currently builds silently
+                false                       # must not build silently
             catch e
-                e isa ArgumentError         # desired: reject like Rx/Ry/Rz do
+                e isa ArgumentError         # rejects like Rx/Ry/Rz do
             end
         end
     end

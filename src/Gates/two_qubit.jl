@@ -112,14 +112,32 @@ function build_operator(gate::HaarRandom, site::Index, local_dim::Int; rng, kwar
     return ITensor(U, prime(site), site)
 end
 
+# Shared qubit-only guard for the named two-qubit gates (T17 decision, audit
+# finding T8): CZ/CNOT/SWAP previously accepted any local_dim and silently
+# built UNDOCUMENTED qudit generalizations (e.g. the d=3 "CZ" put −1 only on
+# |22⟩ — NOT the standard ω^{jk} qudit CZ; "CNOT" flipped the trit by index
+# reversal iff the control was in the highest basis state). These accidental
+# extensions are physics traps, so non-qubit sites are rejected with the same
+# informative error as Rx/Ry/Rz/Hadamard (parametrized.jl). If T39 (arbitrary
+# spin-S) wants qudit two-site gates, it should add principled, documented
+# generalizations rather than lifting this guard as-is (note: SWAP's generic
+# exchange form IS canonical for any d, but gate_matrix(::SWAP) is hardcoded
+# 4×4, so the state-vector backend could not apply a qudit SWAP anyway).
+function _check_qubit_two_site(gate::AbstractGate, local_dim::Int)
+    local_dim == 2 || throw(ArgumentError(
+        "$(nameof(typeof(gate))) is a qubit gate (local_dim = 2); state has local_dim = $local_dim"))
+    return nothing
+end
+
 """
     build_operator(gate::CZ, sites::Vector{Index}, local_dim::Int) -> ITensor
 
-Build CZ gate operator.
+Build CZ gate operator. Qubit-only (`local_dim == 2`).
 """
 function build_operator(
         gate::CZ, sites::Vector{<:Index}, local_dim::Int; rng = nothing, kwargs...)
     length(sites) == 2 || throw(ArgumentError("CZ requires exactly 2 sites"))
+    _check_qubit_two_site(gate, local_dim)
 
     s1, s2 = sites[1], sites[2]
 
@@ -168,10 +186,12 @@ gate_matrix(::SWAP) = ComplexF64[1 0 0 0; 0 0 1 0; 0 1 0 0; 0 0 0 1]
     build_operator(gate::CNOT, sites::Vector{Index}, local_dim::Int) -> ITensor
 
 Build CNOT gate operator. Control = sites[1], target = sites[2].
+Qubit-only (`local_dim == 2`).
 """
 function build_operator(
         gate::CNOT, sites::Vector{<:Index}, local_dim::Int; rng = nothing, kwargs...)
     length(sites) == 2 || throw(ArgumentError("CNOT requires exactly 2 sites"))
+    _check_qubit_two_site(gate, local_dim)
 
     s1, s2 = sites[1], sites[2]
 
@@ -192,11 +212,12 @@ end
 """
     build_operator(gate::SWAP, sites::Vector{Index}, local_dim::Int) -> ITensor
 
-Build SWAP gate operator.
+Build SWAP gate operator. Qubit-only (`local_dim == 2`).
 """
 function build_operator(
         gate::SWAP, sites::Vector{<:Index}, local_dim::Int; rng = nothing, kwargs...)
     length(sites) == 2 || throw(ArgumentError("SWAP requires exactly 2 sites"))
+    _check_qubit_two_site(gate, local_dim)
 
     s1, s2 = sites[1], sites[2]
 
