@@ -1,0 +1,6 @@
+[deps]
+Documenter = "e30172f5-a6a5-5a46-863b-614d45cd2de4"
+QuantumCircuitsMPS = "ed2bb82c-fd6e-4581-809a-ddc7a64756b9"
+
+[compat]
+Documenter = "1"
