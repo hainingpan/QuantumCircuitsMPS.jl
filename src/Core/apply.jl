@@ -1,9 +1,6 @@
 # === Gate Application Engine ===
 # Core apply! function implementing CT.jl-style MPS contraction
 
-using ITensors
-using ITensorMPS
-
 """
     apply!(state::SimulationState, gate::AbstractGate, geo::AbstractGeometry)
 

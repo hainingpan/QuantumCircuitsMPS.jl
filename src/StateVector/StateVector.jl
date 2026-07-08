@@ -4,8 +4,6 @@
 # method that wires it into the EXISTING, UNMODIFIED execute!/apply! chain
 # (see src/Core/apply.jl) for SimulationState{StateVectorBackend}.
 
-using LinearAlgebra
-
 """
     apply_gate_sv!(ψ, U, target_sites, L, d) -> Vector{ComplexF64}
 

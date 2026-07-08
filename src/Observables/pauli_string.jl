@@ -11,9 +11,6 @@
 #   - Clifford (src/Clifford/pauli_string.jl): QuantumClifford.expect on the
 #     stabilizer tableau (poly-time; expectation ∈ {-1, 0, +1})
 
-using ITensors
-using ITensorMPS
-
 """
     PauliString(ops::Pair{Int,Symbol}...)
 

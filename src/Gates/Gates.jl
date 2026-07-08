@@ -1,6 +1,3 @@
-using ITensors
-using LinearAlgebra
-
 """
     AbstractGate
 

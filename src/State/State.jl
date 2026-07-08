@@ -1,6 +1,3 @@
-using ITensors
-using ITensorMPS
-
 # Forward declaration for RNGRegistry (defined in Task 2)
 # For now, use Union{Nothing, Any} to avoid dependency
 const RNGRegistryType = Any

@@ -21,8 +21,6 @@
 # state names are added; "S=1/2" already delegates every op/state to Qubit
 # (which has "Proj0"/"Proj1" and "Z").
 
-using LinearAlgebra
-
 """
     _parse_spin_site_type(site_type::AbstractString) -> Union{Nothing, Rational{Int}}
 

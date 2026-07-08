@@ -19,8 +19,6 @@
 # PBC `cut` (a RAM bond index on the MPS backend) — MutualInformation is
 # cross-backend unambiguous under both open and periodic boundary conditions.
 
-using ITensors
-using ITensorMPS
 using LinearAlgebra: Hermitian, eigvals
 
 """

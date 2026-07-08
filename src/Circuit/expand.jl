@@ -3,8 +3,6 @@
 # SAME single-source stochastic selection as the engine (`select_outcome_index`
 # in Circuit/execute.jl). Visualization and execution share ONE rule (v0.1).
 
-using Random
-
 """
     ExpandedOp
 

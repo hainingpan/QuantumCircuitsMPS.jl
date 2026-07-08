@@ -1,5 +1,3 @@
-using ITensors
-using ITensorMPS
 import QuantumClifford: MixedDestabilizer
 
 """

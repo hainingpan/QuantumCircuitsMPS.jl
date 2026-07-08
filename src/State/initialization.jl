@@ -1,6 +1,3 @@
-using ITensors
-using ITensorMPS
-
 """
 Abstract type for initial state specifications.
 """

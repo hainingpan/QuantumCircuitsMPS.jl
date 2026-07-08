@@ -6,8 +6,6 @@
 # Basis ordering: |1,1⟩, |1,0⟩, |1,-1⟩, |0,1⟩, |0,0⟩, |0,-1⟩, |-1,1⟩, |-1,0⟩, |-1,-1⟩
 # (i.e., m₁ ∈ {1,0,-1}, m₂ ∈ {1,0,-1}, lexicographic order)
 
-using LinearAlgebra
-
 """
     spin1_operators()
 

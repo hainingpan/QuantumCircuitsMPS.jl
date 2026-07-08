@@ -5,9 +5,6 @@
 #
 # For AKLT ground state: |O_string| ≈ 4/9 ≈ 0.444
 
-using ITensors
-using ITensorMPS
-
 """
     StringOrder(i::Int, j::Int; order::Int=1)
 
