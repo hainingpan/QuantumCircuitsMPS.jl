@@ -334,7 +334,8 @@ function simulate!(circuit::Circuit, state::SimulationState;
                 # staircase/Pointer positions are mutable and support-aware.
                 _build_elem_lists() = Union{Nothing, Vector{Vector{Int}}}[is_broadcast(o.geometry) ?
                                                                           elements(
-                                                                              o.geometry, circuit.L, circuit.bc) :
+                                                                              o.geometry, circuit.L,
+                                                                              circuit.bc) :
                                                                           nothing
                                                                           for o in outcomes]
                 elem_lists = op_cacheable ?

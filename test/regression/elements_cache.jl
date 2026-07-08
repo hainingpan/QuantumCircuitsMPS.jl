@@ -176,11 +176,13 @@ end
             track!(st_eager, :Mz => Magnetization(:Z))
             for _ in 1:n_steps
                 apply!(st_eager, HaarRandom(), Bricklayer(:even))
-                apply_with_prob!(st_eager; outcomes = [
-                    (probability = p, gate = Measure(:Z), geometry = AllSites())])
+                apply_with_prob!(st_eager;
+                    outcomes = [
+                        (probability = p, gate = Measure(:Z), geometry = AllSites())])
                 apply!(st_eager, HaarRandom(), Bricklayer(:odd))
-                apply_with_prob!(st_eager; outcomes = [
-                    (probability = p, gate = Measure(:Z), geometry = AllSites())])
+                apply_with_prob!(st_eager;
+                    outcomes = [
+                        (probability = p, gate = Measure(:Z), geometry = AllSites())])
                 record!(st_eager)
             end
 

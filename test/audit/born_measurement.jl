@@ -65,8 +65,10 @@ function _bm_entangle!(st, backend::Symbol; layers::Int = 2)
     return st
 end
 
-_bm_norm(st, backend::Symbol) = backend === :statevector ?
-                                norm(st.backend.ψ) : norm(st.backend.mps)
+function _bm_norm(st, backend::Symbol)
+    backend === :statevector ?
+    norm(st.backend.ψ) : norm(st.backend.mps)
+end
 
 # true iff the :born_measurement stream of `st` (seeded with `seed`) has
 # advanced by exactly `ndraws` scalar draws
@@ -198,8 +200,7 @@ const _BM_BACKENDS = (:mps, :statevector, :clifford)
     end
 
     # --- (e) deterministic measurement: draw-count invariant ------------------
-    @testset "(e) deterministic measurement draw count [$backend]" for backend in
-                                                                        (:mps, :statevector)
+    @testset "(e) deterministic measurement draw count [$backend]" for backend in (:mps, :statevector)
         # eigenstate |0⟩: outcome certain, yet exactly ONE Born draw consumed
         # (SCALAR-DRAW CONTRACT, src/Core/apply.jl `_measure_single_site!`)
         st = _bm_state(backend; L = 3, seeds = (1, 2, 33), log_events = true)

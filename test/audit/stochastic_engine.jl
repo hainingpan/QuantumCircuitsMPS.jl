@@ -64,8 +64,10 @@ function _se_state(L; bc = :periodic, st = 42, born = 1, real = 2,
 end
 
 # Gate-placement fingerprint: the full ordered GateApplied event sequence.
-_se_fingerprint(state) = [(e.step, e.op_idx, e.element_idx, e.gate_label, e.sites)
-                          for e in events(state) if e isa GateApplied]
+function _se_fingerprint(state)
+    [(e.step, e.op_idx, e.element_idx, e.gate_label, e.sites)
+     for e in events(state) if e isa GateApplied]
+end
 
 @testset "AUDIT: stochastic engine + RNG stream discipline" begin
 
@@ -93,8 +95,9 @@ _se_fingerprint(state) = [(e.step, e.op_idx, e.element_idx, e.gate_label, e.site
             # Exactly one event per (step, element) slot: never 0, never 2.
             slot_counts = Dict{Tuple{Int, Int}, Int}()
             for e in evs
-                slot_counts[(e.step, e.element_idx)] =
-                    get(slot_counts, (e.step, e.element_idx), 0) + 1
+                slot_counts[(e.step, e.element_idx)] = get(
+                    slot_counts, (
+                        e.step, e.element_idx), 0) + 1
             end
             @test length(evs) == K * n_steps
             @test all(step -> all(k -> get(slot_counts, (step, k), 0) == 1, 1:K),

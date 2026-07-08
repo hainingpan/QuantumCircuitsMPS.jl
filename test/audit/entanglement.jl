@@ -76,6 +76,7 @@ end
             st = _audit_ee_state(b; L = 4)
             initialize!(st, ProductState(binary_int = binary_int))
             for cut in 1:3, n in (1, 2, 3)
+
                 S = EntanglementEntropy(cut = cut, renyi_index = n)(st)
                 @test abs(S) < tol
             end

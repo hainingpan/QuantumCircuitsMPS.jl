@@ -41,6 +41,7 @@ _ag_pair(L::Int) = (_ag_state(L, :statevector), _ag_state(L, :clifford))
 
 function _ag_compare_born(sv, cl, L; atol = 1e-12)
     for site in 1:L, outcome in 0:1
+
         @test born_probability(sv, site, outcome) ≈
               born_probability(cl, site, outcome) atol=atol
     end
@@ -54,7 +55,7 @@ end
     @testset "(a) unitarity of every fixed gate matrix" begin
         fixed_gates = [
             PauliX(), PauliY(), PauliZ(), Hadamard(), PhaseGate(),
-            CZ(), CNOT(), SWAP(),
+            CZ(), CNOT(), SWAP()
         ]
         for g in fixed_gates
             M = QCM.gate_matrix(g)
@@ -65,6 +66,7 @@ end
 
         # Parametrized rotations at several angles (incl. irrational-ish θ)
         for θ in (0.0, 0.3, π / 2, π, 2.1, 2π), G in (Rx, Ry, Rz)
+
             M = QCM.gate_matrix(G(θ))
             @test norm(M' * M - I(2)) < 1e-14
         end
@@ -73,7 +75,8 @@ end
         rng_a = MersenneTwister(2026_07_07)
         U = QCM._haar_unitary(4, rng_a)
         @test QCM.gate_matrix(MatrixGate(U)) ≈ U atol=1e-15
-        @test norm(QCM.gate_matrix(MatrixGate(U))' * QCM.gate_matrix(MatrixGate(U)) - I(4)) < 1e-13
+        @test norm(QCM.gate_matrix(MatrixGate(U))' * QCM.gate_matrix(MatrixGate(U)) -
+                   I(4)) < 1e-13
 
         # Projection is intentionally NOT unitary — it is a projector:
         P0m = QCM.gate_matrix(Projection(0))
@@ -122,7 +125,8 @@ end
         bell = ComplexF64[1, 0, 0, 1] ./ sqrt(2)   # (|00⟩ + |11⟩)/√2
         @test CNOTm * kron(plus, zero_) ≈ bell atol=1e-14
         # CNOT control/target ordering: |10⟩ → |11⟩, |01⟩ → |01⟩ (control first)
-        @test CNOTm * kron(ComplexF64[0, 1], zero_) ≈ kron(ComplexF64[0, 1], ComplexF64[0, 1]) atol=1e-14
+        @test CNOTm * kron(ComplexF64[0, 1], zero_) ≈
+              kron(ComplexF64[0, 1], ComplexF64[0, 1]) atol=1e-14
         @test CNOTm * kron(zero_, ComplexF64[0, 1]) ≈ kron(zero_, ComplexF64[0, 1]) atol=1e-14
 
         # build_operator(CZ/CNOT/SWAP) hand-rolled ITensor loops agree with
@@ -254,11 +258,13 @@ end
             @test QCM.needs_normalization(g)
             @test norm(g.projector * P2) < 1e-12   # kills EVERY S=2 state
             # stretched state |m=1, m=1⟩ (basis index 1) is pure S=2:
-            e11 = zeros(9); e11[1] = 1.0
+            e11 = zeros(9);
+            e11[1] = 1.0
             @test norm(P01 * e11) < 1e-12
             @test P2 * e11 ≈ e11 atol=1e-12
             # |m=0, m=0⟩ (basis index 5) has NO S=1 component (CG zero):
-            e00 = zeros(9); e00[5] = 1.0
+            e00 = zeros(9);
+            e00[5] = 1.0
             @test norm(P1 * e00) < 1e-12
             @test e00' * P0 * e00 ≈ 1 / 3 atol=1e-12
             @test e00' * P2 * e00 ≈ 2 / 3 atol=1e-12
@@ -303,27 +309,31 @@ end
             ("H·S on site 1", s -> begin
                 apply!(s, Hadamard(), SingleSite(1))
                 apply!(s, PhaseGate(), SingleSite(1))
-            end),
+            end)
         ]
 
         @testset "1-qubit $gname on prep $pname" for (gname, gate) in [
                 ("PauliX", PauliX()), ("PauliY", PauliY()), ("PauliZ", PauliZ()),
-                ("Hadamard", Hadamard()), ("PhaseGate", PhaseGate()),
-            ], (pname, prep!) in preps
+                ("Hadamard", Hadamard()), ("PhaseGate", PhaseGate())
+            ],
+            (pname, prep!) in preps
 
             sv, cl = _ag_pair(L)
-            prep!(sv); prep!(cl)
+            prep!(sv);
+            prep!(cl)
             apply!(sv, gate, SingleSite(1))
             apply!(cl, gate, SingleSite(1))
             _ag_compare_born(sv, cl, L)
         end
 
         @testset "2-qubit $gname on prep $pname" for (gname, gate) in [
-                ("CZ", CZ()), ("CNOT", CNOT()), ("SWAP", SWAP()),
-            ], (pname, prep!) in preps
+                ("CZ", CZ()), ("CNOT", CNOT()), ("SWAP", SWAP())
+            ],
+            (pname, prep!) in preps
 
             sv, cl = _ag_pair(L)
-            prep!(sv); prep!(cl)
+            prep!(sv);
+            prep!(cl)
             apply!(sv, gate, AdjacentPair(1))
             apply!(cl, gate, AdjacentPair(1))
             _ag_compare_born(sv, cl, L)

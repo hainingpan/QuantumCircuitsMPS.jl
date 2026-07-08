@@ -215,7 +215,8 @@ end
         @test length(m_lazy) == n_steps
         @test all(abs.(m_lazy .- m_eager) .<= 1e-14)
         # Staircase positions advanced AND synced identically in the eager loop
-        @test QuantumCircuitsMPS.current_position(left) == QuantumCircuitsMPS.current_position(right)
+        @test QuantumCircuitsMPS.current_position(left) ==
+              QuantumCircuitsMPS.current_position(right)
     end
 
     @testset "fixed draw count: K coins per call, data-independent" begin

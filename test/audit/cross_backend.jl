@@ -248,12 +248,14 @@ end
         mps_ssp = _make_s1(:mps)
         proj = SpinSectorProjection(P01)
         for step in 1:n_steps, i in 1:(L - 1)
+
             apply!(mps_ssp, proj, [i, i + 1])
         end
 
         # (c2) MPS via the MatrixGate workaround (validates the workaround)
         mps_mg = _make_s1(:mps)
         for step in 1:n_steps, i in 1:(L - 1)
+
             apply!(mps_mg, mg, [i, i + 1])
             mps_mg.mps = mps_mg.mps / norm(mps_mg.mps)
         end
@@ -261,6 +263,7 @@ end
         # (c3) SV via the MatrixGate workaround
         sv_mg = _make_s1(:statevector)
         for step in 1:n_steps, i in 1:(L - 1)
+
             apply!(sv_mg, mg, [i, i + 1])
             normalize!(sv_mg.backend.ψ)
         end

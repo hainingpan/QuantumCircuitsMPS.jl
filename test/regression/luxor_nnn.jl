@@ -73,22 +73,23 @@ _qx(q) = 50.0 + 40.0 * q   # global x of qubit q's wire
             # Non-wrap NNN pair (1,3): solid connector from q1 box right edge
             # to q3 box left edge (crossing skipped wire q2)
             @test any(s -> s[1] == _qx(1) + 15 && s[3] == _qx(3) - 15 &&
-                          s[5] == 0.0, horiz)
+                           s[5] == 0.0, horiz)
             # (2,4), (5,7), (6,8) likewise (layer 1); (3,5), (4,6) (layer 2)
             for (i, j) in ((2, 4), (5, 7), (6, 8), (3, 5), (4, 6))
-                @test any(s -> s[1] == _qx(i) + 15 && s[3] == _qx(j) - 15 &&
-                              s[5] == 0.0, horiz)
+                @test any(
+                    s -> s[1] == _qx(i) + 15 && s[3] == _qx(j) - 15 &&
+                         s[5] == 0.0, horiz)
             end
 
             # Wrap pair (7,1): DASHED stub from q7 box right edge to the right
             # boundary extent (q8 wire + 15). Left stub suppressed (q1 box
             # already touches the left boundary extent).
             @test any(s -> s[1] == _qx(7) + 15 && s[3] == _qx(8) + 15 &&
-                          s[5] == 1.0, horiz)
+                           s[5] == 1.0, horiz)
             # Wrap pair (8,2): DASHED stub from the left boundary extent
             # (q1 wire - 15) to q2 box left edge
             @test any(s -> s[1] == _qx(1) - 15 && s[3] == _qx(2) - 15 &&
-                          s[5] == 1.0, horiz)
+                           s[5] == 1.0, horiz)
             # Exactly these two dashed segments — nothing dashed spans the bulk
             dashed = [s for s in horiz if s[5] == 1.0]
             @test length(dashed) == 2
@@ -121,10 +122,10 @@ _qx(q) = 50.0 + 40.0 * q   # global x of qubit q's wire
             horiz = _horizontal(_svg_segments(svg))
             # (3,5): solid inner-edge connector
             @test any(s -> s[1] == _qx(3) + 15 && s[3] == _qx(5) - 15 &&
-                          s[5] == 0.0, horiz)
+                           s[5] == 0.0, horiz)
             # (7,1): dashed boundary stub, and NO segment through the bulk
             @test any(s -> s[1] == _qx(7) + 15 && s[3] == _qx(8) + 15 &&
-                          s[5] == 1.0, horiz)
+                           s[5] == 1.0, horiz)
             @test all(abs(s[3] - s[1]) <= 50.0 for s in horiz)
         end
 
@@ -141,7 +142,7 @@ _qx(q) = 50.0 + 40.0 * q   # global x of qubit q's wire
 
             horiz = _horizontal(_svg_segments(svg))
             @test any(s -> s[1] == _qx(1) + 15 && s[3] == _qx(7) - 15 &&
-                          s[5] == 0.0, horiz)
+                           s[5] == 0.0, horiz)
             @test all(s -> s[5] == 0.0, horiz)
         end
 
