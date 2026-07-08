@@ -17,18 +17,37 @@ makedocs(;
         canonical="https://hainingpan.github.io/QuantumCircuitsMPS.jl",
         edit_link="dev",
         assets=String[],
-        # The single-page api.md @autodocs block (~100% export coverage) renders
-        # well above Documenter's 200 KiB default threshold; raised here since
-        # this is expected scaffold behavior, not a docs bloat regression.
-        size_threshold=500 * 1024,
-        size_threshold_warn=300 * 1024,
+        # T5 originally raised these to 500/300 KiB to accommodate a single
+        # api.md page with the ENTIRE @autodocs (public + private) dump. T30
+        # split content across design.md/backends/*.md/tutorials.md/api.md/
+        # internals.md; the largest remaining page (internals.md, the
+        # `Public=false` catch-all) now renders at ~170 KiB — lowered back
+        # toward (but still comfortably above) Documenter's 200 KiB default
+        # so future docstring growth doesn't trip `warnonly=false`'s hard-
+        # error promotion of the size-threshold warning.
+        size_threshold=250 * 1024,
+        size_threshold_warn=220 * 1024,
     ),
     pages=[
         "Home" => "index.md",
+        "Design Philosophy" => "design.md",
+        "Backends" => [
+            "backends/mps.md",
+            "backends/statevector.md",
+            "backends/clifford.md",
+        ],
+        "Tutorials" => "tutorials.md",
+        "Custom Observables" => "custom_observables.md",
         "API Reference" => "api.md",
+        "Private / Internal API" => "internals.md",
+        "Developer Docs" => [
+            "devdocs/backend_interface.md",
+        ],
     ],
-    # T30 tightens this to `false` once docstring coverage is finalized.
-    warnonly=[:missing_docs],
+    # T30 (v0.4.0): docstring coverage is complete (every exported symbol
+    # documented, every unexported docstring reachable via internals.md's
+    # `@autodocs Public=false` block) — missing_docs is now a HARD ERROR.
+    warnonly=false,
     doctest=true,
 )
 

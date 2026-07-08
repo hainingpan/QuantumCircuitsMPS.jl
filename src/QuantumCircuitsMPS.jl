@@ -1,9 +1,17 @@
 module QuantumCircuitsMPS
 
-using ITensors
-using ITensorMPS
-using Random
-using LinearAlgebra
+# Explicit imports (ExplicitImports.jl-verified, T29): every name this module
+# uses from its dependencies is imported by name — no implicit `using X`
+# reliance. The standing gate lives in test/quality/explicit_imports.jl.
+using ITensorMPS: ITensorMPS, @OpName_str, @SiteType_str, @StateName_str,
+                  @ValName_str, MPO, MPS, OpName, SiteType, StateName, ValName,
+                  expect, inner, linkind, op, ops, orthogonalize,
+                  orthogonalize!, random_mps, siteind, siteinds, truncate!
+using ITensors: ITensors, ITensor, Index, dag, delta, dim, dims, findindex,
+                inds, noprime, noprime!, plev, prime, scalar, tags
+using LinearAlgebra: LinearAlgebra, Diagonal, I, diag, diagm, mul!, norm,
+                     normalize!, qr, svd, tr
+using Random: Random, AbstractRNG, MersenneTwister
 
 # Core
 include("Core/basis.jl")
@@ -146,6 +154,34 @@ export print_circuit
 # Visualization (provided by Luxor extension)
 # _plot_circuit_impl is defined in ext/QuantumCircuitsMPSLuxorExt.jl when Luxor is loaded
 function _plot_circuit_impl end
+
+"""
+    plot_circuit(circuit::Circuit; n_steps=1, gates_spacetime=0, filename=nothing)
+
+Export an SVG diagram of `circuit`'s deterministic template (all stochastic
+branches, with probability annotations), resolved for `n_steps` repetitions
+using the `gates_spacetime` seed for stochastic-branch layout — matching
+`expand_circuit(circuit; seed=gates_spacetime)`.
+
+Requires `using Luxor` to be loaded first (the implementation lives in the
+Luxor package extension, `ext/QuantumCircuitsMPSLuxorExt.jl`); calling this
+without Luxor loaded throws a `MethodError` from the un-implemented
+`_plot_circuit_impl`. When `filename` is `nothing`, the SVG is written to a
+temporary file and its path returned; otherwise it is written to `filename`.
+
+See also [`print_circuit`](@ref) for a Luxor-free ASCII/Unicode terminal
+visualization of the same circuit template.
+
+# Example
+```julia
+using QuantumCircuitsMPS, Luxor
+
+circuit = Circuit(L=4, bc=:periodic) do c
+    apply!(c, Reset(), StaircaseRight(1))
+end
+plot_circuit(circuit; gates_spacetime=42, filename="diagram.svg")
+```
+"""
 function plot_circuit(circuit::Circuit; n_steps::Int = 1, gates_spacetime::Int = 0,
         filename::Union{String, Nothing} = nothing)
     Base.invokelatest(_plot_circuit_impl, circuit; n_steps = n_steps,
