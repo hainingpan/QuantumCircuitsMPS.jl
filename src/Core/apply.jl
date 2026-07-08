@@ -91,19 +91,32 @@ end
     _measure_single_site!(state::SimulationState, site::Int) -> Int
 
 Perform Born-sampled projective measurement on a single site.
-Returns the measurement outcome (0 or 1).
+Returns the measurement outcome (a level index `0 .. local_dim-1`;
+0 or 1 for qubits).
 
 This is the FUNDAMENTAL measurement operation:
-1. Compute Born probability P(0|ψ)
-2. Sample outcome using :born_measurement RNG stream
-3. Apply Projection operator
-4. Return outcome (for conditional logic in Reset)
+1. Compute Born probabilities P(k|ψ) for levels k = 0 .. local_dim-2
+2. Sample ONE categorical outcome using a single scalar draw from the
+   :born_measurement RNG stream (at local_dim=2 this reduces EXACTLY to the
+   historical binary draw `rand < P(0) ? 0 : 1` — same draw count, same
+   float comparison, bitwise-identical qubit trajectories)
+3. Apply the per-level Projection operator
+4. Return outcome (for conditional logic in Reset / feedback)
 """
 function _measure_single_site!(state::SimulationState, site::Int)
-    p_0 = born_probability(state, site, 0)
+    d = state.local_dim
     born_measurement_rng = get_rng(state.rng_registry, :born_measurement)
     # SCALAR-DRAW CONTRACT: one scalar Born draw per measured site
-    outcome = rand(born_measurement_rng) < p_0 ? 0 : 1
+    r = rand(born_measurement_rng)
+    outcome = d - 1  # falls through to the last level (Σₖ P(k) = 1 up to fp error)
+    cumprob = 0.0
+    for k in 0:(d - 2)
+        cumprob += born_probability(state, site, k)
+        if r < cumprob
+            outcome = k
+            break
+        end
+    end
     _apply_single!(state, Projection(outcome), [site])
     if state.event_log !== nothing
         # Real (step, op_idx) via the engine's event context (set by

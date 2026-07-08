@@ -28,6 +28,12 @@ backend, but no state-vector implementation exists for them yet).
 function (m::Magnetization)(state::SimulationState{StateVectorBackend})
     m.axis == :Z ||
         throw(ArgumentError("Magnetization for the state-vector backend currently only supports :Z axis, got $(m.axis)"))
+    # Spin site types with d > 2: eigenvalue-weighted ⟨Sz⟩ = Σₖ (S-k)·P(digit=k)
+    # (the qubit 2·P(0)-1 formula below is Pauli-Z semantics, wrong for spins).
+    spin_s = _parse_spin_site_type(state.site_type)
+    if spin_s !== nothing && state.local_dim > 2
+        return _sv_spin_magnetization(state, spin_s)
+    end
     L = state.L
     d = state.local_dim
     ψ = state.backend.ψ
@@ -79,6 +85,32 @@ function (m::Magnetization)(state::SimulationState{StateVectorBackend})
     total = 0.0
     for site in 1:L
         total += (2 * p0[site] - 1)   # <Z> = P(0) - P(1) = 2*P(0) - 1
+    end
+    return total / L
+end
+
+"""
+    _sv_spin_magnetization(state, s::Rational) -> Float64
+
+Spin-site state-vector Magnetization: Mz = (1/L) Σᵢ ⟨Szᵢ⟩ with
+⟨Sz⟩ = Σₖ (S-k)·P(digit=k), summed over all 2S+1 levels (level k, 0-based,
+has eigenvalue m = S-k; site 1 = MSB digit). One O(L·dᴸ) pass — spin SV
+states are small, so the simple double loop is fine.
+"""
+function _sv_spin_magnetization(state::SimulationState{StateVectorBackend}, s::Rational)
+    L = state.L
+    d = state.local_dim
+    ψ = state.backend.ψ
+    S = Float64(s)
+    total = 0.0
+    for site in 1:L
+        stride = d^(L - site)
+        sz = 0.0
+        for n0 in 0:(length(ψ) - 1)
+            k = _sv_digit(n0, stride, d)
+            sz += (S - k) * abs2(ψ[n0 + 1])
+        end
+        total += sz
     end
     return total / L
 end

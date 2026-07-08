@@ -228,18 +228,20 @@ const _BM_BACKENDS = (:mps, :statevector, :clifford)
     end
 
     # --- (f) S=1 spin measurement sanity --------------------------------------
-    @testset "(f) S=1: single-site Measure is qubit-only (known, T39 scope)" begin
-        # Projection is 0/1-only and born_probability uses the "Proj0"/"Proj1"
-        # op strings, which are undefined for "S=1" sites → ArgumentError.
-        # KNOWN limitation (not a new bug); AKLT-style circuits use
-        # SpinSectorProjection/SpinSectorMeasurement instead (tested below).
+    @testset "(f) S=1: single-site Measure works (categorical, T39)" begin
+        # T39 resolved the former qubit-only limitation: per-level "Proj<k>"
+        # ops now exist for spin site types, Projection accepts any level
+        # index, and _measure_single_site! draws one categorical outcome.
         st = SimulationState(L = 4, bc = :open, site_type = "S=1", maxdim = 32,
             rng = RNGRegistry(gates_spacetime = 1, gates_realization = 2,
                 born_measurement = 3))
         initialize!(st, ProductState(spin_state = "Z0"))
-        @test_throws ArgumentError born_probability(st, 1, 0)
-        @test_throws ArgumentError apply!(st, Measure(:Z), SingleSite(1))
-        @test_throws ArgumentError Projection(2)   # qubit-only outcomes
+        @test born_probability(st, 1, 0) ≈ 0.0 atol=1e-12   # |Z0⟩ is level 1
+        @test born_probability(st, 1, 1) ≈ 1.0 atol=1e-12
+        apply!(st, Measure(:Z), SingleSite(1))               # deterministic: level 1
+        @test born_probability(st, 1, 1) ≈ 1.0 atol=1e-12
+        @test Projection(2) isa Projection    # level-2 projector valid for d ≥ 3
+        @test_throws ArgumentError Projection(-1)            # negative still rejected
     end
 
     @testset "(f) S=1 SpinSectorMeasurement Born sampling" begin

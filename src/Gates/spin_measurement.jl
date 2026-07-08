@@ -9,14 +9,22 @@
 
 Coherent projection onto specified spin sectors (no measurement/collapse).
 
-Applies projector operator P to two adjacent spin-1 sites, then renormalizes:
+Applies projector operator P to two adjacent spin sites, then renormalizes:
     |ψ⟩ → P|ψ⟩ / ||P|ψ⟩||
+
+The projector must be d²×d² for two sites of local dimension d (9×9 for the
+historical spin-1 case; 16×16 for spin-3/2 pairs, etc.). The matrix size is
+validated against the state's local dimension at apply time.
 
 # Example
 ```julia
-# Project onto S=0 and S=1 sectors (remove S=2)
+# Project onto S=0 and S=1 sectors (remove S=2) for spin-1 pairs
 P01 = total_spin_projector(0) + total_spin_projector(1)
 gate = SpinSectorProjection(P01)
+
+# Spin-3/2 pair: remove the S=3 sector
+P012 = sum(total_spin_projector(S; s=3//2) for S in 0:2)
+gate32 = SpinSectorProjection(P012)
 ```
 
 # Physics
@@ -27,10 +35,14 @@ struct SpinSectorProjection <: AbstractGate
     projector::Matrix{Float64}
 
     function SpinSectorProjection(projector::Matrix{Float64})
-        # Validate projector is 9×9 (two spin-1 particles)
-        size(projector) == (9, 9) || throw(ArgumentError(
-            "SpinSectorProjection requires 9×9 projector for two spin-1 sites"
-        ))
+        # Validate projector is d²×d² for two spin sites of local dimension d
+        N = size(projector, 1)
+        dloc = isqrt(N)
+        (size(projector, 2) == N && dloc >= 2 && dloc * dloc == N) ||
+            throw(ArgumentError(
+                "SpinSectorProjection requires a d²×d² projector for two spin sites " *
+                "(9×9 for spin-1, 16×16 for spin-3/2, ...), got size $(size(projector))"
+            ))
         return new(projector)
     end
 end
@@ -94,9 +106,11 @@ struct SpinSectorMeasurement <: AbstractGate
             "feedback, or post-select via the event log " *
             "(SimulationState(...; log_events=true) + measurements(state))."
         ))
-        # Validate sectors are valid for spin-1 ⊗ spin-1
-        all(s -> s in (0, 1, 2), sectors) || throw(ArgumentError(
-            "sectors must be subset of {0, 1, 2} for two spin-1 sites"
+        # Sectors must be valid total spins for SOME spin-s pair (S ≥ 0);
+        # the upper bound S ≤ 2s depends on the state's local dimension and
+        # is validated at apply time (build_operator).
+        all(s -> s >= 0, sectors) || throw(ArgumentError(
+            "sectors must be non-negative total-spin values (S ∈ 0:2s for a spin-s pair)"
         ))
         !isempty(sectors) || throw(ArgumentError(
             "sectors must be non-empty"
@@ -120,8 +134,10 @@ Returns ITensor representation of the projector matrix.
 function build_operator(gate::SpinSectorProjection, sites::Vector{<:Index}, local_dim::Int; kwargs...)
     length(sites) == 2 ||
         throw(ArgumentError("SpinSectorProjection requires exactly 2 sites"))
-    local_dim == 3 ||
-        throw(ArgumentError("SpinSectorProjection requires local_dim=3 (spin-1)"))
+    local_dim^2 == size(gate.projector, 1) ||
+        throw(ArgumentError(
+            "SpinSectorProjection projector is $(size(gate.projector, 1))×$(size(gate.projector, 1)) " *
+            "but the state has local_dim=$local_dim (expected $(local_dim^2)×$(local_dim^2))"))
 
     # Convert 9×9 matrix to ITensor
     # sites = [site_i, site_j] for two adjacent spins
@@ -243,7 +259,7 @@ Implements the Born rule measurement:
 # Arguments
 - `gate`: SpinSectorMeasurement specifying allowed sectors
 - `sites`: ITensor site indices for the two sites
-- `local_dim`: Local Hilbert space dimension (must be 3 for spin-1)
+- `local_dim`: Local Hilbert space dimension (d = 2s+1; 3 for spin-1)
 - `rng`: RNG registry for reproducible sampling (uses :born_measurement stream)
 - `mps`: Current MPS state for computing Born probabilities
 - `ram_sites`: RAM indices of the two sites
@@ -255,15 +271,20 @@ function build_operator(gate::SpinSectorMeasurement, sites::Vector{<:Index},
         local_dim::Int; rng, mps, ram_sites)
     length(sites) == 2 ||
         throw(ArgumentError("SpinSectorMeasurement requires exactly 2 sites"))
-    local_dim == 3 ||
-        throw(ArgumentError("SpinSectorMeasurement requires local_dim=3 (spin-1)"))
+    local_dim >= 2 ||
+        throw(ArgumentError("SpinSectorMeasurement requires spin sites (local_dim ≥ 2), got local_dim=$local_dim"))
+    # Local spin s from the state's local dimension: d = 2s+1
+    spin_s = (local_dim - 1) // 2
+    Smax = Int(2 * spin_s)
+    all(S -> S <= Smax, gate.sectors) || throw(ArgumentError(
+        "sectors $(gate.sectors) invalid for a spin-$(spin_s) pair (valid total spins: 0:$Smax)"))
 
     # === Step 1: Compute Born probabilities for each allowed sector ===
     probs = Float64[]
     projectors = Matrix{Float64}[]
 
     for S in gate.sectors
-        P_S = total_spin_projector(S)
+        P_S = total_spin_projector(S; s = spin_s)
         push!(projectors, P_S)
 
         # Compute ⟨ψ|P_S|ψ⟩ via MPS contraction
@@ -298,7 +319,7 @@ function build_operator(gate::SpinSectorMeasurement, sites::Vector{<:Index},
     P_chosen = projectors[chosen_idx]
     site_i, site_j = sites
 
-    # Reshape 9×9 matrix to (3,3,3,3) tensor
+    # Reshape d²×d² matrix to (d,d,d,d) tensor
     # Same basis ordering as SpinSectorProjection: m2 (site_j) is fast, m1 (site_i) is slow
     proj_tensor = reshape(P_chosen, local_dim, local_dim, local_dim, local_dim)
 

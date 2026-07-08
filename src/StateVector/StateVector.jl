@@ -75,6 +75,12 @@ end
 function _resolve_gate_matrix_sv(gate::RandomClifford, state::SimulationState)
     gate_matrix(gate, get_rng(state.rng_registry, :gates_realization); local_dim = state.local_dim)
 end
+# Projection is d-dependent (per-level projector on spin sites): build the
+# d×d matrix from the state's local dimension. At d=2 this equals
+# gate_matrix(gate) exactly (same values, same type) — qubit path unchanged.
+function _resolve_gate_matrix_sv(gate::Projection, state::SimulationState)
+    _projection_matrix(gate.outcome, state.local_dim)
+end
 
 # === _apply_single! for the state-vector backend ===
 # NEW, more-specific method: Julia's multiple dispatch routes

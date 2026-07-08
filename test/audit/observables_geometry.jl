@@ -134,14 +134,14 @@ end
         @test Magnetization(:Y)(sx) ≈ 0.0 atol=1e-12
     end
 
-    @testset "FINDING: Magnetization(:Z) broken on S=1 MPS" begin
-        # expect(mps, "Z") — the "Z" op string is undefined for ITensor
-        # "S=1" sites, so this throws ArgumentError TODAY. T39 will make it
-        # return (1/L)Σ⟨Sz⟩-style value; flip to @test then.
+    @testset "FIXED (T39): Magnetization(:Z) works on S=1 MPS" begin
+        # T39 routes spin site types to expect(mps, "Sz") — Magnetization
+        # returns (1/L)Σ⟨Sz⟩ (0.0 for the uniform |Z0⟩ product state).
         s1 = SimulationState(L = 4, bc = :open, site_type = "S=1", maxdim = 32,
             rng = _rng())
         initialize!(s1, ProductState(spin_state = "Z0"))
-        @test_broken Magnetization(:Z)(s1) isa Float64
+        @test Magnetization(:Z)(s1) isa Float64
+        @test Magnetization(:Z)(s1) ≈ 0.0 atol=1e-12
     end
 
     # ------------------------------------------------------------------

@@ -153,9 +153,12 @@ function SimulationState(;
     engine in (:builtin, :optimized) ||
         throw(ArgumentError("engine must be :builtin or :optimized, got $engine"))
 
-    # Auto-detect local_dim from site_type if not explicitly set
-    if site_type == "S=1" && local_dim == 2  # default not overridden
-        local_dim = 3
+    # Auto-detect local_dim from site_type if not explicitly set.
+    # Any spin site type "S=<n>" / "S=<k>/2" (e.g. "S=1", "S=3/2", "S=2")
+    # maps to local_dim = 2S+1; "S=1/2" yields 2 (no-op vs the default).
+    spin_s = _parse_spin_site_type(site_type)
+    if spin_s !== nothing && local_dim == 2  # default not overridden
+        local_dim = Int(2 * spin_s + 1)
     end
 
     if backend == :mps

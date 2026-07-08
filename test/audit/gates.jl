@@ -275,12 +275,16 @@ end
         end
 
         @testset "constructor validation (SpinSectorProjection / SpinSectorMeasurement)" begin
-            @test_throws ArgumentError SpinSectorProjection(rand(4, 4))
-            @test_throws ArgumentError total_spin_projector(3)
-            @test_throws ArgumentError total_spin_projector(0; d = 2)  # S=1-only today
+            # T39: SpinSectorProjection now accepts any d²×d² matrix (4×4 =
+            # two-qubit pairs is legal); non-square-of-a-square still rejected.
+            @test_throws ArgumentError SpinSectorProjection(rand(5, 5))
+            @test_throws ArgumentError total_spin_projector(3)  # S ≤ 2 for s=1
+            @test_throws ArgumentError total_spin_projector(0; d = 2)  # d ≠ 2s+1 for s=1
             @test QCM.support(SpinSectorMeasurement([0, 1])) == 2
             @test QCM.is_measurement(SpinSectorMeasurement([0, 1]))
-            @test_throws ArgumentError SpinSectorMeasurement([3])
+            # T39: sector upper bound is now checked at apply time (depends on
+            # the state's spin); construction rejects only negative sectors.
+            @test_throws ArgumentError SpinSectorMeasurement([-1])
             @test_throws ArgumentError SpinSectorMeasurement(Int[])
             @test_throws ArgumentError SpinSectorMeasurement([0, 1];
                 feedback = OnOutcome(1 => PauliX()))

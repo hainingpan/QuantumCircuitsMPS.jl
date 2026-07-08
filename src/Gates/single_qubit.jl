@@ -18,21 +18,37 @@ gate_matrix(::PauliZ) = ComplexF64[1 0; 0 -1]
 """
     Projection(outcome::Int)
 
-Projector onto computational basis state |outcome⟩.
-outcome=0 projects onto |0⟩, outcome=1 projects onto |1⟩.
+Projector onto computational basis state |outcome⟩ (level index, 0-based).
+outcome=0 projects onto |0⟩, outcome=1 onto |1⟩; on spin sites of local
+dimension d, any level `0 ≤ outcome ≤ d-1` is valid (level k ↔ m = S-k).
+The outcome is validated against the state's local dimension at apply time.
 """
 struct Projection <: AbstractGate
     outcome::Int
 
     function Projection(outcome::Int)
-        outcome in (0, 1) ||
-            throw(ArgumentError("Projection outcome must be 0 or 1, got $outcome"))
+        outcome >= 0 ||
+            throw(ArgumentError("Projection outcome must be a non-negative level index, got $outcome"))
         new(outcome)
     end
 end
 support(::Projection) = 1
 needs_normalization(::Projection) = true  # projector shrinks the norm
-gate_matrix(g::Projection) = g.outcome == 0 ? ComplexF64[1 0; 0 0] : ComplexF64[0 0; 0 1]
+gate_matrix(g::Projection) = _projection_matrix(g.outcome, 2)
+
+"""
+    _projection_matrix(outcome::Int, d::Int) -> Matrix{ComplexF64}
+
+Dense d×d projector |outcome⟩⟨outcome| (0-based level index), validated
+against the local dimension `d`.
+"""
+function _projection_matrix(outcome::Int, d::Int)
+    outcome < d || throw(ArgumentError(
+        "Projection outcome $outcome requires local_dim ≥ $(outcome + 1), got local_dim=$d"))
+    P = zeros(ComplexF64, d, d)
+    P[outcome + 1, outcome + 1] = 1
+    return P
+end
 
 # === build_operator implementations ===
 
@@ -67,14 +83,14 @@ end
 """
     build_operator(gate::Projection, site::Index, local_dim::Int) -> ITensor
 
-Build projection operator |outcome⟩⟨outcome|.
+Build projection operator |outcome⟩⟨outcome| via the site type's per-level
+`"Proj<k>"` op string (defined for Qubit/"S=1/2" by ITensors and for all
+spin site types by `src/Core/spin_sites.jl`).
 """
 function build_operator(gate::Projection, site::Index, local_dim::Int; kwargs...)
-    if gate.outcome == 0
-        return op("Proj0", site)  # |0⟩⟨0|
-    else
-        return op("Proj1", site)  # |1⟩⟨1|
-    end
+    gate.outcome < local_dim || throw(ArgumentError(
+        "Projection outcome $(gate.outcome) requires local_dim ≥ $(gate.outcome + 1), got local_dim=$local_dim"))
+    return op("Proj$(gate.outcome)", site)
 end
 
 """Phase gate (S gate, √Z), diag(1, i)."""

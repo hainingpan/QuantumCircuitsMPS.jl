@@ -207,10 +207,10 @@ function initialize!(state::SimulationState, init::ProductState)
     state_names_physical = if site_type == "Qubit"
         # "0" → "0", "1" → "1"
         vec_int_pos
-    elseif site_type == "S=1"
-        # For S=1: "0" → "Up" (m=+1), "1" → "Dn" (m=-1)
-        # ITensor uses "Up"/"Z0"/"Dn" for m = +1, 0, -1
-        # Binary encoding: 0 = spin up, 1 = spin down
+    elseif _parse_spin_site_type(site_type) !== nothing
+        # Any spin type "S=<k/2>" (incl. "S=1"): "0" → "Up" (m=+S),
+        # "1" → "Dn" (m=-S). Binary encoding addresses the two extremal
+        # levels; use ProductState(spin_state="Z<m>") for intermediate levels.
         [b == "0" ? "Up" : "Dn" for b in vec_int_pos]
     elseif site_type == "Qudit"
         # Generic qudit: "0" → "1", "1" → "2", etc. (1-indexed states)

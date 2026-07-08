@@ -49,98 +49,135 @@ function s1_dot_s2()
 end
 
 """
-    total_spin_projector(S::Int; d::Int=3) -> Matrix{Float64}
+    _s_dot_s(s::Rational) -> Matrix{Float64}
 
-Construct the projector onto total spin sector S for two spin-1 particles.
+The S₁·S₂ operator for two spin-`s` particles as a `(2s+1)² × (2s+1)²`
+matrix in the descending-m tensor product basis (generic version of
+[`s1_dot_s2`](@ref), built from `spin_operators(s)`).
+"""
+function _s_dot_s(s::Rational)
+    Sz, Sp, Sm = spin_operators(s)
+    return kron(Sz, Sz) + 0.5 * (kron(Sp, Sm) + kron(Sm, Sp))
+end
 
-For two spin-1 particles (d=3 each), the tensor product decomposes as:
-1 ⊗ 1 = 0 ⊕ 1 ⊕ 2
+"""
+    total_spin_projector(S::Int; s::Real=1, d::Int=Int(2*Rational(s)+1)) -> Matrix{Float64}
 
-Returns a d²×d² (9×9) projector matrix.
+Construct the projector onto total spin sector `S` for two spin-`s`
+particles (default `s=1`, the historical spin-1 case).
+
+The tensor product decomposes as s ⊗ s = 0 ⊕ 1 ⊕ ... ⊕ 2s, so valid sectors
+are `S ∈ 0:Int(2s)`. Returns a d²×d² projector matrix (d = 2s+1).
 
 # Arguments
-- `S`: Total spin sector (0, 1, or 2)
-- `d`: Local dimension (default 3 for spin-1)
-
-# Returns
-- `P_S`: Projector matrix onto sector S
+- `S`: Total spin sector (0 to 2s)
+- `s`: Local spin (positive integer or half-integer; default 1)
+- `d`: Local dimension (must equal 2s+1; kept as an explicit kwarg for
+  backward compatibility with the historical `total_spin_projector(S; d=3)`)
 
 # Examples
 ```julia
-P0 = total_spin_projector(0)  # Singlet projector (dim=1)
-P1 = total_spin_projector(1)  # Triplet projector (dim=3)
-P2 = total_spin_projector(2)  # Quintet projector (dim=5)
+P0 = total_spin_projector(0)          # spin-1 singlet projector (dim=1)
+P2 = total_spin_projector(2)          # spin-1 quintet projector (dim=5)
+P0_32 = total_spin_projector(0; s=3//2)  # spin-3/2 singlet (16×16, rank 1)
 
-# Verify completeness
-@assert P0 + P1 + P2 ≈ I(9)
-
-# Verify idempotence
-@assert P0 * P0 ≈ P0
+# Completeness for any s: Σ_S P_S = I
+@assert sum(total_spin_projector(S; s=2) for S in 0:4) ≈ I(25)
 ```
 
 # Physics
-The projector formulas are derived from Clebsch-Gordan decomposition:
+For `s=1` the three historical hardcoded Clebsch-Gordan polynomials are used
+(byte-identical output to pre-v0.4 releases):
 - P₂ = (1/6)(S₁·S₂)² + (1/2)(S₁·S₂) + (1/3)I
 - P₁ = -(1/2)(S₁·S₂)² - (1/2)(S₁·S₂) + I
 - P₀ = (1/3)(S₁·S₂)² - (1/3)I
+
+For any other `s`, the general Lagrange interpolation in S₁·S₂ is used:
+P_S = Π_{S'≠S} (S₁·S₂ − λ_{S'}) / (λ_S − λ_{S'}) with eigenvalues
+λ_S = ½[S(S+1) − 2s(s+1)] — no Clebsch-Gordan tables needed.
 """
-function total_spin_projector(S::Int; d::Int = 3)
-    d == 3 || throw(ArgumentError("Only d=3 (spin-1) is currently supported"))
-    S in (0, 1, 2) || throw(ArgumentError("S must be 0, 1, or 2 for spin-1 ⊗ spin-1"))
+function total_spin_projector(S::Int; s::Real = 1,
+        d::Int = Int(2 * Rational{Int}(s) + 1))
+    srat = Rational{Int}(s)
+    (srat >= 1 // 2 && denominator(srat) <= 2) ||
+        throw(ArgumentError("spin s must be a positive integer or half-integer, got $s"))
+    d == Int(2 * srat + 1) || throw(ArgumentError(
+        "local dimension d=$d is inconsistent with spin s=$s (expected d=$(Int(2 * srat + 1)))"))
 
-    S1S2 = s1_dot_s2()
-    S1S2_sq = S1S2 * S1S2
-    I9 = Matrix{Float64}(I, 9, 9)
+    if srat == 1
+        # Historical spin-1 path: hardcoded polynomials, byte-identical to
+        # pre-generalization releases (AKLT trajectory regression guarantee).
+        S in (0, 1, 2) ||
+            throw(ArgumentError("S must be 0, 1, or 2 for spin-1 ⊗ spin-1"))
 
-    if S == 2
-        # P₂ = (1/6)(S₁·S₂)² + (1/2)(S₁·S₂) + (1/3)I
-        P = (1/6) * S1S2_sq + (1/2) * S1S2 + (1/3) * I9
-    elseif S == 1
-        # P₁ = -(1/2)(S₁·S₂)² - (1/2)(S₁·S₂) + I
-        P = -(1/2) * S1S2_sq - (1/2) * S1S2 + I9
-    else  # S == 0
-        # P₀ = (1/3)(S₁·S₂)² - (1/3)I
-        P = (1/3) * S1S2_sq - (1/3) * I9
+        S1S2 = s1_dot_s2()
+        S1S2_sq = S1S2 * S1S2
+        I9 = Matrix{Float64}(I, 9, 9)
+
+        if S == 2
+            # P₂ = (1/6)(S₁·S₂)² + (1/2)(S₁·S₂) + (1/3)I
+            P = (1 / 6) * S1S2_sq + (1 / 2) * S1S2 + (1 / 3) * I9
+        elseif S == 1
+            # P₁ = -(1/2)(S₁·S₂)² - (1/2)(S₁·S₂) + I
+            P = -(1 / 2) * S1S2_sq - (1 / 2) * S1S2 + I9
+        else  # S == 0
+            # P₀ = (1/3)(S₁·S₂)² - (1/3)I
+            P = (1 / 3) * S1S2_sq - (1 / 3) * I9
+        end
+
+        return P
     end
 
+    Smax = Int(2 * srat)
+    0 <= S <= Smax || throw(ArgumentError(
+        "S must be in 0:$Smax for spin-$s ⊗ spin-$s, got $S"))
+
+    # Lagrange interpolation in S₁·S₂: λ_j = ½[j(j+1) − 2s(s+1)]
+    SS = _s_dot_s(srat)
+    sf = Float64(srat)
+    λ(j) = (j * (j + 1) - 2 * sf * (sf + 1)) / 2
+    D = d^2
+    P = Matrix{Float64}(I, D, D)
+    for k in 0:Smax
+        k == S && continue
+        P = P * (SS - λ(k) * I) / (λ(S) - λ(k))
+    end
     return P
 end
 
 """
-    verify_spin_projectors(; tol::Float64=1e-10)
+    verify_spin_projectors(; s::Real=1, tol::Float64=1e-10)
 
-Verify that the spin projectors satisfy required properties.
+Verify that the spin-`s` pair projectors satisfy required properties.
 Returns true if all checks pass, throws error otherwise.
 
-Checks:
-1. Completeness: P₀ + P₁ + P₂ = I
-2. Idempotence: Pₛ² = Pₛ for all S
+Checks (over all sectors S = 0..2s):
+1. Completeness: Σ_S P_S = I
+2. Idempotence: P_S² = P_S for all S
 3. Orthogonality: Pᵢ·Pⱼ = 0 for i ≠ j
-4. Correct dimensions: tr(P₀)=1, tr(P₁)=3, tr(P₂)=5
+4. Correct dimensions: tr(P_S) = 2S+1
 """
-function verify_spin_projectors(; tol::Float64 = 1e-10)
-    P0 = total_spin_projector(0)
-    P1 = total_spin_projector(1)
-    P2 = total_spin_projector(2)
-    I9 = Matrix{Float64}(I, 9, 9)
+function verify_spin_projectors(; s::Real = 1, tol::Float64 = 1e-10)
+    srat = Rational{Int}(s)
+    Smax = Int(2 * srat)
+    d = Int(2 * srat + 1)
+    Ps = [total_spin_projector(S; s = srat) for S in 0:Smax]
+    Id = Matrix{Float64}(I, d^2, d^2)
 
     # Completeness
-    @assert norm(P0 + P1 + P2 - I9) < tol "Completeness failed: P₀ + P₁ + P₂ ≠ I"
+    @assert norm(sum(Ps) - Id)<tol "Completeness failed: Σ P_S ≠ I for s=$s"
 
-    # Idempotence
-    @assert norm(P0 * P0 - P0) < tol "Idempotence failed for P₀"
-    @assert norm(P1 * P1 - P1) < tol "Idempotence failed for P₁"
-    @assert norm(P2 * P2 - P2) < tol "Idempotence failed for P₂"
-
-    # Orthogonality
-    @assert norm(P0 * P1) < tol "Orthogonality failed: P₀·P₁ ≠ 0"
-    @assert norm(P0 * P2) < tol "Orthogonality failed: P₀·P₂ ≠ 0"
-    @assert norm(P1 * P2) < tol "Orthogonality failed: P₁·P₂ ≠ 0"
-
-    # Correct dimensions (trace = dimension of sector)
-    @assert abs(tr(P0) - 1) < tol "Trace failed: tr(P₀) ≠ 1"
-    @assert abs(tr(P1) - 3) < tol "Trace failed: tr(P₁) ≠ 3"
-    @assert abs(tr(P2) - 5) < tol "Trace failed: tr(P₂) ≠ 5"
+    for (i, P) in enumerate(Ps)
+        S = i - 1
+        # Idempotence
+        @assert norm(P * P - P)<tol "Idempotence failed for P_$S (s=$s)"
+        # Correct dimensions (trace = dimension of sector)
+        @assert abs(tr(P) - (2S + 1))<tol "Trace failed: tr(P_$S) ≠ $(2S + 1) (s=$s)"
+        # Orthogonality
+        for j in (i + 1):length(Ps)
+            @assert norm(P * Ps[j])<tol "Orthogonality failed: P_$S·P_$(j - 1) ≠ 0 (s=$s)"
+        end
+    end
 
     return true
 end
