@@ -10,7 +10,7 @@
 #   1. a plain closure tracked through `simulate!` records the SAME values
 #      as the equivalent built-in observable, on all 3 backends;
 #   2. an erroring callable produces an ErrorException NAMING the observable
-#      key (built-ins keep their own typed errors — recording_v01.jl pins
+#      key (built-ins keep their own typed errors — recording.jl pins
 #      the DomainWall ArgumentError path);
 #   3. vector-returning callables round-trip through storage (one entry per
 #      record point, entry == the returned vector);

@@ -16,24 +16,9 @@ using QuantumCircuitsMPS
 
 const QCM = QuantumCircuitsMPS
 
-# ── Helper: build one SimulationState of a given backend with given seeds ──
-function _make_state(L::Int, backend::Symbol;
-        bc = :open, seeds = (
-            gates_spacetime = 42, gates_realization = 7, born_measurement = 99))
-    state = SimulationState(L = L, bc = bc, backend = backend,
-        rng = RNGRegistry(; seeds...))
-    initialize!(state, ProductState(binary_int = 0))
-    return state
-end
-
-# ── Helper: build the SAME (mps, sv, clifford) triple, identical seeds ──────
-function make_triple(; L, bc = :open,
-        seeds = (gates_spacetime = 42, gates_realization = 7, born_measurement = 99))
-    mps_s = _make_state(L, :mps; bc = bc, seeds = seeds)
-    sv_s = _make_state(L, :statevector; bc = bc, seeds = seeds)
-    cl_s = _make_state(L, :clifford; bc = bc, seeds = seeds)
-    return mps_s, sv_s, cl_s
-end
+# Shared state builders (_make_state / make_triple) live in test/testutils.jl
+# (T28 DRY).
+@isdefined(make_backend_state) || include(joinpath(@__DIR__, "..", "testutils.jl"))
 
 @testset "Clifford Cross-Validation (MPS / SV / Clifford)" begin
 

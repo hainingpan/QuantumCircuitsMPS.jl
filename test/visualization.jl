@@ -189,9 +189,12 @@ end
         try
             Base.require(Main, :Luxor)
             svg_path = tempname() * ".svg"
-            plot_circuit(circuit; gates_spacetime = 0, filename = svg_path)
-            svg = read(svg_path, String)
-            rm(svg_path)
+            svg = try
+                plot_circuit(circuit; gates_spacetime = 0, filename = svg_path)
+                read(svg_path, String)
+            finally
+                rm(svg_path; force = true)   # tempfile hygiene (T28)
+            end
             @test contains(svg, "<svg")
         catch e
             if e isa ArgumentError && contains(string(e), "Package Luxor not found")

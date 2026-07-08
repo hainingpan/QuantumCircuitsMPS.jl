@@ -7,10 +7,10 @@
 # Deliberately NOT duplicated here (already covered elsewhere):
 #   * builder/eager equal-K + Σp>1 + staircase-guard basics
 #       → unified_rule_engine.jl (builder), eager_probabilistic.jl (eager)
-#   * marker-as-last-op :marks no-double-record → recording_v01.jl:185
+#   * marker-as-last-op :marks no-double-record → recording.jl (":marks no-double-record" testset)
 #   * all 12 deprecation stubs w/ migration text → legacy_removal.jl ("STUB:")
 #   * eager-path sentinel (apply! + feedback)    → feedback.jl:149
-#   * homogeneous-circuit draw counts            → rng_v01.jl, unified_rule_engine.jl
+#   * homogeneous-circuit draw counts            → rng.jl, unified_rule_engine.jl
 
 using Test
 using Random
@@ -110,7 +110,7 @@ end
     # -----------------------------------------------------------------------
     # DRAW-COUNT: expected_draws vs actual RNG advancement for ONE circuit
     # mixing deterministic + multi-outcome compound + EachSite + staircase
-    # + single-site stochastic ops. Earlier tests (rng_v01.jl,
+    # + single-site stochastic ops. Earlier tests (rng.jl,
     # unified_rule_engine.jl) only cover homogeneous circuits.
     # -----------------------------------------------------------------------
     @testset "DRAW-COUNT: heterogeneous multi-op circuit matches expected_draws" begin

@@ -1040,10 +1040,13 @@ end
 
             # Generate SVG to temporary file
             svg_path = tempname() * ".svg"
-            plot_circuit(circuit; gates_spacetime = 0, filename = svg_path)
-
-            # Read SVG content
-            svg_content = read(svg_path, String)
+            svg_content = try
+                plot_circuit(circuit; gates_spacetime = 0, filename = svg_path)
+                # Read SVG content
+                read(svg_path, String)
+            finally
+                rm(svg_path; force = true)   # tempfile hygiene (T28)
+            end
 
             # Verify SVG was created and contains expected structure
             @test contains(svg_content, "<svg")
@@ -1059,9 +1062,6 @@ end
 
             # Should have at least 1 gate box
             @test rect_count >= 1
-
-            # Clean up
-            rm(svg_path)
         catch e
             if e isa ArgumentError && contains(string(e), "Package Luxor not found")
                 @test_skip "Luxor not available - skipping SVG test"
@@ -1081,17 +1081,18 @@ end
             Base.require(Main, :Luxor)
 
             svg_path = tempname() * ".svg"
-            plot_circuit(circuit; gates_spacetime = 0, filename = svg_path)
-
-            svg_content = read(svg_path, String)
+            svg_content = try
+                plot_circuit(circuit; gates_spacetime = 0, filename = svg_path)
+                read(svg_path, String)
+            finally
+                rm(svg_path; force = true)   # tempfile hygiene (T28)
+            end
 
             # Verify SVG was created
             @test contains(svg_content, "<svg")
 
             # Should have gate box and path elements for text
             @test contains(svg_content, "<path")
-
-            rm(svg_path)
         catch e
             if e isa ArgumentError && contains(string(e), "Package Luxor not found")
                 @test_skip "Luxor not available - skipping SVG test"
@@ -1385,9 +1386,12 @@ end
             Base.require(Main, :Luxor)
 
             svg_path = tempname() * ".svg"
-            plot_circuit(circuit; gates_spacetime = 0, filename = svg_path)
-            svg = read(svg_path, String)
-            rm(svg_path)
+            svg = try
+                plot_circuit(circuit; gates_spacetime = 0, filename = svg_path)
+                read(svg_path, String)
+            finally
+                rm(svg_path; force = true)   # tempfile hygiene (T28)
+            end
 
             # Verify label is NOT the type name (Luxor renders text as glyphs)
             # Just check SVG was created and doesn't contain full type name
@@ -1412,9 +1416,12 @@ end
             Base.require(Main, :Luxor)
 
             svg_path = tempname() * ".svg"
-            plot_circuit(circuit; gates_spacetime = 0, filename = svg_path)
-            svg = read(svg_path, String)
-            rm(svg_path)
+            svg = try
+                plot_circuit(circuit; gates_spacetime = 0, filename = svg_path)
+                read(svg_path, String)
+            finally
+                rm(svg_path; force = true)   # tempfile hygiene (T28)
+            end
 
             # Count boxes - should have 2 per NNN gate (4 gates × 2 = 8 boxes minimum)
             # Boxes are rendered with fill-rule="nonzero"
@@ -1439,9 +1446,12 @@ end
             Base.require(Main, :Luxor)
 
             svg_path = tempname() * ".svg"
-            plot_circuit(circuit; gates_spacetime = 0, filename = svg_path)
-            svg = read(svg_path, String)
-            rm(svg_path)
+            svg = try
+                plot_circuit(circuit; gates_spacetime = 0, filename = svg_path)
+                read(svg_path, String)
+            finally
+                rm(svg_path; force = true)   # tempfile hygiene (T28)
+            end
 
             # Verify no letter suffixes (1a, 1b, etc)
             @test !contains(svg, "1a")
@@ -1473,9 +1483,12 @@ end
             Base.require(Main, :Luxor)
 
             svg_path = tempname() * ".svg"
-            plot_circuit(circuit; gates_spacetime = 0, filename = svg_path)
-            svg = read(svg_path, String)
-            rm(svg_path)
+            svg = try
+                plot_circuit(circuit; gates_spacetime = 0, filename = svg_path)
+                read(svg_path, String)
+            finally
+                rm(svg_path; force = true)   # tempfile hygiene (T28)
+            end
 
             # Just verify SVG was created successfully
             @test contains(svg, "<svg")

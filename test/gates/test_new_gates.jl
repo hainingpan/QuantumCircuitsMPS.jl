@@ -11,42 +11,9 @@ using Random: MersenneTwister
 const QCM = QuantumCircuitsMPS
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
-
-# Fresh |0...0⟩ MPS state (matches gates_v01.jl convention)
-function _mps_state(L::Int; bc = :open,
-        seeds = (gates_spacetime = 11, gates_realization = 22, born_measurement = 33))
-    state = SimulationState(L = L, bc = bc, maxdim = 64,
-        rng = RNGRegistry(; seeds...))
-    initialize!(state, ProductState(binary_int = 0))
-    return state
-end
-
-# Fresh |0...0⟩ SV state
-function _sv_state(L::Int; bc = :open,
-        seeds = (gates_spacetime = 11, gates_realization = 22, born_measurement = 33))
-    state = SimulationState(L = L, bc = bc, backend = :statevector,
-        rng = RNGRegistry(; seeds...))
-    initialize!(state, ProductState(binary_int = 0))
-    return state
-end
-
-# Fresh MPS state initialized to a given binary_int
-function _mps_state_bin(L::Int, bin::Int;
-        seeds = (gates_spacetime = 11, gates_realization = 22, born_measurement = 33))
-    state = SimulationState(L = L, bc = :open, maxdim = 64,
-        rng = RNGRegistry(; seeds...))
-    initialize!(state, ProductState(binary_int = bin))
-    return state
-end
-
-# Fresh SV state initialized to a given binary_int
-function _sv_state_bin(L::Int, bin::Int;
-        seeds = (gates_spacetime = 11, gates_realization = 22, born_measurement = 33))
-    state = SimulationState(L = L, bc = :open, backend = :statevector,
-        rng = RNGRegistry(; seeds...))
-    initialize!(state, ProductState(binary_int = bin))
-    return state
-end
+# _mps_state/_sv_state/_mps_state_bin/_sv_state_bin (matching the gates_api.jl
+# convention) live in test/testutils.jl (T28 DRY).
+@isdefined(make_backend_state) || include(joinpath(@__DIR__, "..", "testutils.jl"))
 
 @testset "New gates (CNOT, PhaseGate, SWAP, RandomClifford)" begin
 

@@ -48,6 +48,9 @@ using LinearAlgebra
 
 const _CB_QCM = QuantumCircuitsMPS
 
+# Shared state builder (make_backend_state) lives in test/testutils.jl (T28 DRY).
+@isdefined(make_backend_state) || include(joinpath(@__DIR__, "..", "testutils.jl"))
+
 # ── Shared circuit runners (prefixed _cb_ — runtests.jl includes all test
 #    files into one shared scope; avoid name collisions) ─────────────────────
 
@@ -67,10 +70,8 @@ function _cb_run_mipt(backend; L = 6, n_steps = 10, p = 0.15)
         apply_with_prob!(c;
             outcomes = [(probability = p, gate = Measure(:Z), geometry = AllSites())])
     end
-    kwargs = backend == :mps ? (maxdim = 256,) : (backend = backend,)
-    state = SimulationState(; L = L, bc = :open, kwargs...,
-        rng = RNGRegistry(gates_spacetime = 42, gates_realization = 7, born_measurement = 99))
-    initialize!(state, ProductState(binary_int = 0))
+    state = make_backend_state(backend, L; bc = :open, maxdim = 256,
+        seeds = (gates_spacetime = 42, gates_realization = 7, born_measurement = 99))
     track!(state, :S => EntanglementEntropy(cut = L ÷ 2))
     track!(state, :Mz => Magnetization(:Z))
     simulate!(circuit, state; n_steps = n_steps, record_when = :every_step)
@@ -86,10 +87,9 @@ function _cb_run_clifford_mipt(backend; L = 6, n_steps = 6, p = 0.3)
         apply_with_prob!(c;
             outcomes = [(probability = p, gate = Measure(:Z), geometry = AllSites())])
     end
-    kwargs = backend == :mps ? (maxdim = 256,) : (backend = backend,)
-    state = SimulationState(; L = L, bc = :open, kwargs..., log_events = true,
-        rng = RNGRegistry(gates_spacetime = 17, gates_realization = 23, born_measurement = 5))
-    initialize!(state, ProductState(binary_int = 0))
+    state = make_backend_state(backend, L; bc = :open, maxdim = 256,
+        log_events = true,
+        seeds = (gates_spacetime = 17, gates_realization = 23, born_measurement = 5))
     track!(state, :S => EntanglementEntropy(cut = L ÷ 2))
     track!(state, :Mz => Magnetization(:Z))
     simulate!(circuit, state; n_steps = n_steps, record_when = :every_step)
@@ -111,10 +111,8 @@ function _cb_run_cipt(backend; L = 6, n_steps = 20, p_ctrl = 0.5)
                     geometry = StaircaseRight(1))
             ])
     end
-    kwargs = backend == :mps ? (maxdim = 256,) : (backend = backend,)
-    state = SimulationState(; L = L, bc = :periodic, kwargs...,
-        rng = RNGRegistry(gates_spacetime = 11, gates_realization = 22, born_measurement = 33))
-    initialize!(state, ProductState(binary_int = 0))
+    state = make_backend_state(backend, L; bc = :periodic, maxdim = 256,
+        seeds = (gates_spacetime = 11, gates_realization = 22, born_measurement = 33))
     track!(state, :Mz => Magnetization(:Z))
     simulate!(circuit, state; n_steps = n_steps, record_when = :every_step)
     return state.observables[:Mz]

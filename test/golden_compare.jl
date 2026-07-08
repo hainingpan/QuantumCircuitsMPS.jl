@@ -1,4 +1,11 @@
-# Golden comparison harness — Task 1 skeleton, completed in Task 16.
+# Golden comparison harness — the bit-exact pre/post-v0.1-refactor regression
+# gate. KEPT deliberately (T28 decision): it is gated behind EXTENDED_TESTS=true
+# in runtests.jl (not part of the default suite) and is the only check that
+# pins today's engine bit-exactly against the pristine PRE-refactor goldens.
+# Its companion generator, test/golden/generate_goldens.jl, is dev-only and is
+# never included by runtests (see that file's header).
+#
+# (History: Task 1 skeleton, completed in Task 16.)
 #
 # Re-runs the pre-refactor golden circuits (test/golden/generate_goldens.jl,
 # captured BEFORE any src/ change) on the CURRENT (post-refactor v0.1) engine

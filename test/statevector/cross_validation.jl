@@ -7,6 +7,9 @@ using QuantumCircuitsMPS
 using LinearAlgebra
 using Random
 
+# Shared state builders (make_pair) live in test/testutils.jl (T28 DRY).
+@isdefined(make_backend_state) || include(joinpath(@__DIR__, "..", "testutils.jl"))
+
 # ─── Helper: extract MPS state as a dense vector ───────────────────────────
 # Converts from MPS's internal ITensor representation to the SAME
 # "site 1 = MSB" flat-vector convention used by the SV backend.
@@ -23,20 +26,6 @@ function mps_to_dense(s)
     # Position p (1=fastest/LSB) → physical site (L-p+1) → RAM dim phy_ram[L-p+1]
     perm = Tuple(s.phy_ram[L - p + 1] for p in 1:L)
     return vec(permutedims(arr, perm))
-end
-
-# ─── Helper: create paired MPS + SV states with identical seeds ─────────────
-function make_pair(; L, bc = :open,
-        seeds = (gates_spacetime = 42, gates_realization = 7, born_measurement = 99))
-    mps_state = SimulationState(L = L, bc = bc, maxdim = 256,
-        rng = RNGRegistry(; seeds...))
-    initialize!(mps_state, ProductState(binary_int = 0))
-
-    sv_state = SimulationState(L = L, bc = bc, backend = :statevector,
-        rng = RNGRegistry(; seeds...))
-    initialize!(sv_state, ProductState(binary_int = 0))
-
-    return mps_state, sv_state
 end
 
 @testset "State Vector Cross-Validation" begin

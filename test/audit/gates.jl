@@ -1,7 +1,7 @@
 # test/audit/gates.jl
 # T8 AUDIT — Gate definitions, projectors, Clifford semantics.
 #
-# Cross-checks that do NOT duplicate test/gates_v01.jl (construction, matrix
+# Cross-checks that do NOT duplicate test/gates_api.jl (construction, matrix
 # element pinning, MatrixGate conventions) or test/gates/test_new_gates.jl
 # (per-backend smoke tests, S²=Z, RandomClifford reproducibility on MPS/SV):
 #   (a) unitarity U†U = I ± 1e-14 for every fixed gate matrix

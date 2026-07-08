@@ -42,7 +42,7 @@ function _matrixgate_op_to_matrix(op, sites, d)
     return reshape(A, N, N)
 end
 
-@testset "gates_v01" begin
+@testset "gates_api" begin
 
     # =====================================================================
     @testset "HaarRandom construction and support" begin

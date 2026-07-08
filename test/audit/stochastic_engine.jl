@@ -31,14 +31,14 @@
 #         test/eager_probabilistic.jl:186 (CIPT staircase, Σp=1, sync +
 #         advance). Not duplicated here.
 #   (d) expected_draws == actual draws consumed — ALREADY COVERED:
-#         test/rng_v01.jl:168-270 (MIPT / deterministic / CIPT staircase /
+#         test/rng.jl:168-270 (MIPT / deterministic / CIPT staircase /
 #         SRN EachSite + engine twin-replay), test/unified_rule_engine.jl:230
-#         (multi-outcome compound), test/cross_cutting_v01.jl:119
+#         (multi-outcome compound), test/cross_cutting.jl:119
 #         (heterogeneous det+stochastic+staircase circuit, twin burn), and
-#         test/gates_v01.jl:443-470 (ProductGate: expected_draws == n_steps
+#         test/gates_api.jl:443-470 (ProductGate: expected_draws == n_steps
 #         AND twin-verified actual consumption). Not duplicated here.
 #   (e) stream isolation — draw-COUNT invariance is covered
-#         (test/unified_rule_engine.jl:210, test/cross_cutting_v01.jl:160);
+#         (test/unified_rule_engine.jl:210, test/cross_cutting.jl:160);
 #         THIS FILE adds the gate-PLACEMENT fingerprint checks: full
 #         GateApplied event-sequence invariance under :born_measurement and
 #         :gates_realization seed changes, plus the vice-versa direction
