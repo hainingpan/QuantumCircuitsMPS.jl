@@ -1,6 +1,6 @@
 name = "QuantumCircuitsMPS"
 uuid = "ed2bb82c-fd6e-4581-809a-ddc7a64756b9"
-version = "0.2.0"
+version = "0.4.0"
 authors = ["Haining Pan <haining.pan.physics@gmail.com>", "Jedediah H Pixley <jed.pixley@physics.rutgers.edu>"]
 
 [deps]
@@ -23,4 +23,4 @@ Luxor = "4"
 QuantumClifford = "0.11.5"
 QuantumOpticsBase = "0.5.10"
 Random = "1"
-julia = "1.11"
+julia = "1.12"

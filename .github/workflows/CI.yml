@@ -24,7 +24,7 @@ jobs:
       matrix:
         version:
           - '1'        # latest stable Julia
-          - '1.11'     # floor placeholder — T35 may lower this
+          - '1.12'     # floor: matches QuantumClifford 0.11.5's own julia=1.12 requirement
         os:
           - ubuntu-latest
         include:
