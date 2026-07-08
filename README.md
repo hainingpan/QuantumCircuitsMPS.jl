@@ -1,4 +1,4 @@
-[![Julia 1.11+](https://img.shields.io/badge/Julia-1.11%2B-blue)](https://julialang.org/)
+[![Julia 1.12+](https://img.shields.io/badge/Julia-1.12%2B-blue)](https://julialang.org/)
 [![License: BSD-3-Clause](https://img.shields.io/badge/License-BSD--3--Clause-green.svg)](LICENSE)
 [![Docs](https://img.shields.io/badge/docs-stable-blue.svg)](https://hainingpan.github.io/QuantumCircuitsMPS.jl/)
 [![CI](https://github.com/hainingpan/QuantumCircuitsMPS.jl/actions/workflows/CI.yml/badge.svg)](https://github.com/hainingpan/QuantumCircuitsMPS.jl/actions/workflows/CI.yml)
@@ -45,7 +45,7 @@ Pkg.instantiate()
 using QuantumCircuitsMPS
 ```
 
-**Dependencies**: ITensors.jl, ITensorMPS.jl, QuantumClifford.jl (required); Luxor.jl (optional, circuit visualization). Julia 1.11+. For interactive development, `Pkg.add("Revise")` globally and add `using Revise` before `using QuantumCircuitsMPS`.
+**Dependencies**: ITensors.jl, ITensorMPS.jl, QuantumClifford.jl (required); Luxor.jl (optional, circuit visualization). Julia 1.12+. For interactive development, `Pkg.add("Revise")` globally and add `using Revise` before `using QuantumCircuitsMPS`.
 
 ---
 ## Quick Start: MIPT Example

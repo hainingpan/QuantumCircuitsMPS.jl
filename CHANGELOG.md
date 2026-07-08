@@ -142,6 +142,9 @@ removes one redundant gate and tightens the public export surface.
   only) is **kept** and is now explicitly documented as supported public
   API, not a deprecated compatibility layer — a usage census found 42 call
   sites in `test/` alone, above the removal threshold.
+- **BREAKING**: Julia compatibility floor raised from 1.11 to 1.12 (required
+  by QuantumClifford 0.11.5, which itself requires julia≥1.12 — the
+  previously-declared 1.11 floor did not actually resolve).
 
 ### Performance
 
