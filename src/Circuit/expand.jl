@@ -52,6 +52,7 @@ Return a short visualization label for a gate type.
 # Labels
 - Reset → "Rst"
 - HaarRandom → "Haar"
+- RandomClifford → "Cl"
 - Projection → "Prj"
 - PauliX → "X"
 - PauliY → "Y"
@@ -80,6 +81,7 @@ gate_label(::Rx) = "Rx"
 gate_label(::Ry) = "Ry"
 gate_label(::Rz) = "Rz"
 gate_label(::Hadamard) = "H"
+gate_label(::RandomClifford) = "Cl"
 gate_label(g::AbstractGate) = string(typeof(g))  # Fallback
 
 """

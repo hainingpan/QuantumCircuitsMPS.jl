@@ -62,9 +62,59 @@ using LinearAlgebra: norm
         end
     end
 
+    @testset "odd-L PBC: Bricklayer(:odd/:even) warns; controls stay silent" begin
+        # Odd L + PBC has no valid brickwork tiling — the enumeration is kept
+        # (partial layer, pinned above) but a one-time warning is emitted at
+        # circuit-build time and on immediate-mode apply!
+        # (_warn_bricklayer_odd_pbc, maxlog=1 per parity/L combination —
+        # @test_logs installs a fresh TestLogger per block, so each block
+        # observes the warning regardless of earlier global emissions).
+        warn_re = r"not a valid brickwork tiling"
+
+        # Circuit-builder path (deterministic apply!)
+        @test_logs (:warn, warn_re) Circuit(L = 5, bc = :periodic) do c
+            apply!(c, HaarRandom(), Bricklayer(:even))
+        end
+        @test_logs (:warn, warn_re) Circuit(L = 5, bc = :periodic) do c
+            apply!(c, HaarRandom(), Bricklayer(:odd))
+        end
+
+        # Circuit-builder path (stochastic outcome geometry)
+        @test_logs (:warn, warn_re) Circuit(L = 5, bc = :periodic) do c
+            apply_with_prob!(c;
+                outcomes = [
+                    (probability = 1.0, gate = Measure(:Z),
+                    geometry = Bricklayer(:even))
+                ])
+        end
+
+        # Immediate-mode path (SV backend — MPS rejects odd-L PBC outright)
+        state = SimulationState(L = 5, bc = :periodic, backend = :statevector,
+            rng = RNGRegistry(gates_spacetime = 1, gates_realization = 2,
+                born_measurement = 3))
+        initialize!(state, ProductState(binary_int = 0))
+        @test_logs (:warn, warn_re) apply!(state, CZ(), Bricklayer(:even))
+
+        # Controls: NO warning for even-L PBC, odd-L OBC, or :nn (ALL NN
+        # bonds — a bond enumeration, not a single layer)
+        @test_logs Circuit(L = 6, bc = :periodic) do c
+            apply!(c, HaarRandom(), Bricklayer(:even))
+        end
+        @test_logs Circuit(L = 5, bc = :open) do c
+            apply!(c, HaarRandom(), Bricklayer(:even))
+        end
+        @test_logs Circuit(L = 5, bc = :periodic) do c
+            apply!(c, HaarRandom(), Bricklayer(:nn))
+        end
+    end
+
     @testset "odd-L PBC: full MIPT circuit, 3 steps, SV backend" begin
         L, p, n_steps = 5, 0.3, 3
-        circuit = Circuit(L = L, bc = :periodic) do c
+        # Two Bricklayer single layers at odd L + PBC → exactly two build-time
+        # warnings (asserted here, which also keeps the test log clean).
+        warn_re = r"not a valid brickwork tiling"
+        circuit = @test_logs (:warn, warn_re) (:warn, warn_re) Circuit(
+            L = L, bc = :periodic) do c
             apply!(c, HaarRandom(), Bricklayer(:even))
             apply_with_prob!(c;
                 outcomes = [

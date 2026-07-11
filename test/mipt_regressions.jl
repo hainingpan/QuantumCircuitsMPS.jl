@@ -4,7 +4,7 @@
 #   2. Born statistics       — measurement outcomes must follow the Born rule
 #   3. Parity artifact       — phase-averaged entropy must collapse (area law) at p=0.5
 #   4. RAM bipartition       — folded PBC basis mapping must be correct
-# Full analysis: docs/mipt_debug_report.md
+# Full analysis: v0.1 MIPT debug report (dev-branch git history).
 
 using Test
 using QuantumCircuitsMPS
@@ -135,7 +135,7 @@ end
     # period made S(L) zigzag with L (e.g. S(8) < S(6)). Phase-averaged
     # recording (after EACH measurement round) must give L-independent
     # entropy deep in the area-law phase (p=0.5).
-    # Mirrors the phase-averaged recording protocol (full analysis: validation-srn branch).
+    # Mirrors the phase-averaged recording protocol.
     function phase_avg_S(; L, p, seed, bc = :open, n_steps = 2*L, maxdim = 2^20,
             cutoff = 1e-10, burn_in = max(L, 8))
         circuit_half1 = Circuit(L = L, bc = bc, p = p) do c

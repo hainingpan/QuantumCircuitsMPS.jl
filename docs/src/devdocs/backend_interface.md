@@ -167,19 +167,23 @@ Contract obligations for overrides:
 - Draw outcomes from `:born_measurement` ONLY, as scalar `rand(rng)` calls
   (SCALAR-DRAW CONTRACT, `src/Core/rng.jl`), with the
   `rand(rng) < p₀ ? 0 : 1` threshold convention.
+- **REDUNDANT-DRAW CONTRACT (cross-backend lockstep)**: consume exactly ONE
+  `:born_measurement` draw per measured site — *unconditionally*, even when
+  the backend can determine the outcome without randomness. If the outcome
+  is deterministic, draw anyway and **discard** the value. This is what
+  keeps the `:born_measurement` stream position identical across backends,
+  so "same seed ⇒ same trajectory" holds backend-independently. The generic
+  method satisfies this structurally (it always draws before the cumulative
+  probability loop); the Clifford override satisfies it with an explicit
+  redundant draw before `projectZ!` (`src/Clifford/measurement.jl`).
+  Guarded by `test/audit/born_measurement.jl` (e) and
+  `test/audit/cross_backend.jl` (b). (Historical note: pre-v0.4.0-release
+  Clifford consumed zero draws for deterministic outcomes — a resolved
+  divergence, one-time trajectory break documented in CHANGELOG 0.4.0.)
 - Emit the event exactly like the generic does: when
   `state.event_log !== nothing`, push
   `MeasurementOutcome(state.event_step, state.event_op_idx, [site], outcome)`
   via `log_event!`.
-- **Known cross-backend divergence (open decision)**: the generic method
-  consumes exactly ONE `:born_measurement` draw per measured site, even for
-  deterministic outcomes; the Clifford override consumes ZERO draws when the
-  outcome is deterministic. After the first deterministic measurement the
-  Born streams drift apart, so same-seed trajectories diverge
-  Clifford-vs-MPS/SV (entropy trajectories still agree — Pauli-frame
-  invariant). See the `DECISION NEEDED: Clifford Born-draw-count contract`
-  block in the project notepad; do not change either consumption pattern
-  without resolving it.
 
 ### 4. `born_probability(state, site, outcome) -> Float64`
 
@@ -249,7 +253,7 @@ Backend primitives may only touch the streams below, always via
 |---|---|---|
 | `:state_init` | `RandomMPS` / `RandomStateVector` `initialize!` | only at initialization; same seed ⇒ identical state |
 | `:gates_realization` | random-content gates: `HaarRandom` (`build_operator` / `gate_matrix`), `RandomClifford` (native sampling on Clifford; `gate_matrix` on SV) | one gate draw per application, independent of measurement outcomes |
-| `:born_measurement` | `_measure_single_site!` (and `SpinSectorMeasurement`) | exactly ONE scalar draw per measured site on MPS/SV; Clifford draws only for undetermined outcomes (documented divergence, see §3) |
+| `:born_measurement` | `_measure_single_site!` (and `SpinSectorMeasurement`) | exactly ONE scalar draw per measured site on ALL backends — a redundant, discarded draw when the outcome is deterministic (REDUNDANT-DRAW CONTRACT, see §3): stream positions stay in cross-backend lockstep |
 | `:gates_spacetime` | **NEVER** | engine-owned: `apply_with_prob!` categorical coins. During measurement feedback it is actively guarded — `with_guarded_stream` swaps in a `SentinelRNG` that throws on any draw |
 
 ## Conventions a backend must respect

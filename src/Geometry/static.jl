@@ -47,6 +47,17 @@ Next-nearest-neighbor (NNN) modes (4 sublayers covering all 12 NNN pairs for L=1
 - `:nnn` parity → ALL NNN pairs (combines all 4 sublayers)
 
 apply! loops internally over all pairs.
+
+!!! warning "Odd `L` under periodic boundary conditions"
+    An odd-length ring cannot be tiled by disjoint NN pairs. At odd `L` with
+    `bc = :periodic`, no wrap pair is added to either single layer: `:odd`
+    leaves site `L` unpaired and `:even` leaves site 1 unpaired, and the wrap
+    bond `(L, 1)` is gated by NEITHER layer — an alternating `:odd`/`:even`
+    brickwork circuit is effectively open across that bond. A one-time
+    warning is emitted at circuit-build / `apply!` time (internal helper
+    `_warn_bricklayer_odd_pbc`); double-check the intended pattern with
+    `print_circuit`. `:nn` (ALL NN bonds, not a single layer) still
+    enumerates all `L` ring bonds and does not warn.
 """
 struct Bricklayer <: AbstractGeometry
     parity::Symbol
@@ -57,6 +68,44 @@ struct Bricklayer <: AbstractGeometry
             throw(ArgumentError("Bricklayer parity must be :odd, :even, :nn, :nnn, :nnn_odd_1, :nnn_odd_2, :nnn_even_1, or :nnn_even_2, got $parity"))
         new(parity)
     end
+end
+
+"""
+    _warn_bricklayer_odd_pbc(geo::Bricklayer, L::Int, bc::Symbol)
+
+Emit a one-time warning (once per `(parity, L)` combination per session, via
+`maxlog=1` with a per-combination log `_id`) when a single brickwork layer
+(`:odd` or `:even`) is used with odd `L` under periodic boundary conditions.
+
+An odd ring has no valid brickwork tiling: the layer leaves one site unpaired
+(`:odd` → site `L`, `:even` → site 1 — no wrap pair is added, see
+`elements(::Bricklayer, ...)`), and the wrap bond `(L, 1)` is gated by
+neither single layer, so an alternating `:odd`/`:even` circuit is effectively
+open across that bond. Enumeration behavior is NOT changed by this helper —
+it only warns.
+
+Called from the circuit-builder recording path (`apply!(builder, ...)`,
+`apply_with_prob!(builder; ...)` — fires at circuit-definition time) and the
+immediate-mode dispatch path (`_apply_dispatch!(state, gate, ::Bricklayer)`).
+Deliberately NOT called inside `elements()` itself, which sits in
+performance-critical loops (benchmarks, per-element expansion).
+
+`:nn` (ALL NN bonds — a bond enumeration, not a single layer) and the NNN
+sublayers are exempt; NNN odd-`L` coverage policy is a separate open question.
+"""
+function _warn_bricklayer_odd_pbc(geo::Bricklayer, L::Int, bc::Symbol)
+    (bc == :periodic && isodd(L) && geo.parity in (:odd, :even)) || return nothing
+    unpaired = geo.parity == :even ? 1 : L
+    msg = "Bricklayer(:$(geo.parity)) with odd L=$L under periodic boundary " *
+          "conditions is not a valid brickwork tiling: an odd-length ring cannot " *
+          "be partitioned into disjoint nearest-neighbor pairs. This layer leaves " *
+          "site $unpaired unpaired (no gate acts on it), and the wrap bond ($L,1) " *
+          "is gated by NEITHER the :odd nor the :even layer — an alternating " *
+          ":odd/:even brickwork circuit is effectively OPEN across that bond. " *
+          "Double-check the intended pattern with print_circuit(circuit) " *
+          "(or plot_circuit if Luxor is loaded)."
+    @warn msg maxlog=1 _id=Symbol(:bricklayer_odd_pbc_, geo.parity, :_, L)
+    return nothing
 end
 
 """

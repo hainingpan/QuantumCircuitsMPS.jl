@@ -89,15 +89,30 @@ renyi_index=3 -> S = 1.0
 renyi_index=5 -> S = 1.0
 ```
 
-## Known Cross-Backend RNG Divergence
+## Cross-Backend RNG Reproducibility (Redundant Draw)
 
-The Clifford backend's measurement primitive consumes a `:born_measurement`
-draw only when the outcome is genuinely undetermined; the MPS and
-state-vector backends always consume exactly one draw per measured site,
-even for a deterministic outcome. Under the same seed, this causes the
-`:born_measurement` stream to drift apart after the first deterministic
-measurement, so Clifford trajectories are not lockstep with MPS/state-vector
-past that point (entanglement-entropy trajectories still agree exactly,
-since they are Pauli-frame invariant for stabilizer circuits). See the
-[Backend Interface Contract](@ref)'s `_measure_single_site!` section for the
-full contract and this divergence's status.
+Every measurement consumes **exactly one** `:born_measurement` draw per
+measured site — on the Clifford backend just like on MPS and state-vector.
+This is a deliberate **redundant draw**: for a stabilizer state the tableau
+often fixes the outcome in advance (probability exactly 0 or 1), and in that
+deterministic case the drawn value is simply **discarded**. The draw is made
+anyway so that the `:born_measurement` stream position advances identically
+on all three backends.
+
+This redundancy is what buys *absolute* cross-backend reproducibility: with
+the same `RNGRegistry` seeds, the measurement record (sites, outcomes, and
+every downstream stochastic branch) is identical whether you run the circuit
+on the Clifford, MPS, or state-vector backend. You can prototype at small
+`L` on the exact state-vector backend, then rerun the *same seeded
+trajectory* at `L = 1000` on Clifford.
+
+!!! warning "One-time historical break (pre-v0.4.0 Clifford seeds)"
+    Before v0.4.0, the Clifford backend skipped the draw entirely for
+    deterministic outcomes, so its stream position drifted ahead of MPS/SV
+    after the first deterministic measurement. Seeded Clifford trajectories
+    generated with earlier versions are therefore **not reproducible** under
+    the current contract. This was a deliberate one-time break in favor of
+    the cross-backend guarantee above; see CHANGELOG 0.4.0.
+
+See the [Backend Interface Contract](@ref)'s `_measure_single_site!` section
+for the full contract wording.

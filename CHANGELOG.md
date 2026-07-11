@@ -97,7 +97,15 @@ removes one redundant gate and tightens the public export surface.
 - `Bricklayer(:even)` at odd system size `L` under periodic boundary
   conditions no longer double-touches site `L` within a single brickwork
   layer (it now leaves site 1 unpaired, mirroring `:odd`'s existing
-  behavior of leaving site `L` unpaired).
+  behavior of leaving site `L` unpaired). In addition, using
+  `Bricklayer(:odd)`/`Bricklayer(:even)` with odd `L` under `bc=:periodic`
+  now emits a one-time warning (at circuit-build time and on immediate-mode
+  `apply!`): an odd ring has no valid brickwork tiling — each layer leaves
+  one site unpaired (`:odd` → site `L`, `:even` → site 1) and the wrap bond
+  `(L,1)` is gated by neither layer, so an alternating `:odd`/`:even`
+  circuit is effectively open across that bond. Enumeration is unchanged;
+  `:nn` and the NNN sublayers do not warn. Verify intended patterns with
+  `print_circuit`.
 - `SpinSectorProjection` gained a `gate_matrix` method, so it now works on
   the state-vector backend (previously `MethodError: no method matching
   gate_matrix(::SpinSectorProjection)` — the AKLT Quick Start could not run
@@ -115,6 +123,19 @@ removes one redundant gate and tightens the public export surface.
 
 ### Changed / BREAKING
 
+- **BREAKING — Clifford Born-draw contract (redundant draw)**: the Clifford
+  backend's measurement primitive now consumes exactly ONE `:born_measurement`
+  draw per measured site — always — matching MPS/state-vector. When the
+  stabilizer tableau fixes the outcome (deterministic measurement), the draw
+  is made anyway and its value is **discarded** (a deliberate *redundant
+  draw*). This restores absolute cross-backend reproducibility: same
+  `RNGRegistry` seeds now produce the same measurement record on all three
+  backends. **Migration impact**: seeded Clifford trajectories generated
+  with earlier versions (which consumed zero draws for deterministic
+  outcomes) are NOT reproducible under the new contract — a one-time break.
+  MPS/state-vector trajectories are completely unaffected. Deterministic
+  outcomes themselves are unchanged (still read off the tableau); only the
+  RNG stream position differs.
 - **BREAKING — removed**: the `Measurement` gate. Use `Measure(:Z)` instead
   (drop-in replacement: same Born sampling, same one-draw-per-measurement
   contract, same `"Meas"` circuit label, bit-identical trajectories under the

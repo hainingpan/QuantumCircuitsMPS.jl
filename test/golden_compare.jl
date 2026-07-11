@@ -212,8 +212,8 @@ function rerun_case_aklt()
 end
 
 # ---------- Case B audit for circuit_test.jl "Test 4" (odd/even mixing) ----------
-# The only other Case B instance in the pre-refactor test suite (triage table in
-# docs/migration_v0.1.md): apply_with_prob! with 2 outcomes on Bricklayer(:odd)
+# The only other Case B instance in the pre-refactor test suite (v0.1 migration
+# triage): apply_with_prob! with 2 outcomes on Bricklayer(:odd)
 # and Bricklayer(:even). expand_circuit delegates to the engine's shared
 # select_outcome_index (Task 15), so auditing the expansion audits the rule.
 function audit_caseb_test4(; seed = 42, n_steps = 20)

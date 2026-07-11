@@ -23,11 +23,14 @@
 #      MPS + SV + Clifford. Extends test/feedback.jl (MPS-only) cross-backend.
 #      Also: feedback fires on the correct outcome on every backend.
 #  (e) Draw-count invariant: a DETERMINISTIC measurement (eigenstate) still
-#      consumes exactly ONE :born_measurement draw on MPS/SV (scalar-draw
-#      contract, src/Core/apply.jl:105-106). AUDIT NOTE: the Clifford override
-#      consumes ZERO draws in the deterministic branch (documented in
-#      src/Clifford/measurement.jl docstring) — a cross-backend draw-count
-#      divergence, pinned here and recorded in the findings notepad.
+#      consumes exactly ONE :born_measurement draw on ALL THREE backends
+#      (scalar-draw contract, src/Core/apply.jl:105-106). RESOLVED (v0.4.0
+#      release audit): the Clifford override now makes a REDUNDANT draw for
+#      deterministic outcomes (value discarded, stream advanced) so the
+#      :born_measurement stream position stays in cross-backend lockstep —
+#      "same seed ⇒ same trajectory" on MPS, SV, and Clifford alike
+#      (src/Clifford/measurement.jl docstring; historical zero-draw behavior
+#      was a one-time break, see CHANGELOG 0.4.0).
 #  (f) S=1 measurement sanity: single-site Measure(:Z)/born_probability are
 #      qubit-only today (Projection is 0/1-only; "Proj0" op undefined for
 #      "S=1" sites) — KNOWN limitation, T39 scope, pinned with @test_throws.
@@ -200,9 +203,12 @@ const _BM_BACKENDS = (:mps, :statevector, :clifford)
     end
 
     # --- (e) deterministic measurement: draw-count invariant ------------------
-    @testset "(e) deterministic measurement draw count [$backend]" for backend in (:mps, :statevector)
+    @testset "(e) deterministic measurement draw count [$backend]" for backend in _BM_BACKENDS
         # eigenstate |0⟩: outcome certain, yet exactly ONE Born draw consumed
-        # (SCALAR-DRAW CONTRACT, src/Core/apply.jl `_measure_single_site!`)
+        # on EVERY backend (SCALAR-DRAW CONTRACT, src/Core/apply.jl
+        # `_measure_single_site!`; on Clifford the draw is redundant —
+        # discarded, consumed only for cross-backend stream lockstep,
+        # src/Clifford/measurement.jl REDUNDANT-DRAW CONTRACT).
         st = _bm_state(backend; L = 3, seeds = (1, 2, 33), log_events = true)
         apply!(st, Measure(:Z), SingleSite(1))
         @test measurements(st)[1].outcome == 0          # certain outcome
@@ -211,21 +217,28 @@ const _BM_BACKENDS = (:mps, :statevector, :clifford)
         @test _bm_stream_advanced_by(st, 33, 2)          # one more
     end
 
-    @testset "(e) Clifford draw count (documented divergence)" begin
-        # AUDIT FINDING (documented behavior, src/Clifford/measurement.jl):
-        # the Clifford override consumes NO Born draw when the measurement is
-        # deterministic, and exactly one when undetermined. This DIVERGES from
-        # the MPS/SV scalar-draw contract (one draw per measured site,
-        # deterministic or not) — same seeds do NOT imply the same
-        # :born_measurement stream position across backends once deterministic
-        # measurements occur. Pinned here; recorded in the findings notepad.
+    @testset "(e) Clifford draw count (redundant-draw contract)" begin
+        # RESOLVED (v0.4.0 release audit — was "documented divergence"):
+        # the Clifford override now consumes exactly ONE :born_measurement
+        # draw per measured site, always, like MPS/SV. For DETERMINISTIC
+        # outcomes the draw is REDUNDANT — its value is discarded; it exists
+        # solely to keep the stream position in lockstep across backends,
+        # restoring "same seed ⇒ same trajectory" on all three backends
+        # (src/Clifford/measurement.jl; cross-backend parity pinned in
+        # test/audit/cross_backend.jl scenario (b)).
         st = _bm_state(:clifford; L = 3, seeds = (1, 2, 33), log_events = true)
         apply!(st, Measure(:Z), SingleSite(1))           # deterministic (|0⟩)
         @test measurements(st)[1].outcome == 0
-        @test _bm_stream_advanced_by(st, 33, 0)          # ZERO draws consumed
+        @test _bm_stream_advanced_by(st, 33, 1)          # ONE redundant draw, discarded
         apply!(st, Hadamard(), SingleSite(1))
         apply!(st, Measure(:Z), SingleSite(1))           # undetermined (50/50)
-        @test _bm_stream_advanced_by(st, 33, 1)          # exactly one draw
+        @test _bm_stream_advanced_by(st, 33, 2)          # exactly one more
+        # The undetermined outcome follows the shared `rand(rng) < 0.5 ? 0 : 1`
+        # threshold convention; predict it with a twin RNG (draw #2 — draw #1
+        # was the redundant deterministic one).
+        twin = MersenneTwister(33)
+        rand(twin)                                       # the discarded draw
+        @test measurements(st)[2].outcome == (rand(twin) < 0.5 ? 0 : 1)
     end
 
     # --- (f) S=1 spin measurement sanity --------------------------------------

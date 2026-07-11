@@ -3,7 +3,7 @@
 # See examples/mipt_example.ipynb for the full interactive tutorial.
 #
 # This file also defines `run_mipt` and `run_mipt_srn`, which other scripts
-# (e.g. examples/run_srn_figure.jl) `include(...)` to reuse without re-running
+# can `include(...)` to reuse without re-running
 # the demo/plotting code below — that code is guarded by the
 # `if abspath(PROGRAM_FILE) == @__FILE__` block near the bottom of this file,
 # so simply `include`-ing this file only defines functions (cheap, fast).
@@ -21,7 +21,7 @@ using Statistics
 # The package itself is verified against exact statevector evolution to machine
 # precision. `run_mipt_srn` below implements the SRN boundary-eligibility
 # protocol (OBC + EachSite bulk-only measurement coins), which avoids this
-# artifact — see examples/diagnostics/SRN_protocol.md for the full writeup.
+# artifact.
 function run_mipt(; L, p, seed, bc=:periodic, n_steps=2*L, maxdim=2^20)
     circuit = Circuit(L=L, bc=bc, p=p) do c
         apply!(c, HaarRandom(), Bricklayer(:even))
@@ -47,8 +47,7 @@ end
 # --- run_mipt_srn: SRN (Skinner-Ruhman-Nahum, PRX 9, 031009) boundary-
 # eligibility protocol, ported to the v0.1 marker/EachSite API. ---
 #
-# Protocol (see examples/diagnostics/SRN_protocol.md for the literature audit
-# trail; ONE Circuit, TWO record!(c) markers, marker-driven recording only):
+# Protocol (ONE Circuit, TWO record!(c) markers, marker-driven recording only):
 #   OBC brickwork. One period = two half-steps.
 #     Half-step A: Bricklayer(:even) Haar layer (bulk pairs (2,3),(4,5),...,
 #       (L-2,L-1) — does NOT touch the edges under OBC), then a measurement
@@ -112,79 +111,9 @@ end
 
 # --- Everything below only runs when this file is executed directly
 # (`julia examples/mipt_example.jl`), NOT when `include`-d by another script
-# (e.g. run_srn_figure.jl includes this file just to get the two functions
+# (a script can include this file just to get the two functions
 # above, without paying for the demo/plotting/sweep code below). ---
 if abspath(PROGRAM_FILE) == @__FILE__
-
-# --- Reduced SRN physics gate: `julia --project=. examples/mipt_example.jl --srn-check` ---
-# Compares run_mipt_srn against the recovered ground-truth CSV
-# (examples/data/mipt_phase_diagram_srn.csv) at a reduced grid
-# (L∈{6,8,10,12} × p∈{0.10,0.50}, 150 seeds/point, ~5 min under 2 threads).
-if "--srn-check" in ARGS
-    function load_srn_csv(path)
-        d = Dict{Tuple{Int,Float64},NamedTuple}()
-        for (k, line) in enumerate(eachline(path))
-            k == 1 && continue
-            f = split(line, ',')
-            d[(parse(Int, f[1]), parse(Float64, f[2]))] =
-                (n=parse(Int, f[3]), m=parse(Float64, f[4]), s=parse(Float64, f[5]))
-        end
-        return d
-    end
-
-    function run_srn_check()
-        csv_path = joinpath(@__DIR__, "data", "mipt_phase_diagram_srn.csv")
-        ground_truth = load_srn_csv(csv_path)
-
-        L_list = [6, 8, 10, 12]
-        p_list = [0.10, 0.50]
-        n_seeds = 150
-
-        println("Reduced SRN physics gate: L=$(L_list), p=$(p_list), n_seeds=$(n_seeds), threads=$(Threads.nthreads())")
-        results = Dict{Tuple{Int,Float64},NamedTuple}()
-        t_start = time()
-        for L in L_list, p in p_list
-            vals = zeros(n_seeds)
-            Threads.@threads for s in 1:n_seeds
-                vals[s] = run_mipt_srn(L=L, p=p, seed=L * 100_000 + round(Int, p * 100) * 1000 + s)
-            end
-            results[(L, p)] = (m=mean(vals), s=std(vals) / sqrt(n_seeds), n=n_seeds)
-        end
-        wall = time() - t_start
-        @printf("Physics gate wall time: %.1f s\n", wall)
-
-        println("L    p     S_new       SEM_new     S_csv       SEM_csv     |Delta|     tol         match")
-        n_ok = 0
-        n_total = 0
-        for L in L_list, p in p_list
-            r = results[(L, p)]
-            gt = ground_truth[(L, p)]
-            combined_sem = sqrt(r.s^2 + gt.s^2)
-            tol = 0.05 + 2 * combined_sem
-            delta = abs(r.m - gt.m)
-            ok = delta < tol
-            n_ok += ok
-            n_total += 1
-            @printf("%-4d %.2f  %.8f  %.8f  %.8f  %.8f  %.8f  %.8f  %s\n",
-                    L, p, r.m, r.s, gt.m, gt.s, delta, tol, ok ? "PASS" : "FAIL")
-        end
-
-        s010 = [results[(L, 0.10)].m for L in L_list]
-        mono_ok = all(diff(s010) .> 0)
-        println("MONOTONICITY p=0.10 strictly increasing in L: ", mono_ok ? "PASS" : "FAIL", " values=", s010)
-
-        s050 = [results[(L, 0.50)].m for L in L_list]
-        spread = maximum(s050) - minimum(s050)
-        collapse_ok = spread < 0.1
-        @printf("COLLAPSE p=0.50 spread=%.4f < 0.1: %s\n", spread, collapse_ok ? "PASS" : "FAIL")
-
-        overall = (n_ok == n_total) && mono_ok && collapse_ok
-        println("SRN-PORT-MATCH: ", overall ? "PASS" : "FAIL")
-        return overall
-    end
-
-    exit(run_srn_check() ? 0 : 1)
-end
 
 using Plots
 using Luxor
@@ -290,8 +219,7 @@ savefig(p_fig, joinpath(@__DIR__, "mipt_phase_diagram.png"))
 # --- Section 5: SRN boundary-eligibility protocol demo ---
 # run_mipt_srn implements the OBC/EachSite protocol from Skinner, Ruhman &
 # Nahum, PRX 9, 031009 (2019), arXiv:1808.05953 — see the function's
-# docstring/comment above for the full protocol and examples/run_srn_figure.jl
-# for the full phase-diagram sweep against examples/data/mipt_phase_diagram_srn.csv.
+# docstring/comment above for the full protocol.
 println("\n--- SRN protocol demo (single trajectory) ---")
 S_srn_demo = run_mipt_srn(L=8, p=0.10, seed=1)
 println("run_mipt_srn(L=8, p=0.10, seed=1): S_fresh = $S_srn_demo")
