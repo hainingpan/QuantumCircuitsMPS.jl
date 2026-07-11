@@ -1,21 +1,37 @@
 # Design Philosophy
 
+Quantum-circuit research is usually described in terms of states, gates,
+measurements, geometry, and observables. Simulation libraries, however, often
+require the researcher to work directly with tensors, dense matrices, or
+backend-specific data structures. `QuantumCircuitsMPS.jl` is designed to keep
+those two levels separate: users describe the physics, while the package
+selects and operates the numerical representation.
+
+The result is one simulation vocabulary that can be used for exploratory
+small-system state vector simulation, scalable matrix product states, and large-scale
+Clifford-gate simulations.
+
+## One Model, Three Backends
+
 ```@raw html
 <pre class="mermaid">
 flowchart TB
-    subgraph "User-Facing API"
-        A[SimulationState] --> B[Gates]
-        B --> C[Geometry]
-        C --> D[Observables]
+    subgraph UserAPI["User-Facing API"]
+        A["SimulationState and Circuit"]
+        B["Gates and Geometry"]
+        C["Observables and Records"]
     end
-    subgraph "Internal Engine"
-        E[apply!] --> F[build_operator]
-        F --> G[apply_op_internal!]
-    end
-    subgraph "Backend"
-        H[ITensors.jl] --> I[ITensorMPS.jl]
-    end
-    D --> E
+
+    A --> D["Shared Simulation Engine"]
+    B --> D
+    C --> D
+
+    D --> E["MPS Backend<br/>ITensors.jl and ITensorMPS.jl"]
+    D --> F["State-Vector Backend<br/>Exact dense wavefunction"]
+    D --> G["Clifford Backend<br/>QuantumClifford.jl tableau"]
+
+    E --> H["Updated state and recorded observables"]
+    F --> H
     G --> H
 </pre>
 <script type="module">
@@ -24,26 +40,93 @@ flowchart TB
 </script>
 ```
 
-## Layered Abstraction
+The upper layer contains the concepts used to define an experiment. The
+shared engine expands geometries, schedules operations, manages random-number
+streams, and dispatches each operation to the selected backend. The backend
+owns the numerical representation and the algorithms needed to update it.
 
-- **User-Facing API**: Physicists work with `SimulationState`, `Gates` (PauliX, HaarRandom, Projection), `Geometry` (Bricklayer, AllSites, StaircaseLeft), and `Observables` (EntanglementEntropy, Magnetization). No tensor network concepts exposed.
-- **Internal Engine**: The `apply!` function translates high-level physics operations into ITensor calls. It manages physical-to-RAM index mappings (`phy_ram`/`ram_phy`), operator construction, and MPS updates. Users never interact with this layer.
-- **Backend**: ITensors.jl and ITensorMPS.jl handle tensor contractions, SVD truncations, and gauge management. All low-level optimizations (bond dimensions, cutoffs, orthogonality centers) are managed automatically.
-- **Key Insight**: Users write physics in three lines of code; the package executes hundreds of tensor operations behind the scenes, enabling rapid prototyping without sacrificing performance or scalability.
+The three backends serve different purposes:
 
-This page describes the MPS backend's internal engine specifically (`build_operator` → `apply_op_internal!`); the state-vector and Clifford backends follow the same [User-Facing API → Internal Engine → Backend] layering with their own internal engines — see [MPS Backend](@ref), [State Vector Backend](@ref), and [Clifford Backend](@ref) for backend-specific detail, and [Backend Interface Contract](@ref) for the developer-facing contract every backend must satisfy.
+- The [MPS Backend](@ref) is the default for general circuits at large system
+  sizes, with controlled truncation through `cutoff` and `maxdim`, applied to area-law entangled states.
+- The [State Vector Backend](@ref) is an exact reference for small systems,
+  where storing the full wavefunction is practical.
+- The [Clifford Backend](@ref) uses a stabilizer tableau to reach hundreds or
+  thousands of qubits when the circuit contains only supported Clifford
+  operations.
 
-## The Unified Stochastic Rule
+Changing `backend` changes the representation, not the language used to
+describe the simulation. Shared operations such as `apply!`, `track!`,
+`record!`, and `simulate!` retain the same role. Backend-specific limitations
+remain explicit: for example, the Clifford backend rejects non-Clifford gates
+rather than silently approximating them.
 
-Every probabilistic operation in the package, from a single measurement to a multi-outcome control protocol, follows ONE rule: `apply_with_prob!(c; outcomes=[(probability=p, gate=g, geometry=geo), ...])` expands each outcome's `geometry` into a list of elements (site groups), and every outcome must expand to the SAME element count `K`. For each element `k = 1..K`, the engine draws exactly one coin from the `:gates_spacetime` stream and makes a categorical selection among the outcomes at that element; the remainder `1 - Σp` selects identity (nothing applied). There is no separate "independent Bernoulli per outcome" code path and no second RNG scheme hiding in a compound geometry — one rule, one selection function, everywhere.
+Implementation details belong on the individual backend pages. Developers
+adding or extending a backend should instead consult the
+[Backend Interface Contract](@ref).
 
-This single rule is what makes exclusive per-bond gate choices natural: `outcomes=[(probability=0.5, gate=HaarRandom(), geometry=Bricklayer(:even)), (probability=0.5, gate=CZ(), geometry=Bricklayer(:even))]` guarantees every even bond gets EXACTLY one of `HaarRandom()` or `CZ()`, never both and never neither (when `Σp = 1`). Correlated layers (the SAME coin choosing an entire layer, not per-bond) are expressed with `ProductGate`, not with a second probabilistic construct.
+## Physics Objects, Not Numerical Plumbing
 
-## Broadcast vs. Set Geometry
+The public API separates the ingredients of an experiment:
 
-Geometries fall into two families, and knowing which one you're holding tells you exactly how it behaves inside `apply_with_prob!` and `apply!`:
+- A `SimulationState` holds the state representation, boundary conditions,
+  random-number streams, and recorded data.
+- A gate describes **what physical operation** should occur.
+- A geometry describes **where that operation** should occur.
+- A circuit describes **when operations and records** should occur.
+- An observable describes **what quantity** should be extracted from the
+  state.
 
-- **Broadcast** ("distribution") geometries expand to `K ≥ 1` independent elements, each getting its own gate application (and, inside a stochastic op, its own coin): `AllSites()`, `Bricklayer(parity)`, `EachSite(collection)`.
-- **Set** ("region") geometries denote ONE region of sites, a single element: `SingleSite(i)`, `AdjacentPair(i)`, `Sites(collection)`, `StaircaseLeft`/`StaircaseRight`, `Pointer`.
+This separation lets the same gate be reused with different geometries and
+the same circuit structure be tested across compatible backends. It also keeps
+backend implementation objects—such as ITensors, dense gate kernels, and
+stabilizer tableaux—out of research scripts.
 
-`is_broadcast(geo)` reports the trait, and `elements(geo, L, bc)` returns the canonical enumeration either way, always `Vector{Vector{Int}}`. This vocabulary is also why `EachSite(2:L-1)` and `Sites(2:L-1)` look similar but mean opposite things: `EachSite` applies a single-site gate independently at each of sites 2 through L-1 (K = L-2 coins, K = L-2 possible applications), while `Sites(2:L-1)` is ONE region spanning sites 2 through L-1 for a single gate whose support equals `L-2`.
+## Explicit and Reproducible Randomness
+
+Randomness is part of the physical model, not an incidental implementation
+detail. Independent named streams distinguish choices such as where a random
+operation occurs, which random gate is realized, and which measurement outcome
+is sampled. As a result, changing one kind of random choice does not
+unnecessarily perturb the others.
+
+Probabilistic operations follow one shared rule through `apply_with_prob!`.
+At each geometry element, the engine makes one categorical choice among the
+listed outcomes; any remaining probability corresponds to doing nothing. For
+this comparison to be well defined, the outcome geometries in one call must
+expand to the same number of elements. For example,
+
+```julia
+apply_with_prob!(c; outcomes=[
+    (probability=0.5, gate=HaarRandom(), geometry=Bricklayer(:even)),
+    (probability=0.5, gate=CZ(), geometry=Bricklayer(:even)),
+])
+```
+
+chooses exactly one of the two gates on every even bond. It never applies both
+gates to the same bond. Using one rule for measurements, random gates, and
+control protocols makes stochastic trajectories easier to reason about and
+reproduce.
+
+## Geometry Expresses Intent
+
+A geometry is more than a list of site indices: it states whether an operation
+is repeated over independent locations or applied once to a region.
+
+- **Broadcast geometries**, such as `AllSites()`, `Bricklayer(:even)`, and
+  `EachSite(sites)`, expand into multiple elements. The gate is applied once
+  per element, and a probabilistic operation makes a separate choice for each
+  element.
+- **Set geometries**, such as `SingleSite(i)`, `AdjacentPair(i)`, and
+  `Sites(sites)`, describe one element. The sites together form the support of
+  a single gate application and receive one probabilistic choice.
+
+For example, `EachSite(2:L-1)` applies a one-site gate independently at every
+interior site, whereas `Sites(2:L-1)` treats all interior sites as one region
+for a gate with matching support. This distinction keeps spatial intent
+visible in the circuit definition instead of hiding it inside loops.
+
+Together, these choices—one physics-facing API, explicit backend dispatch,
+controlled randomness, and semantic geometries—make simulations easier to
+read, compare, and extend without tying the research code to one numerical
+method.
