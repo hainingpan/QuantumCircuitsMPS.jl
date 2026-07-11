@@ -30,6 +30,15 @@ const QCM = QuantumCircuitsMPS
     end
 
     # ═══════════════════════════════════════════════════════════════════════
+    # 1b. gate_label: RandomClifford renders as "Cl" (not the fallback type name)
+    # ═══════════════════════════════════════════════════════════════════════
+    @testset "gate_label" begin
+        @test QCM.gate_label(RandomClifford()) == "Cl"
+        @test QCM.gate_label(RandomClifford(1)) == "Cl"
+        @test QCM.gate_label(ProductGate(RandomClifford(), Bricklayer(:even))) == "∏Cl"
+    end
+
+    # ═══════════════════════════════════════════════════════════════════════
     # 2. gate_matrix() returns correct matrices
     # ═══════════════════════════════════════════════════════════════════════
     @testset "gate_matrix() exact values" begin
