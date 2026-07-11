@@ -100,8 +100,13 @@ end
 
 Create a new simulation state. MPS/statevector is created later via initialize!().
 
+!!! note "1D only"
+    All backends represent a one-dimensional chain of `L` sites.
+    Higher-dimensional (2D+) systems are a planned future direction
+    (see ROADMAP.md).
+
 Parameters:
-- L: system size
+- L: system size (number of sites on the 1D chain)
 - bc: boundary condition (:open or :periodic)
 - site_type: site index type ("Qubit", "S=1", "Qudit")
 - local_dim: local Hilbert space dimension (default 2)

@@ -113,6 +113,12 @@ reproduce.
 A geometry is more than a list of site indices: it states whether an operation
 is repeated over independent locations or applied once to a region.
 
+All geometries currently describe a **one-dimensional chain**: sites are
+indexed `1:L`, and boundary conditions (`:open`/`:periodic`) refer to that
+chain. Higher-dimensional (2D+) circuit geometries are not yet supported and
+are tracked as a future direction in the project
+[ROADMAP](https://github.com/hainingpan/QuantumCircuitsMPS.jl/blob/main/ROADMAP.md).
+
 - **Broadcast geometries**, such as `AllSites()`, `Bricklayer(:even)`, and
   `EachSite(sites)`, expand into multiple elements. The gate is applied once
   per element, and a probabilistic operation makes a separate choice for each

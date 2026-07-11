@@ -12,7 +12,7 @@
 ---
 ## What is QuantumCircuitsMPS.jl?
 
-**"PyTorch for Quantum Circuits"** — a pure Julia library for simulating quantum circuits with three interchangeable backends: Matrix Product States (MPS, via ITensors.jl, `L=100+`), an exact dense state vector (`L≲25`, for cross-validation), and a stabilizer tableau (Clifford-only gates, `L=100-1000+`). It's purpose-built for researchers studying Measurement-Induced (MIPT) and Control-Induced (CIPT) Phase Transitions in monitored quantum circuits, where feedback, measurements, and unitary dynamics compete to create distinct entanglement phases.
+**"PyTorch for Quantum Circuits"** — a pure Julia library for simulating **one-dimensional (1D)** quantum circuits with three interchangeable backends: Matrix Product States (MPS, via ITensors.jl, `L=100+`), an exact dense state vector (`L≲25`, for cross-validation), and a stabilizer tableau (Clifford-only gates, `L=100-1000+`). It's purpose-built for researchers studying Measurement-Induced (MIPT) and Control-Induced (CIPT) Phase Transitions in monitored quantum circuits, where feedback, measurements, and unitary dynamics compete to create distinct entanglement phases.
 
 Physicists write `apply!(state, HaarRandom(), Bricklayer(:odd))` and never see ITensor index objects, SVD calls, or tensor contractions — the package manages the gap between physics intent (Gates + Geometry) and low-level backend details. Independent, named RNG streams (`:gates_spacetime`, `:gates_realization`, `:born_measurement`, `:state_init`) make every trajectory reproducible from its seeds — on a backend *and across backends*: the same seeds produce the same measurement record on MPS, state vector, and Clifford alike (every measurement consumes exactly one Born draw, deterministic or not).
 
@@ -145,6 +145,7 @@ Acknowledgments for code patterns adapted from these projects: see [CONTRIBUTING
 ---
 ## Known Limitations
 
+- **1D circuits only**: the entire geometry vocabulary (`Bricklayer`, `AllSites`, `SingleSite`, ...), boundary conditions (`:open`/`:periodic`), and all three backends assume a one-dimensional chain of sites. Higher-dimensional (2D+) circuit geometries are a planned future direction — see [ROADMAP.md](ROADMAP.md).
 - **RNG stream name hardcoded**: the stochastic engine always draws from `:gates_spacetime`. Independently-named streams per probabilistic operation are deferred until a concrete research use case requires it.
 
 See [ROADMAP.md](ROADMAP.md) for planned features and [CHANGELOG.md](CHANGELOG.md) for what changed in v0.4.0.

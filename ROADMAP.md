@@ -23,6 +23,21 @@ Reproducibility") and CHANGELOG 0.4.0.
 
 ## Feature ideas
 
+### Higher-dimensional (2D+) circuits
+
+Everything today is strictly one-dimensional: sites are indexed `1:L` along a
+chain, boundary conditions are `:open`/`:periodic` on that chain, and every
+geometry (`Bricklayer`, `AllSites`, `StaircaseLeft`, ...) enumerates chain
+sites/bonds. Supporting 2D (or higher) circuit geometries would require a
+lattice/coordinate abstraction in `src/Geometry/`, new geometry types (e.g.
+plaquette or row/column brickwork layers), and backend consideration: the
+state-vector and Clifford backends are dimension-agnostic once sites are
+mapped to a linear index, but the MPS backend would need a snake/space-filling
+site ordering and would suffer the usual entanglement-area-law cost of
+representing 2D states with a 1D tensor train. This is a major, cross-cutting
+addition; until then, 1D-only is a documented limitation (see README
+"Known Limitations").
+
 ### Noise channels (Kraus operators / density-matrix state)
 
 All three backends currently simulate pure states only. Physical noise
