@@ -27,8 +27,8 @@ mutable struct StaircaseRight <: AbstractStaircase
     _start_position::Int  # initial position (for reset!)
     _position::Int  # internal, use current_position() to read
     range::Int      # distance between sites
-    
-    function StaircaseRight(start::Int; range::Int=1)
+
+    function StaircaseRight(start::Int; range::Int = 1)
         range >= 1 || throw(ArgumentError("range must be >= 1"))
         new(start, start, range)
     end
@@ -53,8 +53,8 @@ mutable struct StaircaseLeft <: AbstractStaircase
     _start_position::Int  # initial position (for reset!)
     _position::Int  # internal, use current_position() to read
     range::Int      # distance between sites
-    
-    function StaircaseLeft(start::Int; range::Int=1)
+
+    function StaircaseLeft(start::Int; range::Int = 1)
         range >= 1 || throw(ArgumentError("range must be >= 1"))
         new(start, start, range)
     end
@@ -77,7 +77,7 @@ function get_sites(geo::AbstractStaircase, state)
     pos = geo._position
     L = state.L
     range = geo.range
-    
+
     # Compute second site with wrapping for PBC
     if state.bc == :periodic
         second = mod1(pos + range, L)
@@ -90,7 +90,7 @@ function get_sites(geo::AbstractStaircase, state)
             ))
         end
     end
-    
+
     return [pos, second]
 end
 

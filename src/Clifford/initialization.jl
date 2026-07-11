@@ -29,43 +29,9 @@ function initialize!(state::SimulationState{CliffordBackend}, init::ProductState
         ))
     end
 
-    # Convert init specification to bit pattern string (identical logic to
-    # MPS/StateVector paths)
-    bit_pattern_str::String = if init.binary_int !== nothing
-        # Convert integer to binary string, padded to L digits
-        lpad(string(init.binary_int, base=2), L, "0")
-    elseif init.binary_decimal !== nothing
-        # Parse binary decimal: 0.101 → "101"
-        decimal_str = string(init.binary_decimal)
-        if !startswith(decimal_str, "0.")
-            throw(ArgumentError("binary_decimal must be in format 0.xxx (e.g., 0.101)"))
-        end
-        bitstr = decimal_str[3:end]  # Skip "0."
-        # Validate only 0/1
-        if !all(c in ('0', '1') for c in bitstr)
-            throw(ArgumentError("binary_decimal digits must be 0 or 1"))
-        end
-        # Pad or truncate to L
-        if length(bitstr) < L
-            rpad(bitstr, L, "0")
-        elseif length(bitstr) > L
-            bitstr[1:L]
-        else
-            bitstr
-        end
-    elseif init.bitstring !== nothing
-        # Use bitstring directly, pad or truncate to L
-        bitstr = init.bitstring
-        if length(bitstr) < L
-            rpad(bitstr, L, "0")
-        elseif length(bitstr) > L
-            bitstr[1:L]
-        else
-            bitstr
-        end
-    else
-        throw(ArgumentError("ProductState has no initialization method specified"))
-    end
+    # Convert init specification to bit pattern string (shared with MPS/SV
+    # paths via `_bit_pattern_string`, defined in src/State/initialization.jl)
+    bit_pattern_str = _bit_pattern_string(init, L, state.local_dim)
 
     # bit_pattern_str[i] is the bit value at PHYSICAL site i (MSB at site 1)
     d = MixedDestabilizer(one(Stabilizer, L))

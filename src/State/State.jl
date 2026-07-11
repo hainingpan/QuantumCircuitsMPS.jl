@@ -1,6 +1,3 @@
-using ITensors
-using ITensorMPS
-
 # Forward declaration for RNGRegistry (defined in Task 2)
 # For now, use Union{Nothing, Any} to avoid dependency
 const RNGRegistryType = Any
@@ -11,11 +8,14 @@ const RNGRegistryType = Any
 Main simulation state container holding the numerical backend and metadata.
 
 Fields:
-- backend: the numerical backend (`MPSBackend` or `StateVectorBackend`), holding
-  backend-specific state such as the MPS/statevector, site indices, and SVD
-  truncation parameters. For backward compatibility, `state.mps`, `state.sites`,
-  `state.cutoff`, and `state.maxdim` are transparently forwarded to
-  `state.backend.<name>` via `getproperty`/`setproperty!` when `B == MPSBackend`.
+- backend: the numerical backend (`MPSBackend`, `StateVectorBackend`, or
+  `CliffordBackend`), holding backend-specific state such as the
+  MPS/statevector/tableau, site indices, and SVD truncation parameters.
+  When `B == MPSBackend`, the property names `state.mps`, `state.sites`,
+  `state.cutoff`, and `state.maxdim` are SUPPORTED API: they forward
+  transparently (read and write) to `state.backend.<name>` via
+  `getproperty`/`setproperty!` (see
+  `Base.getproperty(::SimulationState{MPSBackend}, ::Symbol)`).
 - phy_ram: physical site -> RAM index mapping
 - ram_phy: RAM index -> physical site mapping
 - L: system size
@@ -36,7 +36,7 @@ Supported site_type values:
 - "S=1": spin-1 (local_dim=3)
 - "Qudit": arbitrary dimension (requires local_dim parameter)
 """
-mutable struct SimulationState{B<:AbstractBackend}
+mutable struct SimulationState{B <: AbstractBackend}
     backend::B
     phy_ram::Vector{Int}
     ram_phy::Vector{Int}
@@ -53,12 +53,34 @@ mutable struct SimulationState{B<:AbstractBackend}
     event_element_idx::Int
 end
 
-# === Backward-compatibility layer: state.mps/sites/cutoff/maxdim forwarding ===
-# Existing code (both not-yet-updated src/ internals and ALL test files) accesses
-# these fields directly on `state`. This layer forwards them transparently to
-# the MPSBackend fields, so no other file needs to change for correctness.
+# === MPS-backend property forwarding: state.mps/sites/cutoff/maxdim ===
+# SUPPORTED API (v0.4.0 decision, T19): a usage census found 42 call sites
+# (36 `.mps` + 6 `.sites`, all in test/) against the plan's ≤25 retirement
+# threshold, so the forwarding layer is KEPT and declared supported rather
+# than retired. src/ internals use `state.backend.<field>` directly.
 const _MPS_BACKEND_COMPAT_FIELDS = (:mps, :sites, :cutoff, :maxdim)
 
+"""
+    Base.getproperty(state::SimulationState{MPSBackend}, name::Symbol)
+
+Property forwarding for the MPS backend — SUPPORTED API (not a deprecation
+shim). For `state::SimulationState{MPSBackend}`, the four property names
+
+- `state.mps`     → `state.backend.mps`
+- `state.sites`   → `state.backend.sites`
+- `state.cutoff`  → `state.backend.cutoff`
+- `state.maxdim`  → `state.backend.maxdim`
+
+forward transparently to the `MPSBackend` fields, for both reads and writes
+(`Base.setproperty!` forwards the same four names). All other property names
+resolve to `SimulationState`'s own fields.
+
+This convenience is MPS-only by design: `SimulationState{StateVectorBackend}`
+and `SimulationState{CliffordBackend}` have no such forwarding (their payloads
+are reached explicitly via `state.backend.ψ` / `state.backend.tableau`), so
+accessing `state.mps` on them raises a `FieldError` — a loud signal that
+MPS-specific code received a non-MPS state.
+"""
 function Base.getproperty(s::SimulationState{MPSBackend}, name::Symbol)
     if name in _MPS_BACKEND_COMPAT_FIELDS
         return getfield(getfield(s, :backend), name)
@@ -78,8 +100,13 @@ end
 
 Create a new simulation state. MPS/statevector is created later via initialize!().
 
+!!! note "1D only"
+    All backends represent a one-dimensional chain of `L` sites.
+    Higher-dimensional (2D+) systems are a planned future direction
+    (see ROADMAP.md).
+
 Parameters:
-- L: system size
+- L: system size (number of sites on the 1D chain)
 - bc: boundary condition (:open or :periodic)
 - site_type: site index type ("Qubit", "S=1", "Qudit")
 - local_dim: local Hilbert space dimension (default 2)
@@ -105,38 +132,48 @@ Parameters:
 For "Qudit" site type, local_dim specifies the dimension (e.g., local_dim=4 for d=4).
 """
 function SimulationState(;
-    L::Int,
-    bc::Symbol,
-    site_type::String = "Qubit",
-    local_dim::Int = 2,
-    cutoff::Float64 = 1e-10,
-    maxdim::Int = 100,
-    rng = nothing,  # RNGRegistry, attached later or passed here
-    log_events::Bool = false,
-    backend::Symbol = :mps,
-    engine::Symbol = :builtin,
-    pbc_fold_start::Int = L÷4+1
+        L::Int,
+        bc::Symbol,
+        site_type::String = "Qubit",
+        local_dim::Int = 2,
+        cutoff::Float64 = 1e-10,
+        maxdim::Int = 100,
+        rng = nothing,  # RNGRegistry, attached later or passed here
+        log_events::Bool = false,
+        backend::Symbol = :mps,
+        engine::Symbol = :builtin,
+        pbc_fold_start::Int = L÷4+1
 )
+    # Validate L (added in v0.4.0 — previously L=0 / negative L were silently
+    # accepted and produced empty, unusable states)
+    L >= 1 ||
+        throw(ArgumentError("L must be a positive integer (L >= 1), got L=$L"))
+
     # Validate bc
-    bc in (:open, :periodic) || throw(ArgumentError("bc must be :open or :periodic, got $bc"))
-    engine in (:builtin, :optimized) || throw(ArgumentError("engine must be :builtin or :optimized, got $engine"))
-    
-    # Auto-detect local_dim from site_type if not explicitly set
-    if site_type == "S=1" && local_dim == 2  # default not overridden
-        local_dim = 3
+    bc in (:open, :periodic) ||
+        throw(ArgumentError("bc must be :open or :periodic, got $bc"))
+    engine in (:builtin, :optimized) ||
+        throw(ArgumentError("engine must be :builtin or :optimized, got $engine"))
+
+    # Auto-detect local_dim from site_type if not explicitly set.
+    # Any spin site type "S=<n>" / "S=<k>/2" (e.g. "S=1", "S=3/2", "S=2")
+    # maps to local_dim = 2S+1; "S=1/2" yields 2 (no-op vs the default).
+    spin_s = _parse_spin_site_type(site_type)
+    if spin_s !== nothing && local_dim == 2  # default not overridden
+        local_dim = Int(2 * spin_s + 1)
     end
-    
+
     if backend == :mps
         # Compute basis mapping (OBC works now, PBC throws until Task 4)
-        phy_ram, ram_phy = compute_basis_mapping(L, bc; pbc_fold_start=pbc_fold_start)
-        
+        phy_ram, ram_phy = compute_basis_mapping(L, bc; pbc_fold_start = pbc_fold_start)
+
         # Create site indices in RAM order
         if site_type == "Qudit"
-            sites = siteinds("Qudit", L; dim=local_dim)
+            sites = siteinds("Qudit", L; dim = local_dim)
         else
             sites = siteinds(site_type, L)
         end
-        
+
         backend_obj = MPSBackend(nothing, sites, cutoff, maxdim)
     elseif backend == :statevector
         # No MPS bond-dimension folding concept for state vectors: identity mapping.
@@ -155,7 +192,7 @@ function SimulationState(;
     else
         throw(ArgumentError("backend must be :mps, :statevector, or :clifford, got $backend"))
     end
-    
+
     # Return state with backend's underlying state = nothing (deferred to initialize!)
     return SimulationState(
         backend_obj,

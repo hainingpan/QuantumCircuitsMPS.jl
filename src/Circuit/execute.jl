@@ -192,11 +192,12 @@ end
 - `every_n_gates`, `every_n_steps`: Helper functions for common patterns
 """
 function simulate!(circuit::Circuit, state::SimulationState;
-                   n_steps::Int=1,
-                   record_when::Union{Symbol,Function}=:every_step)
+        n_steps::Int = 1,
+        record_when::Union{Symbol, Function} = :every_step)
     # Validation
     n_steps >= 1 || throw(ArgumentError("n_steps must be >= 1, got $n_steps"))
-    if record_when isa Symbol && record_when ∉ (:every_step, :every_gate, :final_only, :marks)
+    if record_when isa Symbol &&
+       record_when ∉ (:every_step, :every_gate, :final_only, :marks)
         throw(ArgumentError("Unknown record_when symbol: $record_when. Valid options: :every_step, :every_gate, :final_only, :marks"))
     end
 
@@ -220,7 +221,7 @@ function simulate!(circuit::Circuit, state::SimulationState;
     # Marker ordinals: 1-based position among the circuit's :record_mark
     # pseudo-ops (stable across steps) — exposed to predicates as
     # ctx.mark_index.
-    mark_ordinals = Dict{Int,Int}()
+    mark_ordinals = Dict{Int, Int}()
     let m = 0
         for (i, op) in enumerate(circuit.operations)
             if op.type == :record_mark
@@ -238,6 +239,19 @@ function simulate!(circuit::Circuit, state::SimulationState;
     # Reset staircase positions once at the start
     _reset_circuit_geometries!(circuit)
 
+    # === Per-call elements() caches (perf, T23) ===
+    # `elements(geo, L, bc)` is recomputed every step in the hot loop; for
+    # provably step-invariant geometries (see `_is_static_geometry`) the
+    # result is cached here, keyed by op index. Scope is STRICTLY local to
+    # this simulate! call — never module-level — so mutable circuits and
+    # concurrent trajectories can never observe stale enumerations.
+    # Mutable geometries (staircases, Pointer) and any geometry not
+    # explicitly whitelisted by `_is_static_geometry` bypass these caches
+    # entirely and are recomputed every step, exactly as before.
+    det_elems_cache = Dict{Int, Vector{Vector{Int}}}()
+    stoch_K_cache = Dict{Int, Int}()
+    stoch_elem_lists_cache = Dict{Int, Vector{Union{Nothing, Vector{Vector{Int}}}}}()
+
     for step in 1:n_steps
         should_record_this_step = false
 
@@ -247,15 +261,25 @@ function simulate!(circuit::Circuit, state::SimulationState;
                 if is_broadcast(geo)
                     # Broadcast geometry: one application per element, in
                     # canonical enumeration order (API contract).
-                    elems = elements(geo, circuit.L, circuit.bc)
+                    # Step-invariant geometries are cached per op index for
+                    # the duration of this simulate! call (T23).
+                    elems = if _is_static_geometry(geo)
+                        get!(() -> elements(geo, circuit.L, circuit.bc),
+                            det_elems_cache, op_idx)
+                    else
+                        elements(geo, circuit.L, circuit.bc)
+                    end
                     for (element_idx, sites) in enumerate(elems)
                         set_event_context!(state, step, op_idx, element_idx)
                         execute!(state, op.gate, sites)
                         if state.event_log !== nothing
-                            log_event!(state, GateApplied(step, op_idx, element_idx, gate_label(op.gate), sites))
+                            log_event!(state,
+                                GateApplied(
+                                    step, op_idx, element_idx, gate_label(op.gate), sites))
                         end
                         gate_idx += 1
-                        ctx = RecordingContext(step, gate_idx, op_idx, element_idx, op.gate, false, false, 0)
+                        ctx = RecordingContext(
+                            step, gate_idx, op_idx, element_idx, op.gate, false, false, 0)
                         set_flag, record_now = _evaluate_recording(record_when, ctx, step, n_steps)
                         should_record_this_step |= set_flag
                         record_now && record!(state)
@@ -263,18 +287,21 @@ function simulate!(circuit::Circuit, state::SimulationState;
                 else
                     # Set geometry: a single region (support-aware for
                     # staircases via compute_sites_dispatch).
-                    sites = compute_sites_dispatch(geo, op.gate, step, circuit.L, circuit.bc)
+                    sites = compute_sites_dispatch(
+                        geo, op.gate, step, circuit.L, circuit.bc)
                     set_event_context!(state, step, op_idx, 1)
                     execute!(state, op.gate, sites)
                     if state.event_log !== nothing
-                        log_event!(state, GateApplied(step, op_idx, 1, gate_label(op.gate), sites))
+                        log_event!(state, GateApplied(
+                            step, op_idx, 1, gate_label(op.gate), sites))
                     end
                     # Advance staircase after deterministic application
                     if geo isa AbstractStaircase
                         advance!(geo, circuit.L, circuit.bc)
                     end
                     gate_idx += 1
-                    ctx = RecordingContext(step, gate_idx, op_idx, 1, op.gate, false, false, 0)
+                    ctx = RecordingContext(
+                        step, gate_idx, op_idx, 1, op.gate, false, false, 0)
                     set_flag, record_now = _evaluate_recording(record_when, ctx, step, n_steps)
                     should_record_this_step |= set_flag
                     record_now && record!(state)
@@ -286,17 +313,34 @@ function simulate!(circuit::Circuit, state::SimulationState;
                 actual_rng = get_rng(state.rng_registry, :gates_spacetime)
                 outcomes = op.outcomes
 
+                # An op's elements() results may be cached across steps only
+                # when EVERY outcome geometry is provably step-invariant
+                # (T23). Any staircase/Pointer/unknown member disables
+                # caching for the WHOLE op — conservative by design.
+                op_cacheable = all(o -> _is_static_geometry(o.geometry), outcomes)
+
                 # Common element count K (equal-K validated at build time;
                 # re-validated here so hand-built Circuits fail loudly too).
-                K = _op_element_count(op, circuit.L, circuit.bc)
+                K = if op_cacheable
+                    get!(() -> _op_element_count(op, circuit.L, circuit.bc),
+                        stoch_K_cache, op_idx)
+                else
+                    _op_element_count(op, circuit.L, circuit.bc)
+                end
                 probs = Float64[Float64(o.probability) for o in outcomes]
 
                 # Precompute broadcast element lists (fixed within the op);
                 # set geometries resolve lazily at selection time because
                 # staircase/Pointer positions are mutable and support-aware.
-                elem_lists = Union{Nothing, Vector{Vector{Int}}}[
-                    is_broadcast(o.geometry) ? elements(o.geometry, circuit.L, circuit.bc) : nothing
-                    for o in outcomes]
+                _build_elem_lists() = Union{Nothing, Vector{Vector{Int}}}[is_broadcast(o.geometry) ?
+                                                                          elements(
+                                                                              o.geometry, circuit.L,
+                                                                              circuit.bc) :
+                                                                          nothing
+                                                                          for o in outcomes]
+                elem_lists = op_cacheable ?
+                             get!(_build_elem_lists, stoch_elem_lists_cache, op_idx) :
+                             _build_elem_lists()
 
                 for k in 1:K
                     sel = select_outcome_index(actual_rng, probs)
@@ -304,12 +348,14 @@ function simulate!(circuit::Circuit, state::SimulationState;
                     if sel != 0
                         outcome = outcomes[sel]
                         sites = elem_lists[sel] === nothing ?
-                            compute_sites_dispatch(outcome.geometry, outcome.gate, step, circuit.L, circuit.bc) :
-                            elem_lists[sel][k]
+                                compute_sites_dispatch(
+                            outcome.geometry, outcome.gate, step, circuit.L, circuit.bc) :
+                                elem_lists[sel][k]
                         set_event_context!(state, step, op_idx, k)
                         execute!(state, outcome.gate, sites)
                         if state.event_log !== nothing
-                            log_event!(state, GateApplied(step, op_idx, k, gate_label(outcome.gate), sites))
+                            log_event!(state, GateApplied(
+                                step, op_idx, k, gate_label(outcome.gate), sites))
                         end
                         # Advance only the SELECTED staircase; identity does
                         # NOT advance (guarded against at build time by the
@@ -322,7 +368,8 @@ function simulate!(circuit::Circuit, state::SimulationState;
                     end
                     # Element-slot counter advances REGARDLESS of outcome.
                     gate_idx += 1
-                    ctx = RecordingContext(step, gate_idx, op_idx, k, applied_gate, false, false, 0)
+                    ctx = RecordingContext(
+                        step, gate_idx, op_idx, k, applied_gate, false, false, 0)
                     set_flag, record_now = _evaluate_recording(record_when, ctx, step, n_steps)
                     should_record_this_step |= set_flag
                     # :every_gate records only on actual gate application
@@ -344,7 +391,8 @@ function simulate!(circuit::Circuit, state::SimulationState;
                     # Predicates see marks as events (at_mark=true); a true
                     # return uses the usual flag semantics — ONE record at
                     # the end of the step.
-                    ctx = RecordingContext(step, gate_idx, op_idx, 0, nothing, false, true, mark_index)
+                    ctx = RecordingContext(
+                        step, gate_idx, op_idx, 0, nothing, false, true, mark_index)
                     set_flag, _ = _evaluate_recording(record_when, ctx, step, n_steps)
                     should_record_this_step |= set_flag
                 end
@@ -378,7 +426,7 @@ function simulate!(circuit::Circuit, state::SimulationState;
 end
 
 # Gate execution is uniform: the engine calls execute!(state, gate, sites)
-# (Core/apply.jl) for every gate. Gate-specific behavior (Measurement, Reset,
+# (Core/apply.jl) for every gate. Gate-specific behavior (Measure, Reset,
 # user gates) lives in execute! methods + traits, NOT in engine type-checks.
 # The former execute_gate! special-casing was removed in v0.1 (Task 8).
 

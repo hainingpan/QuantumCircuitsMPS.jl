@@ -7,10 +7,10 @@
 # Deliberately NOT duplicated here (already covered elsewhere):
 #   * builder/eager equal-K + Σp>1 + staircase-guard basics
 #       → unified_rule_engine.jl (builder), eager_probabilistic.jl (eager)
-#   * marker-as-last-op :marks no-double-record → recording_v01.jl:185
+#   * marker-as-last-op :marks no-double-record → recording.jl (":marks no-double-record" testset)
 #   * all 12 deprecation stubs w/ migration text → legacy_removal.jl ("STUB:")
 #   * eager-path sentinel (apply! + feedback)    → feedback.jl:149
-#   * homogeneous-circuit draw counts            → rng_v01.jl, unified_rule_engine.jl
+#   * homogeneous-circuit draw counts            → rng.jl, unified_rule_engine.jl
 
 using Test
 using Random
@@ -18,11 +18,8 @@ using QuantumCircuitsMPS
 using QuantumCircuitsMPS: events, measurements            # ITensorMPS also exports `measurements`
 using QuantumCircuitsMPS: GateApplied, MeasurementOutcome # internal since Task 14
 
-# reference_select — the semantic oracle (Task 7); guarded include (the suite
-# already loads it via unified_rule_engine.jl / golden_compare.jl).
-if !@isdefined(reference_select)
-    include("reference_rule.jl")
-end
+# reference_select — the semantic oracle — is provided by test/testutils.jl,
+# which runtests.jl includes unconditionally before any test file.
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -32,25 +29,26 @@ end
 # for per-trajectory circuit isolation (staircase positions are circuit state).
 function _cc_cipt_circuit(L)
     left, right = StaircaseLeft(1), StaircaseRight(1)
-    Circuit(L=L, bc=:periodic) do c
-        apply_with_prob!(c; outcomes=[
-            (probability=0.5, gate=Reset(),      geometry=left),
-            (probability=0.5, gate=HaarRandom(), geometry=right)
-        ])
+    Circuit(L = L, bc = :periodic) do c
+        apply_with_prob!(c;
+            outcomes = [
+                (probability = 0.5, gate = Reset(), geometry = left),
+                (probability = 0.5, gate = HaarRandom(), geometry = right)
+            ])
     end
 end
 
-function _cc_cipt_trajectory(circuit_master, seed; L=6, n_steps=72)
+function _cc_cipt_trajectory(circuit_master, seed; L = 6, n_steps = 72)
     # copy(circuit) = the documented per-trajectory pattern (Task 9):
     # private staircase state, intra-circuit aliasing preserved.
     local_circuit = copy(circuit_master)
-    registry = RNGRegistry(gates_spacetime=3 * (seed - 1) + 1,
-                           born_measurement=3 * (seed - 1) + 2,
-                           gates_realization=3 * (seed - 1) + 3)
-    state = SimulationState(L=L, bc=:periodic, maxdim=32, rng=registry)
-    initialize!(state, ProductState(binary_int=0))
+    registry = RNGRegistry(gates_spacetime = 3 * (seed - 1) + 1,
+        born_measurement = 3 * (seed - 1) + 2,
+        gates_realization = 3 * (seed - 1) + 3)
+    state = SimulationState(L = L, bc = :periodic, maxdim = 32, rng = registry)
+    initialize!(state, ProductState(binary_int = 0))
     track!(state, :Mz => Magnetization(:Z))
-    simulate!(local_circuit, state; n_steps=n_steps, record_when=:every_gate)
+    simulate!(local_circuit, state; n_steps = n_steps, record_when = :every_gate)
     return Float64.(state.observables[:Mz])
 end
 
@@ -69,7 +67,7 @@ end
         master = _cc_cipt_circuit(L)
 
         # Sequential reference (fresh copy per trajectory, same seeds)
-        sequential = [_cc_cipt_trajectory(master, s; L=L, n_steps=n_steps)
+        sequential = [_cc_cipt_trajectory(master, s; L = L, n_steps = n_steps)
                       for s in seeds]
 
         # Parallel run. :static schedule → deterministic seed→thread
@@ -79,7 +77,7 @@ end
         tids = zeros(Int, length(seeds))
         Threads.@threads :static for i in eachindex(seeds)
             tids[i] = Threads.threadid()
-            parallel[i] = _cc_cipt_trajectory(master, seeds[i]; L=L, n_steps=n_steps)
+            parallel[i] = _cc_cipt_trajectory(master, seeds[i]; L = L, n_steps = n_steps)
         end
 
         # Bit-exact equality per seed (same RNG streams → identical floats)
@@ -92,6 +90,7 @@ end
 
         # Master circuit's staircases were never advanced by any trajectory
         for op in master.operations, out in op.outcomes
+
             @test QuantumCircuitsMPS.current_position(out.geometry) == 1
         end
 
@@ -111,27 +110,31 @@ end
     # -----------------------------------------------------------------------
     # DRAW-COUNT: expected_draws vs actual RNG advancement for ONE circuit
     # mixing deterministic + multi-outcome compound + EachSite + staircase
-    # + single-site stochastic ops. Earlier tests (rng_v01.jl,
+    # + single-site stochastic ops. Earlier tests (rng.jl,
     # unified_rule_engine.jl) only cover homogeneous circuits.
     # -----------------------------------------------------------------------
     @testset "DRAW-COUNT: heterogeneous multi-op circuit matches expected_draws" begin
         L, bc = 8, :periodic
         left, right = StaircaseLeft(1), StaircaseRight(1)
-        make_circuit() = Circuit(L=L, bc=bc) do c
+        make_circuit() = Circuit(L = L, bc = bc) do c
             apply!(c, HaarRandom(), Bricklayer(:even))                 # det: 0 coins
-            apply_with_prob!(c; outcomes=[                             # K = 4
-                (probability=0.4, gate=HaarRandom(), geometry=Bricklayer(:even)),
-                (probability=0.6, gate=CZ(),         geometry=Bricklayer(:even))
-            ])
-            apply_with_prob!(c; outcomes=[                             # K = L-2 = 6
-                (probability=0.3, gate=Measurement(:Z), geometry=EachSite(2:L-1))
-            ])
-            apply_with_prob!(c; outcomes=[                             # K = 1 (set)
-                (probability=0.5, gate=Reset(),      geometry=left),
-                (probability=0.5, gate=HaarRandom(), geometry=right)
-            ])
-            apply_with_prob!(c; outcomes=[                             # K = 1 (set)
-                (probability=0.25, gate=PauliX(), geometry=SingleSite(3))
+            apply_with_prob!(c;
+                outcomes = [                             # K = 4
+                    (probability = 0.4, gate = HaarRandom(), geometry = Bricklayer(:even)),
+                    (probability = 0.6, gate = CZ(), geometry = Bricklayer(:even))
+                ])
+            apply_with_prob!(c;
+                outcomes = [                             # K = L-2 = 6
+                    (probability = 0.3, gate = Measure(:Z),
+                    geometry = EachSite(2:(L - 1)))
+                ])
+            apply_with_prob!(c;
+                outcomes = [                             # K = 1 (set)
+                    (probability = 0.5, gate = Reset(), geometry = left),
+                    (probability = 0.5, gate = HaarRandom(), geometry = right)
+                ])
+            apply_with_prob!(c; outcomes = [                             # K = 1 (set)
+                (probability = 0.25, gate = PauliX(), geometry = SingleSite(3))
             ])
         end
         n = 7
@@ -139,11 +142,11 @@ end
         circuit = make_circuit()
         @test expected_draws(circuit, n) == n * K_per_step
 
-        registry = RNGRegistry(gates_spacetime=42, born_measurement=1,
-                               gates_realization=2)
-        state = SimulationState(L=L, bc=bc, maxdim=32, rng=registry)
-        initialize!(state, ProductState(binary_int=0))
-        simulate!(circuit, state; n_steps=n, record_when=:final_only)
+        registry = RNGRegistry(gates_spacetime = 42, born_measurement = 1,
+            gates_realization = 2)
+        state = SimulationState(L = L, bc = bc, maxdim = 32, rng = registry)
+        initialize!(state, ProductState(binary_int = 0))
+        simulate!(circuit, state; n_steps = n, record_when = :final_only)
 
         twin = MersenneTwister(42)
         for _ in 1:expected_draws(make_circuit(), n)
@@ -153,11 +156,11 @@ end
 
         # Data-independence in the heterogeneous setting: different Born
         # outcomes must not change :gates_spacetime consumption.
-        registry2 = RNGRegistry(gates_spacetime=42, born_measurement=999,
-                                gates_realization=2)
-        state2 = SimulationState(L=L, bc=bc, maxdim=32, rng=registry2)
-        initialize!(state2, ProductState(binary_int=0))
-        simulate!(make_circuit(), state2; n_steps=n, record_when=:final_only)
+        registry2 = RNGRegistry(gates_spacetime = 42, born_measurement = 999,
+            gates_realization = 2)
+        state2 = SimulationState(L = L, bc = bc, maxdim = 32, rng = registry2)
+        initialize!(state2, ProductState(binary_int = 0))
+        simulate!(make_circuit(), state2; n_steps = n, record_when = :final_only)
         twin2 = MersenneTwister(42)
         for _ in 1:(n * K_per_step)
             rand(twin2)  # SCALAR-DRAW CONTRACT: scalar burn
@@ -175,24 +178,25 @@ end
     @testset "EVENT-LOG completeness: det + stochastic + feedback, exact replay" begin
         L, bc, n_steps, st_seed = 6, :periodic, 4, 20260703
         even_elems = elements(Bricklayer(:even), L, bc)   # 3 pairs
-        circuit = Circuit(L=L, bc=bc) do c
+        circuit = Circuit(L = L, bc = bc) do c
             apply!(c, HaarRandom(), Bricklayer(:even))                       # op 1: det, K=3
-            apply_with_prob!(c; outcomes=[                                   # op 2: stoch, K=6
-                (probability=0.4, gate=Measurement(:Z), geometry=AllSites())
+            apply_with_prob!(c; outcomes = [                                   # op 2: stoch, K=6
+                (probability = 0.4, gate = Measure(:Z), geometry = AllSites())
             ])
             apply!(c, Hadamard(), AllSites())                                # op 3: det, K=6
-            apply_with_prob!(c; outcomes=[                                   # op 4: stoch+feedback, K=4
-                (probability=0.7,
-                 gate=Measure(:Z; feedback=OnOutcome(1 => PauliX())),
-                 geometry=EachSite(2:L-1))
-            ])
+            apply_with_prob!(c;
+                outcomes = [                                   # op 4: stoch+feedback, K=4
+                    (probability = 0.7,
+                    gate = Measure(:Z; feedback = OnOutcome(1 => PauliX())),
+                    geometry = EachSite(2:(L - 1)))
+                ])
         end
-        registry = RNGRegistry(gates_spacetime=st_seed, born_measurement=7,
-                               gates_realization=8)
-        state = SimulationState(L=L, bc=bc, maxdim=32, rng=registry,
-                                log_events=true)
-        initialize!(state, ProductState(binary_int=0))
-        simulate!(circuit, state; n_steps=n_steps, record_when=:final_only)
+        registry = RNGRegistry(gates_spacetime = st_seed, born_measurement = 7,
+            gates_realization = 8)
+        state = SimulationState(L = L, bc = bc, maxdim = 32, rng = registry,
+            log_events = true)
+        initialize!(state, ProductState(binary_int = 0))
+        simulate!(circuit, state; n_steps = n_steps, record_when = :final_only)
 
         # Expected GateApplied stream from first principles (twin replay).
         # PauliX feedback draws nothing from :gates_spacetime, so the twin
@@ -201,24 +205,24 @@ end
         expected = NamedTuple[]   # (step, op_idx, element_idx, label, sites)
         for step in 1:n_steps
             for (k, sites) in enumerate(even_elems)                    # op 1
-                push!(expected, (step=step, op_idx=1, element_idx=k,
-                                 label="Haar", sites=sites))
+                push!(expected, (step = step, op_idx = 1, element_idx = k,
+                    label = "Haar", sites = sites))
             end
             sel2 = reference_select(twin, [0.4], L)                    # op 2
             for (k, s) in enumerate(sel2)
                 s == 0 && continue
-                push!(expected, (step=step, op_idx=2, element_idx=k,
-                                 label="Meas", sites=[k]))
+                push!(expected, (step = step, op_idx = 2, element_idx = k,
+                    label = "Meas", sites = [k]))
             end
             for k in 1:L                                               # op 3
-                push!(expected, (step=step, op_idx=3, element_idx=k,
-                                 label="H", sites=[k]))
+                push!(expected, (step = step, op_idx = 3, element_idx = k,
+                    label = "H", sites = [k]))
             end
             sel4 = reference_select(twin, [0.7], L - 2)                # op 4
             for (k, s) in enumerate(sel4)
                 s == 0 && continue
-                push!(expected, (step=step, op_idx=4, element_idx=k,
-                                 label="Meas", sites=[k + 1]))         # EachSite(2:L-1)
+                push!(expected, (step = step, op_idx = 4, element_idx = k,
+                    label = "Meas", sites = [k + 1]))         # EachSite(2:L-1)
             end
         end
 
@@ -234,7 +238,7 @@ end
         @test !any(e -> e.gate_label == "X", gas)
 
         # Every Born sample logged: one MeasurementOutcome per selected
-        # Measurement/Measure application, with matching (step, op_idx).
+        # Measure application, with matching (step, op_idx).
         mos = [e for e in events(state) if e isa MeasurementOutcome]
         exp_meas = [x for x in expected if x.label == "Meas"]
         @test length(mos) == length(exp_meas)
@@ -256,20 +260,20 @@ end
     # -----------------------------------------------------------------------
     @testset "EQUAL-K: K=1 vs K>1 never broadcasts (builder AND eager)" begin
         outcomes_set_vs_bcast = [
-            (probability=0.5, gate=PauliX(),        geometry=SingleSite(1)),  # K=1 (set)
-            (probability=0.5, gate=Measurement(:Z), geometry=AllSites())      # K=4
+            (probability = 0.5, gate = PauliX(), geometry = SingleSite(1)),  # K=1 (set)
+            (probability = 0.5, gate = Measure(:Z), geometry = AllSites())      # K=4
         ]
         # K=1 BROADCAST geometry against K>1 must error identically
         outcomes_bcast1_vs_bcast = [
-            (probability=0.5, gate=PauliX(),        geometry=EachSite(1:1)),  # K=1 (broadcast)
-            (probability=0.5, gate=Measurement(:Z), geometry=AllSites())      # K=4
+            (probability = 0.5, gate = PauliX(), geometry = EachSite(1:1)),  # K=1 (broadcast)
+            (probability = 0.5, gate = Measure(:Z), geometry = AllSites())      # K=4
         ]
 
         for outcomes in (outcomes_set_vs_bcast, outcomes_bcast1_vs_bcast)
             # Builder path
             err = try
-                Circuit(L=4, bc=:periodic) do c
-                    apply_with_prob!(c; outcomes=outcomes)
+                Circuit(L = 4, bc = :periodic) do c
+                    apply_with_prob!(c; outcomes = outcomes)
                 end
                 nothing
             catch e
@@ -281,13 +285,13 @@ end
             @test occursin("K=4", msg)
 
             # Eager path (same strictness at call time)
-            st = SimulationState(L=4, bc=:periodic, maxdim=16,
-                                 rng=RNGRegistry(gates_spacetime=1,
-                                                 born_measurement=2,
-                                                 gates_realization=3))
-            initialize!(st, ProductState(binary_int=0))
+            st = SimulationState(L = 4, bc = :periodic, maxdim = 16,
+                rng = RNGRegistry(gates_spacetime = 1,
+                    born_measurement = 2,
+                    gates_realization = 3))
+            initialize!(st, ProductState(binary_int = 0))
             err2 = try
-                apply_with_prob!(st; outcomes=outcomes)
+                apply_with_prob!(st; outcomes = outcomes)
                 nothing
             catch e
                 e
@@ -307,19 +311,20 @@ end
     # -----------------------------------------------------------------------
     @testset "SENTINEL: engine-path feedback draw of :gates_spacetime aborts simulate!" begin
         bad_fb = (s, sites, o) -> QuantumCircuitsMPS.draw(s, :gates_spacetime)
-        circuit = Circuit(L=4, bc=:periodic) do c
-            apply_with_prob!(c; outcomes=[
-                (probability=1.0,
-                 gate=Measure(:Z; feedback=bad_fb),
-                 geometry=AllSites())
-            ])
+        circuit = Circuit(L = 4, bc = :periodic) do c
+            apply_with_prob!(c;
+                outcomes = [
+                    (probability = 1.0,
+                    gate = Measure(:Z; feedback = bad_fb),
+                    geometry = AllSites())
+                ])
         end
-        registry = RNGRegistry(gates_spacetime=11, born_measurement=12,
-                               gates_realization=13)
-        state = SimulationState(L=4, bc=:periodic, maxdim=16, rng=registry)
-        initialize!(state, ProductState(binary_int=0))
+        registry = RNGRegistry(gates_spacetime = 11, born_measurement = 12,
+            gates_realization = 13)
+        state = SimulationState(L = 4, bc = :periodic, maxdim = 16, rng = registry)
+        initialize!(state, ProductState(binary_int = 0))
         err = try
-            simulate!(circuit, state; n_steps=1, record_when=:final_only)
+            simulate!(circuit, state; n_steps = 1, record_when = :final_only)
             nothing
         catch e
             e

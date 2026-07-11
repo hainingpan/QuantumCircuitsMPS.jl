@@ -1,43 +1,6 @@
 # === Composite Gates ===
-
-"""
-    Measurement(axis::Symbol)
-
-Pure projective measurement in the specified basis.
-
-- `Measurement(:Z)` - Z-basis measurement: projects to |0⟩ or |1⟩ based on Born probability
-
-This is a FUNDAMENTAL operation. Unlike `Reset`, measurement leaves the qubit
-in the measured state (|0⟩ or |1⟩) without resetting it.
-
-# Physics
-1. Compute Born probability P(0|ψ) for the qubit
-2. Sample outcome ∈ {0, 1} according to Born rule
-3. Apply projection operator to collapse wavefunction
-4. Normalize the state
-
-# Example
-```julia
-apply!(state, Measurement(:Z), SingleSite(1))  # Measure qubit 1 in Z-basis
-apply!(state, Measurement(:Z), AllSites())     # Measure all qubits
-```
-"""
-struct Measurement <: AbstractGate
-    axis::Symbol
-    
-    function Measurement(axis::Symbol)
-        axis == :Z || throw(ArgumentError("Only :Z axis supported currently. Got: $axis"))
-        new(axis)
-    end
-end
-
-support(::Measurement) = 1
-is_measurement(::Measurement) = true  # Born-samples via :born_measurement
-
-# Measurement requires Born sampling - cannot be a simple operator
-function build_operator(gate::Measurement, site::Index, local_dim::Int; kwargs...)
-    error("Measurement gate cannot be built as a single operator. Use apply!(state, Measurement(:Z), geo) instead.")
-end
+# NOTE: the legacy `Measurement` gate (a feedback-less strict subset of
+# `Measure`) was removed in v0.4.0 — use `Measure(:Z)` (src/Gates/feedback.jl).
 
 """
     Reset

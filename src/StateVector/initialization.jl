@@ -1,7 +1,3 @@
-using ITensors
-using Random
-using LinearAlgebra
-
 """
     RandomStateVector()
 
@@ -22,7 +18,8 @@ Verified outputs: Qubit "0"->[1,0], "1"->[0,1]; S=1 "Up"->[1,0,0], "Z0"->[0,1,0]
 "Dn"->[0,0,1].
 """
 function _local_basis_vector(site_type::String, local_dim::Int, name::String)
-    single_site = site_type == "Qudit" ? siteinds("Qudit", 1; dim=local_dim)[1] : siteinds(site_type, 1)[1]
+    single_site = site_type == "Qudit" ? siteinds("Qudit", 1; dim = local_dim)[1] :
+                  siteinds(site_type, 1)[1]
     t = ITensors.state(single_site, name)
     return Array(t, single_site)
 end
@@ -38,7 +35,8 @@ tensor index, matching the MPS backend's documented MSB convention
 documented in `src/Gates/matrix_gate.jl` (used by `gate_matrix`).
 """
 function _product_state_vector(site_type::String, local_dim::Int, state_names_physical::Vector{String})
-    vecs = [_local_basis_vector(site_type, local_dim, name) for name in state_names_physical]
+    vecs = [_local_basis_vector(site_type, local_dim, name)
+            for name in state_names_physical]
     ψ_real = reduce(kron, vecs)
     return Vector{ComplexF64}(ψ_real)
 end
@@ -70,42 +68,9 @@ function initialize!(state::SimulationState{StateVectorBackend}, init::ProductSt
         return nothing
     end
 
-    # Convert init specification to bit pattern string (identical logic to MPS path)
-    bit_pattern_str::String = if init.binary_int !== nothing
-        # Convert integer to binary string, padded to L digits
-        lpad(string(init.binary_int, base=2), L, "0")
-    elseif init.binary_decimal !== nothing
-        # Parse binary decimal: 0.101 → "101"
-        decimal_str = string(init.binary_decimal)
-        if !startswith(decimal_str, "0.")
-            throw(ArgumentError("binary_decimal must be in format 0.xxx (e.g., 0.101)"))
-        end
-        bitstr = decimal_str[3:end]  # Skip "0."
-        # Validate only 0/1
-        if !all(c in ('0', '1') for c in bitstr)
-            throw(ArgumentError("binary_decimal digits must be 0 or 1"))
-        end
-        # Pad or truncate to L
-        if length(bitstr) < L
-            rpad(bitstr, L, "0")
-        elseif length(bitstr) > L
-            bitstr[1:L]
-        else
-            bitstr
-        end
-    elseif init.bitstring !== nothing
-        # Use bitstring directly, pad or truncate to L
-        bitstr = init.bitstring
-        if length(bitstr) < L
-            rpad(bitstr, L, "0")
-        elseif length(bitstr) > L
-            bitstr[1:L]
-        else
-            bitstr
-        end
-    else
-        throw(ArgumentError("ProductState has no initialization method specified"))
-    end
+    # Convert init specification to bit pattern string (shared with MPS/Clifford
+    # paths via `_bit_pattern_string`, defined in src/State/initialization.jl)
+    bit_pattern_str = _bit_pattern_string(init, L, local_dim)
 
     # bit_pattern_str[i] is the bit value at PHYSICAL site i (MSB at site 1)
     vec_int_pos = [string(c) for c in bit_pattern_str]
@@ -114,10 +79,10 @@ function initialize!(state::SimulationState{StateVectorBackend}, init::ProductSt
     state_names_physical = if site_type == "Qubit"
         # "0" → "0", "1" → "1"
         vec_int_pos
-    elseif site_type == "S=1"
-        # For S=1: "0" → "Up" (m=+1), "1" → "Dn" (m=-1)
-        # ITensor uses "Up"/"Z0"/"Dn" for m = +1, 0, -1
-        # Binary encoding: 0 = spin up, 1 = spin down
+    elseif _parse_spin_site_type(site_type) !== nothing
+        # Any spin type "S=<k/2>" (incl. "S=1"): "0" → "Up" (m=+S),
+        # "1" → "Dn" (m=-S). Binary encoding addresses the two extremal
+        # levels; use ProductState(spin_state="Z<m>") for intermediate levels.
         [b == "0" ? "Up" : "Dn" for b in vec_int_pos]
     elseif site_type == "Qudit"
         # Generic qudit: "0" → "1", "1" → "2", etc. (1-indexed states)

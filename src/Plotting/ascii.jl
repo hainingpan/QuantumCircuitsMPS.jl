@@ -11,7 +11,7 @@ For stochastic ops: one group per outcome (ALL outcomes shown, no random selecti
 
 Returns the same steps → groups → ops structure as expand_circuit_grouped.
 """
-function build_template_groups_ascii(circuit; n_steps::Int=1)
+function build_template_groups_ascii(circuit; n_steps::Int = 1)
     result = Vector{Vector{Vector{ExpandedOp}}}()
 
     for step in 1:n_steps
@@ -26,7 +26,8 @@ function build_template_groups_ascii(circuit; n_steps::Int=1)
                         push!(group_ops, ExpandedOp(step, op.gate, sites, gate_label(op.gate)))
                     end
                 else
-                    sites = compute_sites_dispatch(op.geometry, op.gate, step, circuit.L, circuit.bc)
+                    sites = compute_sites_dispatch(
+                        op.geometry, op.gate, step, circuit.L, circuit.bc)
                     push!(group_ops, ExpandedOp(step, op.gate, sites, gate_label(op.gate)))
                 end
                 if !isempty(group_ops)
@@ -40,14 +41,16 @@ function build_template_groups_ascii(circuit; n_steps::Int=1)
                     # Annotate label with probability so template view distinguishes from deterministic ops
                     p = outcome.probability
                     base_label = gate_label(outcome.gate)
-                    label = p == 1.0 ? base_label : string(base_label, "(", round(p; digits=2), ")")
+                    label = p == 1.0 ? base_label :
+                            string(base_label, "(", round(p; digits = 2), ")")
                     if is_compound_geometry(outcome.geometry)
                         elements = get_compound_elements(outcome.geometry, circuit.L, circuit.bc)
                         for sites in elements
                             push!(outcome_ops, ExpandedOp(step, outcome.gate, sites, label))
                         end
                     else
-                        sites = compute_sites_dispatch(outcome.geometry, outcome.gate, step, circuit.L, circuit.bc)
+                        sites = compute_sites_dispatch(
+                            outcome.geometry, outcome.gate, step, circuit.L, circuit.bc)
                         push!(outcome_ops, ExpandedOp(step, outcome.gate, sites, label))
                     end
                     if !isempty(outcome_ops)
@@ -128,15 +131,16 @@ print_circuit(circuit; n_steps=4, unicode=false)
 - `expand_circuit`: Get a concrete stochastic realization
 - `ExpandedOp`: Concrete operation representation
 """
-function print_circuit(io::IO, circuit::Circuit; n_steps::Int=1, gates_spacetime::Int=0, unicode::Bool=true)
+function print_circuit(io::IO, circuit::Circuit; n_steps::Int = 1,
+        gates_spacetime::Int = 0, unicode::Bool = true)
     # Character sets
     WIRE = unicode ? '─' : '-'
     LEFT_BOX = unicode ? '┤' : '|'
     RIGHT_BOX = unicode ? '├' : '|'
-    
+
     # 1. Expand circuit with the given RNG seed
-    expanded = expand_circuit_grouped(circuit; n_steps=n_steps, seed=gates_spacetime)
-    
+    expanded = expand_circuit_grouped(circuit; n_steps = n_steps, seed = gates_spacetime)
+
     # 2. Build row list: (label_text, is_first, ops_list)
     # ops_list is a Vector{ExpandedOp} of gates rendered on the same row.
     # Each group (apply! call) is packed into non-overlapping layers; the label
@@ -158,7 +162,7 @@ function print_circuit(io::IO, circuit::Circuit; n_steps::Int=1, gates_spacetime
             end
         end
     end
-    
+
     # 3. Calculate fixed column width (marker pseudo-ops excluded — they are
     # rendered as a fixed glyph per wire, not as gate boxes)
     max_label_len = 1  # Minimum width
@@ -169,11 +173,11 @@ function print_circuit(io::IO, circuit::Circuit; n_steps::Int=1, gates_spacetime
         end
     end
     COL_WIDTH = max_label_len + 2  # +2 for box characters
-    
+
     # 4. Print header
     println(io, "Circuit (L=$(circuit.L), bc=$(circuit.bc))")
     println(io)
-    
+
     # Calculate row label width (for alignment)
     max_row_label_len = 0
     for (label_text, is_first, _) in rows
@@ -182,14 +186,14 @@ function print_circuit(io::IO, circuit::Circuit; n_steps::Int=1, gates_spacetime
         end
     end
     ROW_LABEL_WIDTH = max(max_row_label_len + 2, 5)  # +2 for padding, min 5
-    
+
     # Qubit header row (q1, q2, q3...)
     print(io, lpad("", ROW_LABEL_WIDTH))  # Empty space for row label column
     for q in 1:circuit.L
         print(io, lpad("q$q", COL_WIDTH))
     end
     println(io)
-    
+
     # 5. Print time step rows
     for (label_text, is_first, ops) in rows
         # Row label printed only on first layer of each group; blank otherwise
@@ -198,7 +202,7 @@ function print_circuit(io::IO, circuit::Circuit; n_steps::Int=1, gates_spacetime
         else
             print(io, lpad("", ROW_LABEL_WIDTH))
         end
-        
+
         # Record-marker row: render the marker glyph centered on every wire
         # (▽ in Unicode mode, [R] in ASCII mode); named markers append their
         # names after the wires.
@@ -224,7 +228,7 @@ function print_circuit(io::IO, circuit::Circuit; n_steps::Int=1, gates_spacetime
                     break
                 end
             end
-            
+
             if active_op !== nothing
                 if length(active_op.sites) == 1
                     # Single-qubit gate
@@ -232,7 +236,8 @@ function print_circuit(io::IO, circuit::Circuit; n_steps::Int=1, gates_spacetime
                     padding = COL_WIDTH - length(label) - 2
                     left_pad = padding ÷ 2
                     right_pad = padding - left_pad
-                    print(io, LEFT_BOX, repeat(WIRE, left_pad), label, repeat(WIRE, right_pad), RIGHT_BOX)
+                    print(io, LEFT_BOX, repeat(WIRE, left_pad),
+                        label, repeat(WIRE, right_pad), RIGHT_BOX)
                 else
                     # Multi-qubit gate - spanning box logic
                     min_site = minimum(active_op.sites)
@@ -241,7 +246,8 @@ function print_circuit(io::IO, circuit::Circuit; n_steps::Int=1, gates_spacetime
                         padding = COL_WIDTH - length(label) - 2
                         left_pad = padding ÷ 2
                         right_pad = padding - left_pad
-                        print(io, LEFT_BOX, repeat(WIRE, left_pad), label, repeat(WIRE, right_pad), RIGHT_BOX)
+                        print(io, LEFT_BOX, repeat(WIRE, left_pad),
+                            label, repeat(WIRE, right_pad), RIGHT_BOX)
                     else
                         # Continuation qubit - box without label
                         print(io, LEFT_BOX, repeat(WIRE, COL_WIDTH - 2), RIGHT_BOX)
@@ -261,6 +267,8 @@ end
 
 Convenience form. Calls `print_circuit(io, circuit; ...)`.
 """
-function print_circuit(circuit::Circuit; n_steps::Int=1, gates_spacetime::Int=0, io::IO=stdout, unicode::Bool=true)
-    print_circuit(io, circuit; n_steps=n_steps, gates_spacetime=gates_spacetime, unicode=unicode)
+function print_circuit(circuit::Circuit; n_steps::Int = 1, gates_spacetime::Int = 0,
+        io::IO = stdout, unicode::Bool = true)
+    print_circuit(io, circuit; n_steps = n_steps,
+        gates_spacetime = gates_spacetime, unicode = unicode)
 end

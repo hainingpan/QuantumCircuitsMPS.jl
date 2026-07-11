@@ -73,6 +73,33 @@ is_broadcast(::Bricklayer) = true
 is_broadcast(::EachSite) = true
 
 """
+    _is_static_geometry(geo::AbstractGeometry) -> Bool
+
+Trait: `true` for geometries whose `elements(geo, L, bc)` enumeration is
+provably STEP-INVARIANT (immutable structs with no advancing/movable
+position): `Bricklayer`, `AllSites`, `EachSite`, `Sites`, `SingleSite`,
+`AdjacentPair`.
+
+`false` for mutable geometries — `StaircaseLeft`/`StaircaseRight` (positions
+advance during `simulate!`) and `Pointer` (moved explicitly via `move!`) —
+and, CONSERVATIVELY, for any geometry type not explicitly listed here
+(the fallback is `false`: correctness over performance). Any future compound
+geometry containing a member must only return `true` if EVERY member is
+static.
+
+Used by `simulate!` to decide whether an op's `elements()` result may be
+cached across steps within one `simulate!` call. Never used to cache mutable
+geometries — no invalidation scheme exists by design.
+"""
+_is_static_geometry(::AbstractGeometry) = false   # conservative default
+_is_static_geometry(::Bricklayer) = true
+_is_static_geometry(::AllSites) = true
+_is_static_geometry(::EachSite) = true
+_is_static_geometry(::Sites) = true
+_is_static_geometry(::SingleSite) = true
+_is_static_geometry(::AdjacentPair) = true
+
+"""
     elements(geo::AbstractGeometry, L::Int, bc::Symbol) -> Vector{Vector{Int}}
 
 Canonical element enumeration for a geometry: each inner vector is the sites
@@ -85,7 +112,13 @@ order (API contract — RNG coin consumption follows this order):
 - `EachSite(c)` → `[[i] for i in c]` (collection order)
 - `Bricklayer(parity)` → pairs exactly as documented in the README parity
   table (e.g. `:odd` → `[[1,2],[3,4],...]`; `:even` → `[[2,3],...,[L,1]]`
-  for PBC; `:nn` = `:odd` then `:even`; `:nnn` = sublayers 1,2,3,4)
+  for PBC at even `L`; `:nn` = `:odd` then `:even` plus the `(L,1)` wrap
+  bond; `:nnn` = sublayers 1,2,3,4). At odd `L`, single layers (`:odd`,
+  `:even`) leave one site unpaired rather than double-touching a site —
+  see the parity branches below. Using `:odd`/`:even` at odd `L` under PBC
+  emits a one-time warning at circuit-build / `apply!` time (helper
+  `_warn_bricklayer_odd_pbc` in `Geometry/static.jl` — deliberately NOT
+  called here: `elements` sits in performance-critical loops).
 
 Set geometries return a single element `[[sites...]]`:
 - `SingleSite(i)` → `[[i]]`
@@ -102,28 +135,33 @@ function elements end
 function elements(geo::Bricklayer, L::Int, bc::Symbol)
     # CANONICAL enumeration (moved verbatim from get_compound_elements).
     # Order is an API contract — do not change.
-    pairs = Tuple{Int,Int}[]
+    pairs = Tuple{Int, Int}[]
     if geo.parity == :odd
         # NN odd pairs: (1,2), (3,4), (5,6), ...
-        for i in 1:2:L-1
+        for i in 1:2:(L - 1)
             push!(pairs, (i, i+1))
         end
     elseif geo.parity == :even
         # NN even pairs: (2,3), (4,5), ...
-        for i in 2:2:L-1
+        for i in 2:2:(L - 1)
             push!(pairs, (i, i+1))
         end
-        # For PBC, also include (L, 1)
-        if bc == :periodic
+        # For PBC with EVEN L, also include the wrap pair (L, 1).
+        # At odd L the bulk pairs already end with (L-1, L), so adding
+        # (L, 1) would touch site L twice within one layer — a brickwork
+        # layer must touch each site at most once (audit finding, T17).
+        # Odd L thus leaves site 1 unpaired in :even, mirroring :odd
+        # leaving site L unpaired.
+        if bc == :periodic && iseven(L)
             push!(pairs, (L, 1))
         end
     elseif geo.parity == :nn
         # All NN pairs: combines :odd and :even
         # For L=12 periodic: 12 pairs covering all bonds
-        for i in 1:2:L-1  # Odd pairs: (1,2), (3,4), ...
+        for i in 1:2:(L - 1)  # Odd pairs: (1,2), (3,4), ...
             push!(pairs, (i, i+1))
         end
-        for i in 2:2:L-1  # Even pairs: (2,3), (4,5), ...
+        for i in 2:2:(L - 1)  # Even pairs: (2,3), (4,5), ...
             push!(pairs, (i, i+1))
         end
         if bc == :periodic
@@ -133,22 +171,22 @@ function elements(geo::Bricklayer, L::Int, bc::Symbol)
         # All NNN pairs: combines 4 sublayers
         # For L=12 periodic: 12 pairs covering all NNN bonds
         # Sublayer 1: (1,3), (5,7), (9,11)
-        for i in 1:4:L-2
+        for i in 1:4:(L - 2)
             push!(pairs, (i, i+2))
         end
         # Sublayer 2: (3,5), (7,9)
-        for i in 3:4:L-2
+        for i in 3:4:(L - 2)
             push!(pairs, (i, i+2))
         end
         if bc == :periodic && L >= 4
             push!(pairs, (L-1, 1))  # (11,1) for L=12
         end
         # Sublayer 3: (2,4), (6,8), (10,12)
-        for i in 2:4:L-2
+        for i in 2:4:(L - 2)
             push!(pairs, (i, i+2))
         end
         # Sublayer 4: (4,6), (8,10)
-        for i in 4:4:L-2
+        for i in 4:4:(L - 2)
             push!(pairs, (i, i+2))
         end
         if bc == :periodic && L >= 4
@@ -156,12 +194,12 @@ function elements(geo::Bricklayer, L::Int, bc::Symbol)
         end
     elseif geo.parity == :nnn_odd_1
         # NNN odd sublayer 1: (1,3), (5,7), (9,11), ... (stride 4, offset 1)
-        for i in 1:4:L-2
+        for i in 1:4:(L - 2)
             push!(pairs, (i, i+2))
         end
     elseif geo.parity == :nnn_odd_2
         # NNN odd sublayer 2: (3,5), (7,9), (11,1), ... (stride 4, offset 3)
-        for i in 3:4:L-2
+        for i in 3:4:(L - 2)
             push!(pairs, (i, i+2))
         end
         if bc == :periodic && L >= 4
@@ -169,12 +207,12 @@ function elements(geo::Bricklayer, L::Int, bc::Symbol)
         end
     elseif geo.parity == :nnn_even_1
         # NNN even sublayer 1: (2,4), (6,8), (10,12), ... (stride 4, offset 2)
-        for i in 2:4:L-2
+        for i in 2:4:(L - 2)
             push!(pairs, (i, i+2))
         end
     elseif geo.parity == :nnn_even_2
         # NNN even sublayer 2: (4,6), (8,10), (12,2), ... (stride 4, offset 4)
-        for i in 4:4:L-2
+        for i in 4:4:(L - 2)
             push!(pairs, (i, i+2))
         end
         if bc == :periodic && L >= 4

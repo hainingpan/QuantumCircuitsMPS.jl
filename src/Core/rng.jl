@@ -43,10 +43,10 @@ Create RNG registry with seeds for each stream.
 First 3 arguments (gates_spacetime, gates_realization, born_measurement) are REQUIRED.
 """
 function RNGRegistry(;
-    gates_spacetime::Int,
-    gates_realization::Int,
-    born_measurement::Int,
-    state_init::Int = 0
+        gates_spacetime::Int,
+        gates_realization::Int,
+        born_measurement::Int,
+        state_init::Int = 0
 )
     streams = Dict{Symbol, AbstractRNG}(
         :gates_spacetime => MersenneTwister(gates_spacetime),
@@ -74,7 +74,7 @@ Used ONLY for Task 8 CT.jl verification with p_proj=0.
 function RNGRegistry(::Val{:ct_compat}; circuit::Int, measurement::Int)
     # Shared RNG for circuit operations (matches CT.jl's rng_C)
     shared_circuit_rng = MersenneTwister(circuit)
-    
+
     streams = Dict{Symbol, AbstractRNG}(
         :gates_spacetime => shared_circuit_rng,      # ALIAS - same RNG object
         :gates_realization => shared_circuit_rng,     # ALIAS
@@ -182,7 +182,9 @@ Random.rand(rng::SentinelRNG) = _sentinel_error(rng)
 Random.rand(rng::SentinelRNG, X) = _sentinel_error(rng)
 Random.rand(rng::SentinelRNG, ::Type{T}) where {T} = _sentinel_error(rng)
 Random.rand(rng::SentinelRNG, d::Integer, dims::Integer...) = _sentinel_error(rng)
-Random.rand(rng::SentinelRNG, ::Type{T}, d::Integer, dims::Integer...) where {T} = _sentinel_error(rng)
+function Random.rand(rng::SentinelRNG, ::Type{T}, d::Integer, dims::Integer...) where {T}
+    _sentinel_error(rng)
+end
 Random.randn(rng::SentinelRNG) = _sentinel_error(rng)
 Random.randn(rng::SentinelRNG, dims::Integer...) = _sentinel_error(rng)
 Random.randn(rng::SentinelRNG, ::Type{T}, dims::Integer...) where {T} = _sentinel_error(rng)

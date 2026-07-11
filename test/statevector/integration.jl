@@ -17,25 +17,25 @@ using LinearAlgebra
         p = 0.15
         n_steps = 10
 
-        circuit = Circuit(L=L, bc=:periodic) do c
+        circuit = Circuit(L = L, bc = :periodic) do c
             apply!(c, HaarRandom(), Bricklayer(:even))
-            apply_with_prob!(c; outcomes=[
-                (probability=p, gate=Measure(:Z), geometry=AllSites())
+            apply_with_prob!(c; outcomes = [
+                (probability = p, gate = Measure(:Z), geometry = AllSites())
             ])
             record!(c, :entropy)
             apply!(c, HaarRandom(), Bricklayer(:odd))
-            apply_with_prob!(c; outcomes=[
-                (probability=p, gate=Measure(:Z), geometry=AllSites())
+            apply_with_prob!(c; outcomes = [
+                (probability = p, gate = Measure(:Z), geometry = AllSites())
             ])
             record!(c, :entropy)
         end
 
-        state = SimulationState(L=L, bc=:periodic, backend=:statevector,
-            rng=RNGRegistry(gates_spacetime=42, gates_realization=2, born_measurement=1))
-        initialize!(state, ProductState(binary_int=0))
-        track!(state, :entropy => EntanglementEntropy(cut=L÷2))
+        state = SimulationState(L = L, bc = :periodic, backend = :statevector,
+            rng = RNGRegistry(gates_spacetime = 42, gates_realization = 2, born_measurement = 1))
+        initialize!(state, ProductState(binary_int = 0))
+        track!(state, :entropy => EntanglementEntropy(cut = L÷2))
 
-        simulate!(circuit, state; n_steps=n_steps, record_when=:marks)
+        simulate!(circuit, state; n_steps = n_steps, record_when = :marks)
 
         entropies = state.observables[:entropy]
         # 2 markers per step × 10 steps = 20 recorded values
@@ -53,29 +53,29 @@ using LinearAlgebra
     # =====================================================================
     @testset "record_when modes" begin
         # Helper: simple deterministic SV circuit (no markers)
-        function sv_state_no_markers(; L=4)
-            circuit = Circuit(L=L, bc=:open) do c
+        function sv_state_no_markers(; L = 4)
+            circuit = Circuit(L = L, bc = :open) do c
                 apply!(c, Hadamard(), SingleSite(1))
                 apply!(c, PauliX(), SingleSite(2))
             end
-            state = SimulationState(L=L, bc=:open, backend=:statevector,
-                rng=RNGRegistry(gates_spacetime=1, gates_realization=2, born_measurement=3))
-            initialize!(state, ProductState(binary_int=0))
-            track!(state, :entropy => EntanglementEntropy(cut=L÷2))
+            state = SimulationState(L = L, bc = :open, backend = :statevector,
+                rng = RNGRegistry(gates_spacetime = 1, gates_realization = 2, born_measurement = 3))
+            initialize!(state, ProductState(binary_int = 0))
+            track!(state, :entropy => EntanglementEntropy(cut = L÷2))
             return circuit, state
         end
 
         @testset ":every_step" begin
             circuit, state = sv_state_no_markers()
             n = 5
-            simulate!(circuit, state; n_steps=n, record_when=:every_step)
+            simulate!(circuit, state; n_steps = n, record_when = :every_step)
             @test length(state.observables[:entropy]) == n
         end
 
         @testset ":every_gate" begin
             circuit, state = sv_state_no_markers()
             n = 5
-            simulate!(circuit, state; n_steps=n, record_when=:every_gate)
+            simulate!(circuit, state; n_steps = n, record_when = :every_gate)
             # 2 gates per step × 5 steps = 10
             @test length(state.observables[:entropy]) == 2 * n
         end
@@ -83,25 +83,25 @@ using LinearAlgebra
         @testset ":final_only" begin
             circuit, state = sv_state_no_markers()
             n = 5
-            simulate!(circuit, state; n_steps=n, record_when=:final_only)
+            simulate!(circuit, state; n_steps = n, record_when = :final_only)
             @test length(state.observables[:entropy]) == 1
         end
 
         @testset ":marks" begin
             L = 4
-            circuit = Circuit(L=L, bc=:open) do c
+            circuit = Circuit(L = L, bc = :open) do c
                 apply!(c, Hadamard(), SingleSite(1))
                 record!(c, :entropy)
                 apply!(c, PauliX(), SingleSite(2))
                 record!(c, :entropy)
             end
-            state = SimulationState(L=L, bc=:open, backend=:statevector,
-                rng=RNGRegistry(gates_spacetime=1, gates_realization=2, born_measurement=3))
-            initialize!(state, ProductState(binary_int=0))
-            track!(state, :entropy => EntanglementEntropy(cut=L÷2))
+            state = SimulationState(L = L, bc = :open, backend = :statevector,
+                rng = RNGRegistry(gates_spacetime = 1, gates_realization = 2, born_measurement = 3))
+            initialize!(state, ProductState(binary_int = 0))
+            track!(state, :entropy => EntanglementEntropy(cut = L÷2))
 
             n = 5
-            simulate!(circuit, state; n_steps=n, record_when=:marks)
+            simulate!(circuit, state; n_steps = n, record_when = :marks)
             # 2 markers × 5 steps = 10
             @test length(state.observables[:entropy]) == 2 * n
         end
@@ -113,19 +113,19 @@ using LinearAlgebra
     @testset "Event logging (SV backend)" begin
         L = 4
 
-        circuit = Circuit(L=L, bc=:open) do c
+        circuit = Circuit(L = L, bc = :open) do c
             apply!(c, Hadamard(), SingleSite(1))
-            apply_with_prob!(c; outcomes=[
-                (probability=1.0, gate=Measure(:Z), geometry=AllSites())
+            apply_with_prob!(c; outcomes = [
+                (probability = 1.0, gate = Measure(:Z), geometry = AllSites())
             ])
         end
 
-        state = SimulationState(L=L, bc=:open, backend=:statevector,
-            log_events=true,
-            rng=RNGRegistry(gates_spacetime=42, gates_realization=2, born_measurement=1))
-        initialize!(state, ProductState(binary_int=0))
+        state = SimulationState(L = L, bc = :open, backend = :statevector,
+            log_events = true,
+            rng = RNGRegistry(gates_spacetime = 42, gates_realization = 2, born_measurement = 1))
+        initialize!(state, ProductState(binary_int = 0))
 
-        simulate!(circuit, state; n_steps=1, record_when=:every_step)
+        simulate!(circuit, state; n_steps = 1, record_when = :every_step)
 
         evts = events(state)
         meas = measurements(state)
@@ -151,22 +151,23 @@ using LinearAlgebra
         p_measure = 0.5
 
         # Circuit: 50% chance of Measure(:Z) on each site, 50% identity
-        circuit = Circuit(L=L, bc=:open) do c
-            apply_with_prob!(c; outcomes=[
-                (probability=p_measure, gate=Measure(:Z), geometry=AllSites())
-            ])
+        circuit = Circuit(L = L, bc = :open) do c
+            apply_with_prob!(c;
+                outcomes = [
+                    (probability = p_measure, gate = Measure(:Z), geometry = AllSites())
+                ])
         end
 
         n_meas_total = 0
         for trial in 1:n_trials
-            state = SimulationState(L=L, bc=:open, backend=:statevector,
-                log_events=true,
-                rng=RNGRegistry(
-                    gates_spacetime=trial,
-                    gates_realization=trial + 1000,
-                    born_measurement=trial + 2000))
-            initialize!(state, ProductState(binary_int=0))
-            simulate!(circuit, state; n_steps=1, record_when=:every_step)
+            state = SimulationState(L = L, bc = :open, backend = :statevector,
+                log_events = true,
+                rng = RNGRegistry(
+                    gates_spacetime = trial,
+                    gates_realization = trial + 1000,
+                    born_measurement = trial + 2000))
+            initialize!(state, ProductState(binary_int = 0))
+            simulate!(circuit, state; n_steps = 1, record_when = :every_step)
             n_meas_total += length(measurements(state))
         end
 
@@ -182,15 +183,15 @@ using LinearAlgebra
     # =====================================================================
     @testset "Edge case: L=1 (single qubit)" begin
         L = 1
-        circuit = Circuit(L=L, bc=:open) do c
+        circuit = Circuit(L = L, bc = :open) do c
             apply!(c, Hadamard(), SingleSite(1))
         end
 
-        state = SimulationState(L=L, bc=:open, backend=:statevector,
-            rng=RNGRegistry(gates_spacetime=1, gates_realization=2, born_measurement=3))
-        initialize!(state, ProductState(binary_int=0))
+        state = SimulationState(L = L, bc = :open, backend = :statevector,
+            rng = RNGRegistry(gates_spacetime = 1, gates_realization = 2, born_measurement = 3))
+        initialize!(state, ProductState(binary_int = 0))
 
-        simulate!(circuit, state; n_steps=1, record_when=:every_step)
+        simulate!(circuit, state; n_steps = 1, record_when = :every_step)
 
         ψ = state.backend.ψ
         # |+⟩ = (|0⟩ + |1⟩)/√2
@@ -206,17 +207,17 @@ using LinearAlgebra
     @testset "Edge case: L=2 (minimal multi-site)" begin
         L = 2
         # Apply CZ to the only pair, then Hadamard on site 1
-        circuit = Circuit(L=L, bc=:open) do c
+        circuit = Circuit(L = L, bc = :open) do c
             apply!(c, CZ(), AdjacentPair(1))
             apply!(c, Hadamard(), SingleSite(1))
         end
 
-        state = SimulationState(L=L, bc=:open, backend=:statevector,
-            rng=RNGRegistry(gates_spacetime=1, gates_realization=2, born_measurement=3))
-        initialize!(state, ProductState(binary_int=0))
-        track!(state, :entropy => EntanglementEntropy(cut=1))
+        state = SimulationState(L = L, bc = :open, backend = :statevector,
+            rng = RNGRegistry(gates_spacetime = 1, gates_realization = 2, born_measurement = 3))
+        initialize!(state, ProductState(binary_int = 0))
+        track!(state, :entropy => EntanglementEntropy(cut = 1))
 
-        simulate!(circuit, state; n_steps=1, record_when=:every_step)
+        simulate!(circuit, state; n_steps = 1, record_when = :every_step)
 
         ψ = state.backend.ψ
         # Initial |00⟩, CZ on |00⟩ → |00⟩ (no phase change), then H on site1
@@ -233,17 +234,17 @@ using LinearAlgebra
     # =====================================================================
     @testset "Edge case: empty circuit" begin
         L = 4
-        circuit = Circuit(L=L, bc=:open) do c
+        circuit = Circuit(L = L, bc = :open) do c
             # No gates at all
         end
 
-        state = SimulationState(L=L, bc=:open, backend=:statevector,
-            rng=RNGRegistry(gates_spacetime=1, gates_realization=2, born_measurement=3))
-        initialize!(state, ProductState(binary_int=0))
+        state = SimulationState(L = L, bc = :open, backend = :statevector,
+            rng = RNGRegistry(gates_spacetime = 1, gates_realization = 2, born_measurement = 3))
+        initialize!(state, ProductState(binary_int = 0))
 
         ψ_before = copy(state.backend.ψ)
 
-        simulate!(circuit, state; n_steps=5, record_when=:every_step)
+        simulate!(circuit, state; n_steps = 5, record_when = :every_step)
 
         # State unchanged after empty circuit
         @test state.backend.ψ == ψ_before
@@ -255,19 +256,19 @@ using LinearAlgebra
     # =====================================================================
     @testset "Edge case: measurement-only circuit" begin
         L = 4
-        circuit = Circuit(L=L, bc=:open) do c
-            apply_with_prob!(c; outcomes=[
-                (probability=1.0, gate=Measure(:Z), geometry=AllSites())
+        circuit = Circuit(L = L, bc = :open) do c
+            apply_with_prob!(c; outcomes = [
+                (probability = 1.0, gate = Measure(:Z), geometry = AllSites())
             ])
         end
 
-        state = SimulationState(L=L, bc=:open, backend=:statevector,
-            log_events=true,
-            rng=RNGRegistry(gates_spacetime=42, gates_realization=2, born_measurement=1))
+        state = SimulationState(L = L, bc = :open, backend = :statevector,
+            log_events = true,
+            rng = RNGRegistry(gates_spacetime = 42, gates_realization = 2, born_measurement = 1))
         # Start in |0000⟩ — deterministic measurement outcome
-        initialize!(state, ProductState(binary_int=0))
+        initialize!(state, ProductState(binary_int = 0))
 
-        simulate!(circuit, state; n_steps=1, record_when=:every_step)
+        simulate!(circuit, state; n_steps = 1, record_when = :every_step)
 
         ψ = state.backend.ψ
         # After measuring |0000⟩, state should collapse back to a computational
@@ -282,19 +283,19 @@ using LinearAlgebra
         @test all(m -> m.outcome == 0, meas)
 
         # Now test measurement-only with a superposition (non-trivial collapse)
-        state2 = SimulationState(L=L, bc=:open, backend=:statevector,
-            log_events=true,
-            rng=RNGRegistry(gates_spacetime=42, gates_realization=2, born_measurement=99))
-        initialize!(state2, ProductState(binary_int=0))
+        state2 = SimulationState(L = L, bc = :open, backend = :statevector,
+            log_events = true,
+            rng = RNGRegistry(gates_spacetime = 42, gates_realization = 2, born_measurement = 99))
+        initialize!(state2, ProductState(binary_int = 0))
         # Put site 1 in superposition first
         apply!(state2, Hadamard(), SingleSite(1))
         # Now measure all sites
-        circuit2 = Circuit(L=L, bc=:open) do c
-            apply_with_prob!(c; outcomes=[
-                (probability=1.0, gate=Measure(:Z), geometry=AllSites())
+        circuit2 = Circuit(L = L, bc = :open) do c
+            apply_with_prob!(c; outcomes = [
+                (probability = 1.0, gate = Measure(:Z), geometry = AllSites())
             ])
         end
-        simulate!(circuit2, state2; n_steps=1, record_when=:every_step)
+        simulate!(circuit2, state2; n_steps = 1, record_when = :every_step)
 
         ψ2 = state2.backend.ψ
         @test norm(ψ2) ≈ 1.0 atol=1e-12
@@ -311,17 +312,18 @@ using LinearAlgebra
         n_steps = 5
 
         function run_trial(seed)
-            circuit = Circuit(L=L, bc=:open) do c
+            circuit = Circuit(L = L, bc = :open) do c
                 apply!(c, HaarRandom(), Bricklayer(:odd))
-                apply_with_prob!(c; outcomes=[
-                    (probability=p, gate=Measure(:Z), geometry=AllSites())
+                apply_with_prob!(c; outcomes = [
+                    (probability = p, gate = Measure(:Z), geometry = AllSites())
                 ])
             end
-            state = SimulationState(L=L, bc=:open, backend=:statevector,
-                rng=RNGRegistry(gates_spacetime=seed, gates_realization=seed+1, born_measurement=seed+2))
-            initialize!(state, ProductState(binary_int=0))
-            track!(state, :entropy => EntanglementEntropy(cut=L÷2))
-            simulate!(circuit, state; n_steps=n_steps, record_when=:every_step)
+            state = SimulationState(L = L, bc = :open, backend = :statevector,
+                rng = RNGRegistry(gates_spacetime = seed, gates_realization = seed+1,
+                    born_measurement = seed+2))
+            initialize!(state, ProductState(binary_int = 0))
+            track!(state, :entropy => EntanglementEntropy(cut = L÷2))
+            simulate!(circuit, state; n_steps = n_steps, record_when = :every_step)
             return state.observables[:entropy], state.backend.ψ
         end
 
@@ -335,5 +337,4 @@ using LinearAlgebra
         ent3, ψ3 = run_trial(99)
         @test ψ1 != ψ3
     end
-
 end

@@ -1,0 +1,36 @@
+name: Format Check
+
+on:
+  push:
+    branches:
+      - dev
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  format-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1'
+      - name: Check formatting with JuliaFormatter (SciML style)
+        shell: julia --color=yes {0}
+        run: |
+          using Pkg
+          Pkg.activate(temp=true)
+          Pkg.add(Pkg.PackageSpec(name="JuliaFormatter", version="2"))
+          using JuliaFormatter
+          # format(...; overwrite=false) returns true iff the code is already
+          # correctly formatted, false iff changes would be required.
+          is_formatted = format(["src", "test", "ext"], SciMLStyle(); overwrite=false)
+          if !is_formatted
+              @error "Code is not formatted. Run `format([\"src\", \"test\", \"ext\"], SciMLStyle())` locally and commit the result."
+              exit(1)
+          else
+              println("Formatting check passed: no changes needed.")
+          end

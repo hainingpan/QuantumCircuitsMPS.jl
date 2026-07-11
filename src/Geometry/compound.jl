@@ -38,5 +38,6 @@ geo = AllSites()
 get_compound_elements(geo, 3, :open)  # [[1], [2], [3]]
 ```
 """
-get_compound_elements(geo::Union{Bricklayer,AllSites,EachSite}, L::Int, bc::Symbol) =
+function get_compound_elements(geo::Union{Bricklayer, AllSites, EachSite}, L::Int, bc::Symbol)
     elements(geo, L, bc)
+end

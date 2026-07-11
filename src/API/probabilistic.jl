@@ -58,7 +58,7 @@ real element index k.
 ```julia
 apply_with_prob!(state;
     outcomes = [
-        (probability=p, gate=Measurement(:Z), geometry=AllSites())
+        (probability=p, gate=Measure(:Z), geometry=AllSites())
     ]
 )
 ```
@@ -79,9 +79,9 @@ apply_with_prob!(state;
 - `apply!(state, gate, geometry)`: deterministic, unconditional application
 """
 function apply_with_prob!(
-    state::SimulationState;
-    outcomes::Vector{<:NamedTuple{(:probability, :gate, :geometry)}},
-    kwargs...
+        state::SimulationState;
+        outcomes::Vector{<:NamedTuple{(:probability, :gate, :geometry)}},
+        kwargs...
 )
     # rng= kwarg was hard-removed in v0.1 — fail loudly, never ignore
     # (same migration error as the lazy builder form).
@@ -112,12 +112,12 @@ function apply_with_prob!(
 
     # Equal-K rule via the SHARED helper (Circuit/draws.jl) — throws an
     # ArgumentError naming each outcome's geometry and K on violation.
-    op = (type=:stochastic, rng=:gates_spacetime, outcomes=collect(outcomes))
+    op = (type = :stochastic, rng = :gates_spacetime, outcomes = collect(outcomes))
     K = _op_element_count(op, state.L, state.bc)
 
     # Staircase/Pointer physics guard: the walk must advance EVERY call.
     has_walker = any(o -> (o.geometry isa AbstractStaircase) || (o.geometry isa Pointer),
-                     outcomes)
+        outcomes)
     if has_walker && total_prob < 1.0 - 1e-10
         throw(ArgumentError(
             "Stochastic operation with staircase/Pointer geometry requires Σp = 1 " *
@@ -136,17 +136,19 @@ function apply_with_prob!(
     # Precompute broadcast element lists (fixed within the call); set
     # geometries resolve lazily at selection time because staircase/Pointer
     # positions are mutable and support-aware.
-    elem_lists = Union{Nothing, Vector{Vector{Int}}}[
-        is_broadcast(o.geometry) ? elements(o.geometry, state.L, state.bc) : nothing
-        for o in outcomes]
+    elem_lists = Union{Nothing, Vector{Vector{Int}}}[is_broadcast(o.geometry) ?
+                                                     elements(o.geometry, state.L, state.bc) :
+                                                     nothing
+                                                     for o in outcomes]
 
     for k in 1:K
         sel = select_outcome_index(actual_rng, probs)
         if sel != 0
             outcome = outcomes[sel]
             sites = elem_lists[sel] === nothing ?
-                compute_sites_dispatch(outcome.geometry, outcome.gate, 0, state.L, state.bc) :
-                elem_lists[sel][k]
+                    compute_sites_dispatch(
+                outcome.geometry, outcome.gate, 0, state.L, state.bc) :
+                    elem_lists[sel][k]
             # Eager mode runs outside an engine step: step/op_idx = 0
             # sentinels (documented), element_idx = real k.
             set_event_context!(state, 0, 0, k)

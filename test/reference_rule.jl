@@ -1,49 +1,23 @@
 # test/reference_rule.jl
 #
-# Reference implementation of the unified stochastic rule (Task 7).
-# This is the semantic ORACLE for the new engine (Task 9) and migration audits
-# (Task 16). Self-contained: include-able from test/runtests.jl or runnable
-# standalone via `julia --project=. test/reference_rule.jl`.
-#
-# RNG contract (plan "Oracle Review" refinements):
-#   - Per element k = 1..K: exactly ONE scalar rand(rng). Never rand(rng, K).
-#   - Consumption is data-independent: K draws always, regardless of outcome.
-#   - Selection: cumulative walk over probs with strict `<`.
-#   - Returns 1-based outcome index per element, or 0 for identity remainder.
-#   - Cumsum snapping: if abs(sum(probs) - 1) <= 1e-10, the LAST cumulative
-#     boundary is snapped to exactly 1.0, so float dust in Σp cannot leak
-#     spurious identity selections.
+# Oracle self-tests for `reference_select` (defined in test/testutils.jl) —
+# the reference implementation of the unified stochastic rule (Task 7) and
+# the semantic oracle for the engine (Task 9) and migration audits (Task 16).
+# Include-able from test/runtests.jl (which loads testutils.jl first) or
+# runnable standalone via `julia --project=. test/reference_rule.jl`.
 
 using Test
 using Random
 
-function reference_select(rng, probs::Vector{Float64}, K::Int)::Vector{Int}
-    n = length(probs)
-    snap = abs(sum(probs) - 1.0) <= 1e-10
-    out = Vector{Int}(undef, K)
-    for k in 1:K
-        r = rand(rng)              # exactly one scalar draw per element
-        cumulative = 0.0
-        selected = 0               # 0 = identity remainder
-        for i in 1:n
-            cumulative += probs[i]
-            boundary = (snap && i == n) ? 1.0 : cumulative
-            if r < boundary        # strict <
-                selected = i
-                break
-            end
-        end
-        out[k] = selected
-    end
-    return out
-end
+# The oracle FUNCTION lives in testutils.jl (no testsets there); guarded
+# include keeps this file standalone-runnable.
+@isdefined(reference_select) || include("testutils.jl")
 
 @testset "reference_rule" begin
-
     @testset "(i) consumes exactly K draws (data-independent)" begin
         for (probs, K) in [([0.2, 0.3], 17), ([0.5], 1), ([0.1, 0.1, 0.1], 1000),
-                           (fill(0.1, 10), 64), (Float64[], 5)]
-            rng  = MersenneTwister(42)
+            (fill(0.1, 10), 64), (Float64[], 5)]
+            rng = MersenneTwister(42)
             twin = MersenneTwister(42)
             reference_select(rng, probs, K)
             for _ in 1:K
@@ -81,13 +55,25 @@ end
     @testset "(iv) single-outcome Case-A equivalence" begin
         @test reference_select(MersenneTwister(7), [0.3], 1)[1] ==
               (rand(MersenneTwister(7)) < 0.3 ? 1 : 0)
-        # and across many seeds for robustness
-        for seed in 1:100, p in (0.0, 0.25, 0.5, 0.9)
+        # Representative (seed, p) grid — trimmed from the original
+        # `for seed in 1:100, p in (0.0, 0.25, 0.5, 0.9)` (400 assertions,
+        # ~15% of the pre-v0.4 suite) to 18 pairs covering the same property:
+        # boundary p = 0.0 (never fires), near-zero, the original interior
+        # values across spread-out seeds, 1.0-adjacent (non-snap regime,
+        # |p-1| > 1e-10), and exact p = 1.0 (snap regime, always fires).
+        for (seed, p) in [
+            (1, 0.0), (42, 0.0), (100, 0.0),           # p = 0 boundary
+            (7, 1.0e-12),                              # near-zero boundary
+            (1, 0.25), (17, 0.25), (100, 0.25),        # interior (original grid)
+            (2, 0.5), (37, 0.5), (73, 0.5),
+            (3, 0.9), (58, 0.9), (99, 0.9),
+            (5, 1.0 - 1.0e-9), (23, 1.0 - 1.0e-9),     # 1.0-adjacent, no snap
+            (11, 1.0), (42, 1.0), (100, 1.0)           # p = 1 boundary (snap)
+        ]
             @test reference_select(MersenneTwister(seed), [p], 1)[1] ==
                   (rand(MersenneTwister(seed)) < p ? 1 : 0)
         end
     end
-
 end
 
 println("REFERENCE-RULE: PASS")

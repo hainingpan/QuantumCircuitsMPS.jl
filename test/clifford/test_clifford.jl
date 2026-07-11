@@ -13,20 +13,20 @@ const QCM = QuantumCircuitsMPS
 # ── Helpers ─────────────────────────────────────────────────────────────────
 
 """Fresh Clifford |0...0⟩ state."""
-function _cliff_state(L::Int; bc=:open,
-        seeds=(gates_spacetime=11, gates_realization=22, born_measurement=33))
-    state = SimulationState(L=L, bc=bc, backend=:clifford,
-        rng=RNGRegistry(; seeds...))
-    initialize!(state, ProductState(binary_int=0))
+function _cliff_state(L::Int; bc = :open,
+        seeds = (gates_spacetime = 11, gates_realization = 22, born_measurement = 33))
+    state = SimulationState(L = L, bc = bc, backend = :clifford,
+        rng = RNGRegistry(; seeds...))
+    initialize!(state, ProductState(binary_int = 0))
     return state
 end
 
 """Fresh Clifford state initialised to `binary_int`."""
-function _cliff_state_bin(L::Int, bin::Int; bc=:open,
-        seeds=(gates_spacetime=11, gates_realization=22, born_measurement=33))
-    state = SimulationState(L=L, bc=bc, backend=:clifford,
-        rng=RNGRegistry(; seeds...))
-    initialize!(state, ProductState(binary_int=bin))
+function _cliff_state_bin(L::Int, bin::Int; bc = :open,
+        seeds = (gates_spacetime = 11, gates_realization = 22, born_measurement = 33))
+    state = SimulationState(L = L, bc = bc, backend = :clifford,
+        rng = RNGRegistry(; seeds...))
+    initialize!(state, ProductState(binary_int = bin))
     return state
 end
 
@@ -36,7 +36,6 @@ end
     # 1. Initialization
     # ═══════════════════════════════════════════════════════════════════════
     @testset "Initialization" begin
-
         @testset "ProductState(binary_int=0) → all |0⟩  (L=$L)" for L in [2, 4, 8]
             s = _cliff_state(L)
             for site in 1:L
@@ -75,9 +74,9 @@ end
         end
 
         @testset "ProductState(bitstring=...)" begin
-            state = SimulationState(L=4, bc=:open, backend=:clifford,
-                rng=RNGRegistry(gates_spacetime=1, gates_realization=2, born_measurement=3))
-            initialize!(state, ProductState(bitstring="1100"))
+            state = SimulationState(L = 4, bc = :open, backend = :clifford,
+                rng = RNGRegistry(gates_spacetime = 1, gates_realization = 2, born_measurement = 3))
+            initialize!(state, ProductState(bitstring = "1100"))
             @test born_probability(state, 1, 1) ≈ 1.0
             @test born_probability(state, 2, 1) ≈ 1.0
             @test born_probability(state, 3, 0) ≈ 1.0
@@ -85,9 +84,9 @@ end
         end
 
         @testset "ProductState(spin_state=...) throws" begin
-            state = SimulationState(L=2, bc=:open, backend=:clifford,
-                rng=RNGRegistry(gates_spacetime=1, gates_realization=2, born_measurement=3))
-            @test_throws ArgumentError initialize!(state, ProductState(spin_state="Up"))
+            state = SimulationState(L = 2, bc = :open, backend = :clifford,
+                rng = RNGRegistry(gates_spacetime = 1, gates_realization = 2, born_measurement = 3))
+            @test_throws ArgumentError initialize!(state, ProductState(spin_state = "Up"))
         end
     end
 
@@ -95,7 +94,6 @@ end
     # 2. Gate Application (each of the 9 Clifford-compatible gates)
     # ═══════════════════════════════════════════════════════════════════════
     @testset "Gate Application" begin
-
         @testset "PauliX  (L=$L)" for L in [2, 4, 8]
             # X|0⟩ = |1⟩ on site 1
             s = _cliff_state(L)
@@ -204,9 +202,9 @@ end
     # 3. RandomClifford
     # ═══════════════════════════════════════════════════════════════════════
     @testset "RandomClifford" begin
-
         @testset "applies without error (n=$n)" for n in [1, 2]
-            s = _cliff_state(4; seeds=(gates_spacetime=1, gates_realization=42, born_measurement=3))
+            s = _cliff_state(4; seeds = (
+                gates_spacetime = 1, gates_realization = 42, born_measurement = 3))
             if n == 1
                 apply!(s, RandomClifford(1), SingleSite(1))
             else
@@ -219,7 +217,9 @@ end
         @testset "seed reproducibility" begin
             # Same seed → same born_probability distribution
             function run_random_clifford(seed)
-                s = _cliff_state(4; seeds=(gates_spacetime=1, gates_realization=seed, born_measurement=3))
+                s = _cliff_state(4;
+                    seeds = (gates_spacetime = 1, gates_realization = seed,
+                        born_measurement = 3))
                 apply!(s, RandomClifford(2), AdjacentPair(1))
                 apply!(s, RandomClifford(2), AdjacentPair(3))
                 return [born_probability(s, site, 0) for site in 1:4]
@@ -268,14 +268,14 @@ end
         @testset "SpinSectorProjection throws" begin
             # SpinSectorProjection needs a projector matrix; use identity as dummy
             proj = SpinSectorProjection(Float64[1 0 0 0 0 0 0 0 0;
-                                                 0 1 0 0 0 0 0 0 0;
-                                                 0 0 1 0 0 0 0 0 0;
-                                                 0 0 0 1 0 0 0 0 0;
-                                                 0 0 0 0 1 0 0 0 0;
-                                                 0 0 0 0 0 1 0 0 0;
-                                                 0 0 0 0 0 0 1 0 0;
-                                                 0 0 0 0 0 0 0 1 0;
-                                                 0 0 0 0 0 0 0 0 1])
+                                                0 1 0 0 0 0 0 0 0;
+                                                0 0 1 0 0 0 0 0 0;
+                                                0 0 0 1 0 0 0 0 0;
+                                                0 0 0 0 1 0 0 0 0;
+                                                0 0 0 0 0 1 0 0 0;
+                                                0 0 0 0 0 0 1 0 0;
+                                                0 0 0 0 0 0 0 1 0;
+                                                0 0 0 0 0 0 0 0 1])
             @test_throws ArgumentError apply!(s, proj, AdjacentPair(1))
         end
 
@@ -296,11 +296,12 @@ end
     # 5. Measurement
     # ═══════════════════════════════════════════════════════════════════════
     @testset "Measurement" begin
-
         @testset "deterministic outcome on |0⟩" begin
             # Measure |0⟩ → always outcome 0
             for seed in 1:50
-                s = _cliff_state(2; seeds=(gates_spacetime=1, gates_realization=2, born_measurement=seed))
+                s = _cliff_state(2;
+                    seeds = (gates_spacetime = 1, gates_realization = 2,
+                        born_measurement = seed))
                 apply!(s, Measure(:Z), SingleSite(1))
                 @test born_probability(s, 1, 0) ≈ 1.0
             end
@@ -309,7 +310,9 @@ end
         @testset "deterministic outcome on |1⟩" begin
             # PauliX|0⟩ = |1⟩, Measure → always outcome 1
             for seed in 1:50
-                s = _cliff_state(2; seeds=(gates_spacetime=1, gates_realization=2, born_measurement=seed))
+                s = _cliff_state(2;
+                    seeds = (gates_spacetime = 1, gates_realization = 2,
+                        born_measurement = seed))
                 apply!(s, PauliX(), SingleSite(1))
                 apply!(s, Measure(:Z), SingleSite(1))
                 @test born_probability(s, 1, 1) ≈ 1.0
@@ -320,7 +323,9 @@ end
             n_trials = 200
             n_zeros = 0
             for seed in 1:n_trials
-                s = _cliff_state(2; seeds=(gates_spacetime=1, gates_realization=2, born_measurement=seed))
+                s = _cliff_state(2;
+                    seeds = (gates_spacetime = 1, gates_realization = 2,
+                        born_measurement = seed))
                 apply!(s, Hadamard(), SingleSite(1))
                 apply!(s, Measure(:Z), SingleSite(1))
                 if born_probability(s, 1, 0) ≈ 1.0
@@ -339,7 +344,9 @@ end
     @testset "Reset" begin
         @testset "Reset on |1⟩ → |0⟩ deterministically" begin
             for seed in 1:50
-                s = _cliff_state(2; seeds=(gates_spacetime=1, gates_realization=2, born_measurement=seed))
+                s = _cliff_state(2;
+                    seeds = (gates_spacetime = 1, gates_realization = 2,
+                        born_measurement = seed))
                 apply!(s, PauliX(), SingleSite(1))
                 # Now site 1 = |1⟩
                 @test born_probability(s, 1, 1) ≈ 1.0
@@ -364,11 +371,13 @@ end
             # Prepare |1⟩, measure, feedback should fire PauliX → back to |0⟩
             # This is exactly what Reset() does, but via the general feedback API
             for seed in 1:20
-                s = _cliff_state(2; seeds=(gates_spacetime=1, gates_realization=2, born_measurement=seed))
+                s = _cliff_state(2;
+                    seeds = (gates_spacetime = 1, gates_realization = 2,
+                        born_measurement = seed))
                 apply!(s, PauliX(), SingleSite(1))
                 @test born_probability(s, 1, 1) ≈ 1.0
                 # Measure with OnOutcome feedback
-                apply!(s, Measure(:Z; feedback=OnOutcome(1 => PauliX())), SingleSite(1))
+                apply!(s, Measure(:Z; feedback = OnOutcome(1 => PauliX())), SingleSite(1))
                 # Outcome was 1 → PauliX fired → now |0⟩
                 @test born_probability(s, 1, 0) ≈ 1.0
             end
@@ -377,17 +386,20 @@ end
         @testset "OnOutcome does NOT fire on non-matching outcome" begin
             # Prepare |0⟩, measure → outcome 0, OnOutcome(1 => PauliX()) should NOT fire
             s = _cliff_state(2)
-            apply!(s, Measure(:Z; feedback=OnOutcome(1 => PauliX())), SingleSite(1))
+            apply!(s, Measure(:Z; feedback = OnOutcome(1 => PauliX())), SingleSite(1))
             # Outcome was 0, feedback skipped → still |0⟩
             @test born_probability(s, 1, 0) ≈ 1.0
         end
 
         @testset "Closure feedback" begin
-            s = _cliff_state(2; seeds=(gates_spacetime=1, gates_realization=2, born_measurement=1))
+            s = _cliff_state(2; seeds = (
+                gates_spacetime = 1, gates_realization = 2, born_measurement = 1))
             apply!(s, PauliX(), SingleSite(1))
             # Closure: on any outcome, apply PauliX (flip) to measured site
-            apply!(s, Measure(:Z; feedback=(state, sites, outcome) ->
-                apply!(state, PauliX(), SingleSite(sites[1]))), SingleSite(1))
+            apply!(s,
+                Measure(:Z;
+                    feedback = (state, sites, outcome) -> apply!(state, PauliX(), SingleSite(sites[1]))),
+                SingleSite(1))
             # Was |1⟩, measured as 1, closure applies X → |0⟩
             @test born_probability(s, 1, 0) ≈ 1.0
         end
@@ -397,10 +409,9 @@ end
     # 8. EntanglementEntropy
     # ═══════════════════════════════════════════════════════════════════════
     @testset "EntanglementEntropy" begin
-
         @testset "product state → 0.0  (L=$L)" for L in [2, 4, 8]
             s = _cliff_state(L)
-            ee = EntanglementEntropy(cut=L÷2)
+            ee = EntanglementEntropy(cut = L÷2)
             @test ee(s) ≈ 0.0 atol=1e-12
         end
 
@@ -409,7 +420,7 @@ end
             s = _cliff_state(L)
             apply!(s, Hadamard(), SingleSite(1))
             apply!(s, CNOT(), AdjacentPair(1))
-            ee = EntanglementEntropy(cut=1)
+            ee = EntanglementEntropy(cut = 1)
             @test ee(s) ≈ 1.0 atol=1e-12
         end
 
@@ -417,7 +428,7 @@ end
             s = _cliff_state(2)
             apply!(s, Hadamard(), SingleSite(1))
             apply!(s, CNOT(), AdjacentPair(1))
-            ee = EntanglementEntropy(cut=1, base=exp(1))
+            ee = EntanglementEntropy(cut = 1, base = exp(1))
             @test ee(s) ≈ log(2) atol=1e-12
         end
 
@@ -429,7 +440,7 @@ end
                 apply!(s, CNOT(), AdjacentPair(i))
             end
             for cut in 1:3
-                ee = EntanglementEntropy(cut=cut)
+                ee = EntanglementEntropy(cut = cut)
                 @test ee(s) ≈ 1.0 atol=1e-12
             end
         end
@@ -441,7 +452,7 @@ end
                 apply!(s, CNOT(), AdjacentPair(i))
             end
             for cut in [1, 2, 4, 7]
-                ee = EntanglementEntropy(cut=cut)
+                ee = EntanglementEntropy(cut = cut)
                 @test ee(s) ≈ 1.0 atol=1e-12
             end
         end
@@ -454,7 +465,7 @@ end
                 apply!(s, CNOT(), AdjacentPair(i))
             end
             for n in [1, 2, 3, 5]
-                ee = EntanglementEntropy(cut=2, renyi_index=n)
+                ee = EntanglementEntropy(cut = 2, renyi_index = n)
                 @test ee(s) ≈ 1.0 atol=1e-12
             end
         end
@@ -464,7 +475,6 @@ end
     # 9. Magnetization
     # ═══════════════════════════════════════════════════════════════════════
     @testset "Magnetization" begin
-
         @testset "|0...0⟩ → Mz=1.0  (L=$L)" for L in [2, 4, 8]
             s = _cliff_state(L)
             mz = Magnetization(:Z)
@@ -501,7 +511,6 @@ end
     # 10. BornProbability
     # ═══════════════════════════════════════════════════════════════════════
     @testset "BornProbability" begin
-
         @testset "product state  (L=$L)" for L in [2, 4, 8]
             s = _cliff_state(L)
             @test born_probability(s, 1, 0) ≈ 1.0
@@ -542,23 +551,22 @@ end
     # 11. Constructor Validation
     # ═══════════════════════════════════════════════════════════════════════
     @testset "Constructor Validation" begin
-
         @testset "site_type=\"S=1\" throws" begin
             @test_throws ArgumentError SimulationState(
-                L=4, bc=:open, backend=:clifford, site_type="S=1",
-                rng=RNGRegistry(gates_spacetime=1, gates_realization=2, born_measurement=3))
+                L = 4, bc = :open, backend = :clifford, site_type = "S=1",
+                rng = RNGRegistry(gates_spacetime = 1, gates_realization = 2, born_measurement = 3))
         end
 
         @testset "explicit local_dim=3 throws" begin
             @test_throws ArgumentError SimulationState(
-                L=4, bc=:open, backend=:clifford, site_type="Qudit", local_dim=3,
-                rng=RNGRegistry(gates_spacetime=1, gates_realization=2, born_measurement=3))
+                L = 4, bc = :open, backend = :clifford, site_type = "Qudit", local_dim = 3,
+                rng = RNGRegistry(gates_spacetime = 1, gates_realization = 2, born_measurement = 3))
         end
 
         @testset "error message is informative" begin
             try
-                SimulationState(L=4, bc=:open, backend=:clifford, site_type="S=1",
-                    rng=RNGRegistry(gates_spacetime=1, gates_realization=2, born_measurement=3))
+                SimulationState(L = 4, bc = :open, backend = :clifford, site_type = "S=1",
+                    rng = RNGRegistry(gates_spacetime = 1, gates_realization = 2, born_measurement = 3))
             catch e
                 @test e isa ArgumentError
                 msg = e.msg
@@ -572,12 +580,11 @@ end
     # 12. Circuit Integration
     # ═══════════════════════════════════════════════════════════════════════
     @testset "Circuit Integration" begin
-
         @testset "full Clifford circuit (L=4)" begin
             L = 4
             n_steps = 5
 
-            circuit = Circuit(L=L, bc=:open) do c
+            circuit = Circuit(L = L, bc = :open) do c
                 # Layer of single-qubit Cliffords
                 apply!(c, Hadamard(), SingleSite(1))
                 apply!(c, PhaseGate(), SingleSite(2))
@@ -587,19 +594,19 @@ end
                 apply!(c, CZ(), AdjacentPair(2))
                 apply!(c, SWAP(), AdjacentPair(3))
                 # Stochastic measurement
-                apply_with_prob!(c; outcomes=[
-                    (probability=0.3, gate=Measure(:Z), geometry=AllSites())
+                apply_with_prob!(c; outcomes = [
+                    (probability = 0.3, gate = Measure(:Z), geometry = AllSites())
                 ])
                 record!(c, :entropy, :mz)
             end
 
-            state = SimulationState(L=L, bc=:open, backend=:clifford,
-                rng=RNGRegistry(gates_spacetime=42, gates_realization=7, born_measurement=99))
-            initialize!(state, ProductState(binary_int=0))
-            track!(state, :entropy => EntanglementEntropy(cut=L÷2))
+            state = SimulationState(L = L, bc = :open, backend = :clifford,
+                rng = RNGRegistry(gates_spacetime = 42, gates_realization = 7, born_measurement = 99))
+            initialize!(state, ProductState(binary_int = 0))
+            track!(state, :entropy => EntanglementEntropy(cut = L÷2))
             track!(state, :mz => Magnetization(:Z))
 
-            simulate!(circuit, state; n_steps=n_steps, record_when=:marks)
+            simulate!(circuit, state; n_steps = n_steps, record_when = :marks)
 
             # Check observable arrays have expected length
             @test length(state.observables[:entropy]) == n_steps
@@ -621,21 +628,21 @@ end
             L = 8
             n_steps = 3
 
-            circuit = Circuit(L=L, bc=:open) do c
+            circuit = Circuit(L = L, bc = :open) do c
                 apply!(c, RandomClifford(), Bricklayer(:odd))
                 apply!(c, RandomClifford(), Bricklayer(:even))
-                apply_with_prob!(c; outcomes=[
-                    (probability=0.2, gate=Measure(:Z), geometry=AllSites())
+                apply_with_prob!(c; outcomes = [
+                    (probability = 0.2, gate = Measure(:Z), geometry = AllSites())
                 ])
                 record!(c, :entropy)
             end
 
-            state = SimulationState(L=L, bc=:open, backend=:clifford,
-                rng=RNGRegistry(gates_spacetime=42, gates_realization=7, born_measurement=99))
-            initialize!(state, ProductState(binary_int=0))
-            track!(state, :entropy => EntanglementEntropy(cut=L÷2))
+            state = SimulationState(L = L, bc = :open, backend = :clifford,
+                rng = RNGRegistry(gates_spacetime = 42, gates_realization = 7, born_measurement = 99))
+            initialize!(state, ProductState(binary_int = 0))
+            track!(state, :entropy => EntanglementEntropy(cut = L÷2))
 
-            simulate!(circuit, state; n_steps=n_steps, record_when=:marks)
+            simulate!(circuit, state; n_steps = n_steps, record_when = :marks)
 
             @test length(state.observables[:entropy]) == n_steps
             max_entropy = min(L÷2, L - L÷2)
@@ -646,7 +653,7 @@ end
 
         @testset "Reset circuit (L=4)" begin
             L = 4
-            circuit = Circuit(L=L, bc=:open) do c
+            circuit = Circuit(L = L, bc = :open) do c
                 apply!(c, Hadamard(), SingleSite(1))
                 apply!(c, CNOT(), AdjacentPair(1))
                 apply!(c, Reset(), SingleSite(1))
@@ -654,16 +661,15 @@ end
                 record!(c, :mz)
             end
 
-            state = SimulationState(L=L, bc=:open, backend=:clifford,
-                rng=RNGRegistry(gates_spacetime=1, gates_realization=2, born_measurement=42))
-            initialize!(state, ProductState(binary_int=0))
+            state = SimulationState(L = L, bc = :open, backend = :clifford,
+                rng = RNGRegistry(gates_spacetime = 1, gates_realization = 2, born_measurement = 42))
+            initialize!(state, ProductState(binary_int = 0))
             track!(state, :mz => Magnetization(:Z))
 
-            simulate!(circuit, state; n_steps=1, record_when=:marks)
+            simulate!(circuit, state; n_steps = 1, record_when = :marks)
 
             # After Reset on sites 1 and 2, both should be |0⟩ → Mz = 1.0
             @test state.observables[:mz][end] ≈ 1.0 atol=1e-12
         end
     end
-
 end  # top-level @testset

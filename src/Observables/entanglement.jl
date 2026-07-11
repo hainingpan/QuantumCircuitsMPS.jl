@@ -43,10 +43,11 @@ struct EntanglementEntropy <: AbstractObservable
     renyi_index::Int
     threshold::Float64
     base::Float64
-    
-    function EntanglementEntropy(; cut::Int, renyi_index::Int=1, threshold::Float64=1e-16, base::Real=2)
+
+    function EntanglementEntropy(; cut::Int, renyi_index::Int = 1, threshold::Float64 = 1e-16, base::Real = 2)
         cut >= 1 || throw(ArgumentError("EntanglementEntropy cut must be >= 1"))
-        renyi_index >= 1 || throw(ArgumentError("EntanglementEntropy renyi_index must be >= 1"))
+        renyi_index >= 1 ||
+            throw(ArgumentError("EntanglementEntropy renyi_index must be >= 1"))
         threshold > 0 || throw(ArgumentError("EntanglementEntropy threshold must be > 0"))
         base > 0 || throw(ArgumentError("EntanglementEntropy base must be > 0"))
         new(cut, renyi_index, threshold, Float64(base))
@@ -57,16 +58,17 @@ end
 function (ee::EntanglementEntropy)(state)
     # Validate cut is in valid range
     1 <= ee.cut < state.L || throw(ArgumentError("cut must satisfy 1 <= cut < L"))
-    
+
     # Determine RAM cut position based on boundary conditions
     # For periodic BC with folded MPS, the fold origin is configurable via
     # pbc_fold_start (default: L÷4+1, aligning the half-cut with the physical
     # midpoint). The cut parameter directly specifies the RAM bond index.
     # For open BC, ram_phy is identity so this also works correctly.
     ram_cut = ee.cut
-    
+
     # Compute entropy using internal helper
-    return _von_neumann_entropy(state.backend.mps, ram_cut; n=ee.renyi_index, threshold=ee.threshold, base=ee.base)
+    return _von_neumann_entropy(state.backend.mps, ram_cut; n = ee.renyi_index,
+        threshold = ee.threshold, base = ee.base)
 end
 
 """
@@ -94,28 +96,28 @@ The function:
    - n≠1: Rényi entropy Sₙ = log_b(Σ pⁿ) / (1-n)
 """
 function _von_neumann_entropy(
-    mps::MPS,
-    i::Int;
-    n::Int=1,
-    threshold::Float64=1e-16,
-    base::Float64=2.0,
+        mps::MPS,
+        i::Int;
+        n::Int = 1,
+        threshold::Float64 = 1e-16,
+        base::Float64 = 2.0
 )
     # Orthogonalize MPS to site i
     mps_ = orthogonalize(mps, i)
-    
+
     # Perform SVD on the link between site i and i+1
     # Extract singular values from the bond
     _, S = svd(mps_[i], (linkind(mps_, i),))
-    
+
     # Get singular values and compute probabilities (squared for normalization)
     # Apply threshold to avoid numerical issues with log(0)
     singular_vals = diag(S)
     p = max.(singular_vals, threshold) .^ 2
     p ./= sum(p)   # renormalize after threshold replacement
-    
+
     # Define log with specified base: log_b(x) = log(x) / log(b)
     log_fn = x -> log(x) / log(base)
-    
+
     # Compute entropy based on Rényi index
     if n == 1
         # von Neumann entropy: S₁ = -Σ p log_b(p)

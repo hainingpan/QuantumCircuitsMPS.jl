@@ -1,8 +1,28 @@
-using ITensors
-using LinearAlgebra
-
 """
-Abstract base type for all quantum gates.
+    AbstractGate
+
+Abstract base type for all quantum gates (unitaries, projections, and
+measurement-like operations).
+
+A gate type plugs into the backends through a small protocol:
+
+- `support(gate) -> Int`: number of sites the gate acts on (required).
+- `build_operator(gate, site_or_sites, local_dim; kwargs...) -> ITensor`:
+  operator construction for the MPS backend.
+- `gate_matrix(gate) -> Matrix{ComplexF64}`: dense matrix for the
+  state-vector backend (random gates use `gate_matrix(gate, rng; local_dim)`).
+- `needs_normalization(gate) -> Bool` (trait, default `false`): `true` for
+  non-unitary gates (e.g. `Projection`) — backends renormalize (and, for
+  MPS, truncate) after applying such a gate.
+- `is_measurement(gate) -> Bool` (trait): `true` for gates that Born-sample
+  via the `:born_measurement` RNG stream (e.g. `Measure`, `Reset`).
+- Gates with non-operator semantics (Born sampling + classical feedback)
+  override `execute!(state, gate, region)` instead — see `Measure` in
+  `src/Core/apply.jl`.
+
+The Clifford backend supports only Clifford-group gates, via per-gate
+`_apply_single!` methods; any other gate is rejected with an
+`ArgumentError` (see `src/Clifford/Clifford.jl`).
 """
 abstract type AbstractGate end
 

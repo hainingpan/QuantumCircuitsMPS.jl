@@ -1,9 +1,6 @@
 # === Gate Application Engine ===
 # Core apply! function implementing CT.jl-style MPS contraction
 
-using ITensors
-using ITensorMPS
-
 """
     apply!(state::SimulationState, gate::AbstractGate, geo::AbstractGeometry)
 
@@ -27,7 +24,7 @@ end
 
 Apply a gate to specific physical sites. Direct site specification.
 Routes through the uniform `execute!` protocol (so measurement-like gates
-such as `Measurement`/`Reset` work with explicit site vectors too).
+such as `Measure`/`Reset` work with explicit site vectors too).
 """
 function apply!(state::SimulationState, gate::AbstractGate, sites::Vector{Int})
     execute!(state, gate, sites)
@@ -47,7 +44,7 @@ function _apply_dispatch!(state::SimulationState, gate::AbstractGate, geo::Adjac
 end
 
 function _apply_dispatch!(state::SimulationState, gate::AbstractGate, geo::AbstractStaircase)
-    # Gate-support-aware resolution: 1-site gates (e.g. Reset, Measurement)
+    # Gate-support-aware resolution: 1-site gates (e.g. Reset, Measure)
     # act at the current position; 2-site gates act on (pos, pos+range).
     sites = compute_sites(geo, 1, state.L, state.bc, gate)
     execute!(state, gate, sites)
@@ -56,6 +53,10 @@ function _apply_dispatch!(state::SimulationState, gate::AbstractGate, geo::Abstr
 end
 
 function _apply_dispatch!(state::SimulationState, gate::AbstractGate, geo::Bricklayer)
+    # Odd-L PBC single layers have no valid brickwork tiling — warn once per
+    # parity/L combination (maxlog=1 inside the helper protects manual
+    # apply! step-loops from warning spam).
+    _warn_bricklayer_odd_pbc(geo, state.L, state.bc)
     pairs = get_pairs(geo, state)
     for (p1, p2) in pairs
         execute!(state, gate, [p1, p2])
@@ -91,19 +92,32 @@ end
     _measure_single_site!(state::SimulationState, site::Int) -> Int
 
 Perform Born-sampled projective measurement on a single site.
-Returns the measurement outcome (0 or 1).
+Returns the measurement outcome (a level index `0 .. local_dim-1`;
+0 or 1 for qubits).
 
 This is the FUNDAMENTAL measurement operation:
-1. Compute Born probability P(0|ψ)
-2. Sample outcome using :born_measurement RNG stream
-3. Apply Projection operator
-4. Return outcome (for conditional logic in Reset)
+1. Compute Born probabilities P(k|ψ) for levels k = 0 .. local_dim-2
+2. Sample ONE categorical outcome using a single scalar draw from the
+   :born_measurement RNG stream (at local_dim=2 this reduces EXACTLY to the
+   historical binary draw `rand < P(0) ? 0 : 1` — same draw count, same
+   float comparison, bitwise-identical qubit trajectories)
+3. Apply the per-level Projection operator
+4. Return outcome (for conditional logic in Reset / feedback)
 """
 function _measure_single_site!(state::SimulationState, site::Int)
-    p_0 = born_probability(state, site, 0)
+    d = state.local_dim
     born_measurement_rng = get_rng(state.rng_registry, :born_measurement)
     # SCALAR-DRAW CONTRACT: one scalar Born draw per measured site
-    outcome = rand(born_measurement_rng) < p_0 ? 0 : 1
+    r = rand(born_measurement_rng)
+    outcome = d - 1  # falls through to the last level (Σₖ P(k) = 1 up to fp error)
+    cumprob = 0.0
+    for k in 0:(d - 2)
+        cumprob += born_probability(state, site, k)
+        if r < cumprob
+            outcome = k
+            break
+        end
+    end
     _apply_single!(state, Projection(outcome), [site])
     if state.event_log !== nothing
         # Real (step, op_idx) via the engine's event context (set by
@@ -128,7 +142,7 @@ geometry). This is the v0.1 gate-execution protocol:
 - **Default implementation**: `build_operator` → `apply_op_internal!`, then
   normalize + truncate iff `needs_normalization(gate)` (see `_apply_single!`).
 - **Gate-specific overrides**: gates with non-operator semantics (Born
-  sampling + classical logic) override this method — see `Measurement` and
+  sampling + classical logic) override this method — see `Measure` and
   `Reset` below. User-defined gates may override it the same way:
 
 ```julia
@@ -142,21 +156,6 @@ Related traits: `needs_normalization(gate)` (post-apply renormalization) and
 """
 function execute!(state::SimulationState, gate::AbstractGate, region::Vector{Int})
     _apply_single!(state, gate, region)
-end
-
-"""
-    execute!(state::SimulationState, gate::Measurement, region::Vector{Int})
-
-Measurement (FUNDAMENTAL - pure projection): Born-sample the single site in
-`region` and collapse. The outcome is discarded here (recorded in the event
-log when enabled); feedback on outcomes lands in v0.1 `Measure` (Task 10).
-"""
-function execute!(state::SimulationState, gate::Measurement, region::Vector{Int})
-    if support(gate) != length(region)
-        throw(ArgumentError("Gate support $(support(gate)) does not match sites $(length(region))"))
-    end
-    _measure_single_site!(state, region[1])
-    return nothing
 end
 
 """
@@ -226,22 +225,23 @@ function _apply_single!(state::SimulationState, gate::AbstractGate, phy_sites::V
     if support(gate) != length(phy_sites)
         throw(ArgumentError("Gate support $(support(gate)) does not match sites $(length(phy_sites))"))
     end
-    
+
     # Convert physical sites to RAM indices
     ram_sites = [state.phy_ram[ps] for ps in phy_sites]
-    
+
     # Build operator with state.backend.sites indices (in physical pair order)
     op = _build_gate_operator(state, gate, phy_sites, ram_sites)
-    
+
     # Apply operator using CT.jl algorithm
-    apply_op_internal!(state.backend.mps, op, state.backend.sites, state.backend.cutoff, state.backend.maxdim)
-    
+    apply_op_internal!(state.backend.mps, op, state.backend.sites,
+        state.backend.cutoff, state.backend.maxdim)
+
     # Contract 3.5: Normalization via the needs_normalization trait
     # (true for Projection/SpinSectorProjection/SpinSectorMeasurement and any
     # user gate that opts in; unitaries default to false — NO normalize)
     if needs_normalization(gate)
         normalize!(state.backend.mps)
-        truncate!(state.backend.mps; cutoff=state.backend.cutoff)
+        truncate!(state.backend.mps; cutoff = state.backend.cutoff)
     end
 end
 
@@ -250,17 +250,18 @@ end
 
 Build the operator tensor for the gate.
 """
-function _build_gate_operator(state::SimulationState, gate::AbstractGate, phy_sites::Vector{Int}, ram_sites::Vector{Int})
+function _build_gate_operator(state::SimulationState, gate::AbstractGate,
+        phy_sites::Vector{Int}, ram_sites::Vector{Int})
     if length(ram_sites) == 1
         # Single-site gate. rng is passed for gates that need randomness
         # (e.g. HaarRandom(1)); all other single-site gates absorb it via kwargs.
         site_idx = state.backend.sites[ram_sites[1]]
-        return build_operator(gate, site_idx, state.local_dim; rng=state.rng_registry)
+        return build_operator(gate, site_idx, state.local_dim; rng = state.rng_registry)
     else
         # Multi-site gate: use indices in RAM order
         site_indices = [state.backend.sites[rs] for rs in ram_sites]
-        return build_operator(gate, site_indices, state.local_dim; 
-                              rng=state.rng_registry, mps=state.backend.mps, ram_sites=ram_sites)
+        return build_operator(gate, site_indices, state.local_dim;
+            rng = state.rng_registry, mps = state.backend.mps, ram_sites = ram_sites)
     end
 end
 
@@ -271,47 +272,49 @@ Apply operator to MPS following CT.jl algorithm (lines 147-172).
 
 Contract 3.6: Index matching via Index comparison, NOT tag parsing.
 """
-function apply_op_internal!(mps::MPS, op::ITensor, sites::Vector{Index}, cutoff::Float64, maxdim::Int)
+function apply_op_internal!(
+        mps::MPS, op::ITensor, sites::Vector{Index}, cutoff::Float64, maxdim::Int)
     # Get RAM site indices from operator indices (Contract 3.6)
     i_list = get_op_ram_sites(op, sites)
     sort!(i_list)
-    
+
     # Orthogonalize MPS to first site
     orthogonalize!(mps, i_list[1])
-    
+
     # Contract MPS tensors in range
     mps_ij = mps[i_list[1]]
-    for idx in i_list[1]+1:i_list[end]
+    for idx in (i_list[1] + 1):i_list[end]
         mps_ij *= mps[idx]
     end
-    
+
     # Apply operator
     mps_ij *= op
     noprime!(mps_ij)
-    
+
     if length(i_list) == 1
         # Single-site: direct assignment
         mps[i_list[1]] = mps_ij
     else
         # Multi-site: SVD chain reconstruction
         lefttags = (i_list[1] == 1) ? nothing : tags(linkind(mps, i_list[1] - 1))
-        
-        for idx in i_list[1]:i_list[end]-1
+
+        for idx in i_list[1]:(i_list[end] - 1)
             if idx == 1
                 inds1 = [siteind(mps, 1)]
             else
-                inds1 = [findindex(mps[idx-1], lefttags), findindex(mps[idx], "Site")]
+                inds1 = [findindex(mps[idx - 1], lefttags), findindex(mps[idx], "Site")]
             end
-            
+
             lefttags = tags(linkind(mps, idx))
-            U, S, V = svd(mps_ij, inds1; cutoff=cutoff, lefttags=lefttags, maxdim=maxdim)
+            U, S, V = svd(
+                mps_ij, inds1; cutoff = cutoff, lefttags = lefttags, maxdim = maxdim)
             mps[idx] = U
             mps_ij = S * V
         end
-        
+
         mps[i_list[end]] = mps_ij
     end
-    
+
     return nothing
 end
 
@@ -324,13 +327,13 @@ Does NOT parse tags.
 function get_op_ram_sites(op::ITensor, sites::Vector{Index})
     op_inds = inds(op)
     ram_sites = Int[]
-    
+
     for op_idx in op_inds
         # Only process unprimed indices (inputs)
         if plev(op_idx) != 0
             continue
         end
-        
+
         # Find matching site by Index comparison
         found = false
         for (ram_idx, site_idx) in enumerate(sites)
@@ -340,11 +343,11 @@ function get_op_ram_sites(op::ITensor, sites::Vector{Index})
                 break
             end
         end
-        
+
         if !found
             error("Operator index $op_idx not found in state sites")
         end
     end
-    
+
     return ram_sites
 end

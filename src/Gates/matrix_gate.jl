@@ -13,22 +13,32 @@ function gate_matrix end
 
 """
     MatrixGate(U::AbstractMatrix)
+    MatrixGate(U::AbstractMatrix; d::Int)
 
 Gate defined by an explicit `d^n × d^n` matrix `U` acting on `n` sites of
 local dimension `d`.
 
 # Size-inference rule (API contract)
-The number of sites `n` and local dimension `d` are inferred from the matrix
-size `N`:
+When `d` is NOT given, the number of sites `n` and local dimension `d` are
+inferred from the matrix size `N`:
 - `N = 2^n` (n ≥ 1) → `n`-site **qubit** gate (`d = 2`)
 - `N = 3^n` (n ≥ 2) → `n`-site **spin-1** gate (`d = 3`)
 - anything else → `ArgumentError`
 
 The two families are disjoint (powers of 2 are even, powers of 3 are odd),
 so inference is unambiguous. Single-site spin-1 matrices (3×3) are NOT
-accepted: v0.1 introduces no new single-site qudit machinery (S=1 support is
-preserved only for the existing two-site sector operations). The inferred
-`d` is validated against the state's local dimension at apply time.
+accepted by inference: v0.1 introduced no new single-site qudit machinery.
+The inferred `d` is validated against the state's local dimension at apply
+time.
+
+# Explicit local dimension (`d` keyword)
+Inference cannot cover every local dimension: e.g. a 16×16 matrix could be a
+4-qubit gate (2⁴) or a two-site spin-3/2 gate (4²). Passing `d` resolves the
+ambiguity and enables any `d ≥ 2` (arbitrary spin-S / qudit sites):
+`MatrixGate(U; d=4)` with a 16×16 `U` is a two-site gate on d=4 (spin-3/2)
+sites. The matrix size must be an exact power of `d` (`ArgumentError`
+otherwise). `MatrixGate(U; d=2)` / `d=3` agree with inference for the sizes
+inference accepts (and additionally allow a single-site 3×3 with `d=3`).
 
 # Matrix convention
 `U[out, in] = ⟨out|U|in⟩` with standard Kronecker ordering:
@@ -54,13 +64,36 @@ struct MatrixGate <: AbstractGate
     n::Int
     d::Int
 
-    function MatrixGate(U::AbstractMatrix)
+    function MatrixGate(U::AbstractMatrix; d::Union{Nothing, Int} = nothing)
         size(U, 1) == size(U, 2) || throw(ArgumentError(
             "MatrixGate requires a square matrix, got size $(size(U))"))
         N = size(U, 1)
-        d, n = _infer_matrix_gate_dims(N)
+        if d === nothing
+            d, n = _infer_matrix_gate_dims(N)
+        else
+            d >= 2 || throw(ArgumentError(
+                "MatrixGate local dimension d must be ≥ 2, got d=$d"))
+            n = _matrix_gate_site_count(N, d)
+        end
         new(Matrix{ComplexF64}(U), n, d)
     end
+end
+
+"""
+    _matrix_gate_site_count(N::Int, d::Int) -> n
+
+Exact site count `n` with `d^n == N` (n ≥ 1), or `ArgumentError` if `N` is
+not a positive power of `d`. Integer arithmetic only (no float log rounding).
+"""
+function _matrix_gate_site_count(N::Int, d::Int)
+    n, M = 0, 1
+    while M < N
+        M *= d
+        n += 1
+    end
+    (M == N && n >= 1) || throw(ArgumentError(
+        "MatrixGate size $N×$N is not d^n for d=$d (n ≥ 1 sites)"))
+    return n
 end
 
 support(g::MatrixGate) = g.n

@@ -6,6 +6,11 @@
 
 Lazy representation of a quantum circuit as a sequence of symbolic operations.
 
+!!! note "1D only"
+    Circuits are currently one-dimensional: `L` sites on a chain with
+    `:open`/`:periodic` boundary conditions. Higher-dimensional (2D+)
+    circuit geometries are a planned future direction (see ROADMAP.md).
+
 A `Circuit` does NOT execute immediately - it stores operations symbolically and
 expands them to concrete gate applications only when passed to `simulate!`.
 
@@ -57,7 +62,7 @@ Base.@kwdef struct Circuit
     L::Int
     bc::Symbol
     operations::Vector{NamedTuple} = NamedTuple[]
-    params::Dict{Symbol,Any} = Dict{Symbol,Any}()
+    params::Dict{Symbol, Any} = Dict{Symbol, Any}()
 end
 
 """

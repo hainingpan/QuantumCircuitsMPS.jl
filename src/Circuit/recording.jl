@@ -45,8 +45,9 @@ end
 
 # Convenience 4-arg constructor (pre-v0.1 field set). op/element/mark fields
 # default to their "not applicable" values (0 / false).
-RecordingContext(step_idx::Int, gate_idx::Int, gate_type, is_step_boundary::Bool) =
+function RecordingContext(step_idx::Int, gate_idx::Int, gate_type, is_step_boundary::Bool)
     RecordingContext(step_idx, gate_idx, 0, 0, gate_type, is_step_boundary, false, 0)
+end
 
 """
     every_n_gates(n::Int)
@@ -107,7 +108,7 @@ Returns a tuple:
 """
 function _evaluate_recording(record_when::Symbol, ctx::RecordingContext, step_idx::Int, n_steps::Int)
     is_step_boundary = ctx.is_step_boundary
-    
+
     if record_when == :every_step && is_step_boundary
         return (true, false)
     elseif record_when == :every_gate
@@ -126,4 +127,3 @@ function _evaluate_recording(record_when::Function, ctx::RecordingContext, step_
         return (false, false)
     end
 end
-

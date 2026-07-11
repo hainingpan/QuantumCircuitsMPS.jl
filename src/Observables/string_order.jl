@@ -5,9 +5,6 @@
 #
 # For AKLT ground state: |O_string| ≈ 4/9 ≈ 0.444
 
-using ITensors
-using ITensorMPS
-
 """
     StringOrder(i::Int, j::Int; order::Int=1)
 
@@ -53,13 +50,14 @@ struct StringOrder <: AbstractObservable
     i::Int
     j::Int
     order::Int
-    
-    function StringOrder(i::Int, j::Int; order::Int=1)
+
+    function StringOrder(i::Int, j::Int; order::Int = 1)
         i > 0 || throw(ArgumentError("i must be positive, got $i"))
         j > i || throw(ArgumentError("j must be > i, got j=$j, i=$i"))
         order in (1, 2) || throw(ArgumentError("order must be 1 or 2, got $order"))
         if order == 2
-            j >= i + 4 || throw(ArgumentError("order=2 requires j >= i+4 for non-overlapping endpoint pairs, got i=$i, j=$j"))
+            j >= i + 4 ||
+                throw(ArgumentError("order=2 requires j >= i+4 for non-overlapping endpoint pairs, got i=$i, j=$j"))
         end
         new(i, j, order)
     end
@@ -74,61 +72,61 @@ function (obs::StringOrder)(state::SimulationState)
     i_phys = obs.i
     j_phys = obs.j
     L = state.L
-    
+
     # Validate sites are in bounds
     if i_phys > L || j_phys > L
         throw(ArgumentError(
             "StringOrder sites ($i_phys, $j_phys) exceed system size L=$L"
         ))
     end
-    
+
     # Work on a copy of the MPS
     psi_copy = copy(state.backend.mps)
-    
+
     if obs.order == 1
         # Order 1: ⟨Sz[i] * exp(iπΣ) * Sz[j]⟩
         # Convert physical sites to RAM indices
         i_ram = state.phy_ram[i_phys]
         j_ram = state.phy_ram[j_phys]
-        
+
         # Get site indices
         site_i = state.backend.sites[i_ram]
         site_j = state.backend.sites[j_ram]
-        
+
         # Apply Sz at site i
         Sz_i = op("Sz", site_i)
         psi_copy[i_ram] = psi_copy[i_ram] * Sz_i
-        
+
         # Apply exp(iπ Sz) to all sites between i and j
-        for k_phys in (i_phys+1):(j_phys-1)
+        for k_phys in (i_phys + 1):(j_phys - 1)
             k_ram = state.phy_ram[k_phys]
             site_k = state.backend.sites[k_ram]
             expSz_k = op("expSz", site_k)
             psi_copy[k_ram] = psi_copy[k_ram] * expSz_k
         end
-        
+
         # Apply Sz at site j
         Sz_j = op("Sz", site_j)
         psi_copy[j_ram] = psi_copy[j_ram] * Sz_j
-        
+
     elseif obs.order == 2
         # Order 2: ⟨Sz[n]·Sz[n+1] * exp(iπΣ_{n+2:m-2}) * Sz[m-1]·Sz[m]⟩
         n_phys, m_phys = i_phys, j_phys
-        
+
         # Left endpoint pair: Sz[n] · Sz[n+1]
         for site_phys in (n_phys, n_phys+1)
             site_ram = state.phy_ram[site_phys]
             Sz = op("Sz", state.backend.sites[site_ram])
             psi_copy[site_ram] = psi_copy[site_ram] * Sz
         end
-        
+
         # String: exp(iπ Sz) for sites n+2 to m-2
-        for k_phys in (n_phys+2):(m_phys-2)
+        for k_phys in (n_phys + 2):(m_phys - 2)
             k_ram = state.phy_ram[k_phys]
             expSz_k = op("expSz", state.backend.sites[k_ram])
             psi_copy[k_ram] = psi_copy[k_ram] * expSz_k
         end
-        
+
         # Right endpoint pair: Sz[m-1] · Sz[m]
         for site_phys in (m_phys-1, m_phys)
             site_ram = state.phy_ram[site_phys]
@@ -136,12 +134,12 @@ function (obs::StringOrder)(state::SimulationState)
             psi_copy[site_ram] = psi_copy[site_ram] * Sz
         end
     end
-    
+
     # Compute expectation value: ⟨ψ|O|ψ⟩
     # Remove prime marks from site indices added by operator application
     noprime!(psi_copy)
     result = real(inner(state.backend.mps, psi_copy))
-    
+
     return result
 end
 
@@ -157,9 +155,8 @@ exp(iπ Sz) = diag(exp(iπ), exp(0), exp(-iπ))
 This is a diagonal operator in the Sz basis.
 """
 function ITensors.op(::OpName"expSz", ::SiteType"S=1")
-    return [
-        -1.0  0.0  0.0;   # |Up⟩ (m=+1): exp(iπ·1) = -1
-         0.0  1.0  0.0;   # |Z0⟩ (m=0):  exp(iπ·0) = +1
-         0.0  0.0 -1.0    # |Dn⟩ (m=-1): exp(iπ·(-1)) = -1
-    ]
+    return [-1.0 0.0 0.0;   # |Up⟩ (m=+1): exp(iπ·1) = -1
+            0.0 1.0 0.0;   # |Z0⟩ (m=0):  exp(iπ·0) = +1
+            0.0 0.0 -1.0    # |Dn⟩ (m=-1): exp(iπ·(-1)) = -1
+            ]
 end

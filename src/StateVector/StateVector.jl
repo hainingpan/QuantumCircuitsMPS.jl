@@ -4,8 +4,6 @@
 # method that wires it into the EXISTING, UNMODIFIED execute!/apply! chain
 # (see src/Core/apply.jl) for SimulationState{StateVectorBackend}.
 
-using LinearAlgebra
-
 """
     apply_gate_sv!(ψ, U, target_sites, L, d) -> Vector{ComplexF64}
 
@@ -36,7 +34,8 @@ asymmetric CNOT gate applied in both site-argument orders):
 Handles 1-site AND n-site gates (adjacent or non-adjacent) UNIFORMLY — no
 special-casing needed for adjacent vs non-adjacent target sites.
 """
-function apply_gate_sv!(ψ::Vector{ComplexF64}, U::Matrix{ComplexF64}, target_sites::Vector{Int}, L::Int, d::Int)
+function apply_gate_sv!(ψ::Vector{ComplexF64}, U::Matrix{ComplexF64},
+        target_sites::Vector{Int}, L::Int, d::Int)
     n = length(target_sites)
     dims = ntuple(_ -> d, L)
     A = reshape(ψ, dims)
@@ -51,13 +50,35 @@ function apply_gate_sv!(ψ::Vector{ComplexF64}, U::Matrix{ComplexF64}, target_si
     return vec(new_A)
 end
 
+# === Shared digit-extraction helper for SV observables ===
+
+"""
+    _sv_digit(n0, stride, d) -> Int
+
+Extract the base-`d` digit of the 0-indexed basis integer `n0` at the
+physical site whose precomputed stride is `stride = d^(L - s)` (site 1 = MSB
+convention shared by all state-vector observables). Callers hoist the
+loop-invariant `d^(L - s)` power out of their inner loops and pass it in.
+"""
+@inline _sv_digit(n0::Int, stride::Int, d::Int) = (n0 ÷ stride) % d
+
 # === gate_matrix resolution dispatch ===
 # gate_matrix has ONE signature for most gates (no extra args), but HaarRandom
 # needs (gate, rng; local_dim) — dispatch via multiple methods, not an if/isa check.
 
 _resolve_gate_matrix_sv(gate::AbstractGate, state::SimulationState) = gate_matrix(gate)
-_resolve_gate_matrix_sv(gate::HaarRandom, state::SimulationState) = gate_matrix(gate, get_rng(state.rng_registry, :gates_realization); local_dim=state.local_dim)
-_resolve_gate_matrix_sv(gate::RandomClifford, state::SimulationState) = gate_matrix(gate, get_rng(state.rng_registry, :gates_realization); local_dim=state.local_dim)
+function _resolve_gate_matrix_sv(gate::HaarRandom, state::SimulationState)
+    gate_matrix(gate, get_rng(state.rng_registry, :gates_realization); local_dim = state.local_dim)
+end
+function _resolve_gate_matrix_sv(gate::RandomClifford, state::SimulationState)
+    gate_matrix(gate, get_rng(state.rng_registry, :gates_realization); local_dim = state.local_dim)
+end
+# Projection is d-dependent (per-level projector on spin sites): build the
+# d×d matrix from the state's local dimension. At d=2 this equals
+# gate_matrix(gate) exactly (same values, same type) — qubit path unchanged.
+function _resolve_gate_matrix_sv(gate::Projection, state::SimulationState)
+    _projection_matrix(gate.outcome, state.local_dim)
+end
 
 # === _apply_single! for the state-vector backend ===
 # NEW, more-specific method: Julia's multiple dispatch routes
@@ -90,9 +111,11 @@ function _apply_single!(state::SimulationState{StateVectorBackend}, gate::Abstra
 
     U = _resolve_gate_matrix_sv(gate, state)
     if state.backend.engine == :optimized
-        state.backend.ψ = apply_gate_sv_optimized!(state.backend.ψ, U, ram_sites, state.L, state.local_dim)
+        state.backend.ψ = apply_gate_sv_optimized!(
+            state.backend.ψ, U, ram_sites, state.L, state.local_dim)
     else
-        state.backend.ψ = apply_gate_sv!(state.backend.ψ, U, ram_sites, state.L, state.local_dim)
+        state.backend.ψ = apply_gate_sv!(
+            state.backend.ψ, U, ram_sites, state.L, state.local_dim)
     end
 
     if needs_normalization(gate)

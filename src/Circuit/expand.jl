@@ -3,8 +3,6 @@
 # SAME single-source stochastic selection as the engine (`select_outcome_index`
 # in Circuit/execute.jl). Visualization and execution share ONE rule (v0.1).
 
-using Random
-
 """
     ExpandedOp
 
@@ -54,6 +52,7 @@ Return a short visualization label for a gate type.
 # Labels
 - Reset → "Rst"
 - HaarRandom → "Haar"
+- RandomClifford → "Cl"
 - Projection → "Prj"
 - PauliX → "X"
 - PauliY → "Y"
@@ -71,8 +70,7 @@ gate_label(CZ())          # Returns "CZ"
 gate_label(::Reset) = "Rst"
 gate_label(::HaarRandom) = "Haar"
 gate_label(::Projection) = "Prj"
-gate_label(::Measurement) = "Meas"
-gate_label(::Measure) = "Meas"  # v0.1 feedback-capable measurement (same label)
+gate_label(::Measure) = "Meas"  # v0.1 feedback-capable measurement
 gate_label(::PauliX) = "X"
 gate_label(::PauliY) = "Y"
 gate_label(::PauliZ) = "Z"
@@ -83,6 +81,7 @@ gate_label(::Rx) = "Rx"
 gate_label(::Ry) = "Ry"
 gate_label(::Rz) = "Rz"
 gate_label(::Hadamard) = "H"
+gate_label(::RandomClifford) = "Cl"
 gate_label(g::AbstractGate) = string(typeof(g))  # Fallback
 
 """
@@ -131,7 +130,8 @@ Dispatch compute_sites with appropriate arguments based on geometry type.
 For StaircaseRight/StaircaseLeft: requires gate parameter to determine support.
 For SingleSite/AdjacentPair/Sites: gate parameter not needed.
 """
-function compute_sites_dispatch(geo::AbstractGeometry, gate::AbstractGate, step::Int, L::Int, bc::Symbol)
+function compute_sites_dispatch(
+        geo::AbstractGeometry, gate::AbstractGate, step::Int, L::Int, bc::Symbol)
     if geo isa StaircaseRight || geo isa StaircaseLeft
         return compute_sites(geo, step, L, bc, gate)
     else
@@ -181,7 +181,7 @@ Groups with no operations (stochastic all-identity selections) are omitted.
 - [`expand_circuit`](@ref): Flat version (no grouping) for backward compatibility
 - `select_outcome_index`: The shared engine/visualization selection rule
 """
-function expand_circuit_grouped(circuit::Circuit; n_steps::Int=1, seed::Int=0)
+function expand_circuit_grouped(circuit::Circuit; n_steps::Int = 1, seed::Int = 0)
     # Validate all geometries upfront
     for op in circuit.operations
         if op.type == :deterministic
@@ -212,7 +212,8 @@ function expand_circuit_grouped(circuit::Circuit; n_steps::Int=1, seed::Int=0)
                         push!(group_ops, ExpandedOp(step, op.gate, sites, gate_label(op.gate)))
                     end
                 else
-                    sites = compute_sites_dispatch(geo, op.gate, step, circuit.L, circuit.bc)
+                    sites = compute_sites_dispatch(
+                        geo, op.gate, step, circuit.L, circuit.bc)
                     push!(group_ops, ExpandedOp(step, op.gate, sites, gate_label(op.gate)))
                     if geo isa AbstractStaircase
                         advance!(geo, circuit.L, circuit.bc)
@@ -231,17 +232,19 @@ function expand_circuit_grouped(circuit::Circuit; n_steps::Int=1, seed::Int=0)
                 # Precompute broadcast element lists (fixed within the op);
                 # set geometries resolve lazily at selection time because
                 # staircase positions are mutable and support-aware.
-                elem_lists = Union{Nothing, Vector{Vector{Int}}}[
-                    is_broadcast(o.geometry) ? elements(o.geometry, circuit.L, circuit.bc) : nothing
-                    for o in outcomes]
+                elem_lists = Union{Nothing, Vector{Vector{Int}}}[is_broadcast(o.geometry) ?
+                                                                 elements(o.geometry, circuit.L, circuit.bc) :
+                                                                 nothing
+                                                                 for o in outcomes]
 
                 for k in 1:K
                     sel = select_outcome_index(rng, probs)
                     sel == 0 && continue   # identity remainder: nothing rendered
                     outcome = outcomes[sel]
                     sites = elem_lists[sel] === nothing ?
-                        compute_sites_dispatch(outcome.geometry, outcome.gate, step, circuit.L, circuit.bc) :
-                        elem_lists[sel][k]
+                            compute_sites_dispatch(
+                        outcome.geometry, outcome.gate, step, circuit.L, circuit.bc) :
+                            elem_lists[sel][k]
                     push!(group_ops, ExpandedOp(step, outcome.gate, sites, gate_label(outcome.gate)))
                     # Advance only the SELECTED staircase (identity does not
                     # advance) — same as the engine.
@@ -295,7 +298,7 @@ gate-less pseudo-ops (see [`is_record_mark`](@ref)).
 # See Also
 - [`expand_circuit_grouped`](@ref): Grouped version for visualization
 """
-function expand_circuit(circuit::Circuit; n_steps::Int=1, seed::Int=0)
-    grouped = expand_circuit_grouped(circuit; n_steps=n_steps, seed=seed)
-    return [reduce(vcat, groups; init=ExpandedOp[]) for groups in grouped]
+function expand_circuit(circuit::Circuit; n_steps::Int = 1, seed::Int = 0)
+    grouped = expand_circuit_grouped(circuit; n_steps = n_steps, seed = seed)
+    return [reduce(vcat, groups; init = ExpandedOp[]) for groups in grouped]
 end

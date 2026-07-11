@@ -23,7 +23,7 @@ matrix path.
 struct RandomClifford <: AbstractGate
     n::Int
 
-    function RandomClifford(n::Int=2)
+    function RandomClifford(n::Int = 2)
         n >= 1 || throw(ArgumentError("RandomClifford requires n >= 1 site(s), got $n"))
         new(n)
     end
@@ -43,7 +43,7 @@ Conversion path: `QuantumClifford.CliffordOperator` → `QuantumOpticsBase.Opera
 the officially documented conversion route in QuantumClifford.jl (no direct
 `Matrix(::CliffordOperator)` method exists in QuantumClifford.jl itself).
 """
-function _random_clifford_unitary(n::Int, rng::AbstractRNG; local_dim::Int=2)
+function _random_clifford_unitary(n::Int, rng::AbstractRNG; local_dim::Int = 2)
     local_dim == 2 || throw(ArgumentError(
         "RandomClifford only supports local_dim = 2 (qubits), got local_dim = $local_dim"))
     op = QuantumClifford.random_clifford(rng, n)
@@ -61,8 +61,9 @@ MPS `build_operator` path. Consumes from whichever RNG stream `rng` is
 (caller is responsible for passing the appropriate stream, e.g.
 `:gates_realization`).
 """
-gate_matrix(g::RandomClifford, rng::AbstractRNG; local_dim::Int=2) =
-    _random_clifford_unitary(g.n, rng; local_dim=local_dim)
+function gate_matrix(g::RandomClifford, rng::AbstractRNG; local_dim::Int = 2)
+    _random_clifford_unitary(g.n, rng; local_dim = local_dim)
+end
 
 """
     build_operator(gate::RandomClifford, sites::Vector{Index}, local_dim::Int; rng) -> ITensor
@@ -72,7 +73,8 @@ stream. Follows the same index-ordering convention as `HaarRandom`'s
 `build_operator` (see `two_qubit.jl`): output-primed-first, input-unprimed-second,
 reverse-site-order.
 """
-function build_operator(gate::RandomClifford, sites::Vector{<:Index}, local_dim::Int; rng, kwargs...)
+function build_operator(
+        gate::RandomClifford, sites::Vector{<:Index}, local_dim::Int; rng, kwargs...)
     length(sites) == gate.n || throw(ArgumentError(
         "RandomClifford($(gate.n)) requires exactly $(gate.n) sites, got $(length(sites))"))
 
@@ -81,7 +83,7 @@ function build_operator(gate::RandomClifford, sites::Vector{<:Index}, local_dim:
 
     n_sites = length(sites)
     N = local_dim^n_sites
-    U_matrix = _random_clifford_unitary(n_sites, gates_realization_rng; local_dim=local_dim)
+    U_matrix = _random_clifford_unitary(n_sites, gates_realization_rng; local_dim = local_dim)
 
     # Build ITensor from the N×N matrix, following the same
     # output-primed-first, input-unprimed-second, reverse-site-order
@@ -101,6 +103,6 @@ Single-site (`n = 1`) random Clifford unitary. Same conversion path on a
 function build_operator(gate::RandomClifford, site::Index, local_dim::Int; rng, kwargs...)
     gate.n == 1 || throw(ArgumentError(
         "RandomClifford($(gate.n)) acts on $(gate.n) sites, but was applied to a single site"))
-    U = _random_clifford_unitary(1, get_rng(rng, :gates_realization); local_dim=local_dim)
+    U = _random_clifford_unitary(1, get_rng(rng, :gates_realization); local_dim = local_dim)
     return ITensor(U, prime(site), site)
 end

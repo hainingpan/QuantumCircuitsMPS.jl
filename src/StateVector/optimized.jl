@@ -28,7 +28,8 @@ convention that physical site `s` corresponds to Julia tensor dimension
 Mutates `ψ` in place and also returns it (for chaining / consistency with
 the rest of the Tier 2 API).
 """
-function apply_gate_sv_optimized_1site!(ψ::Vector{ComplexF64}, U::Matrix{ComplexF64}, site::Int, L::Int, d::Int)
+function apply_gate_sv_optimized_1site!(
+        ψ::Vector{ComplexF64}, U::Matrix{ComplexF64}, site::Int, L::Int, d::Int)
     step = d^(L - site)
     step_d = step * d
     n = length(ψ)
@@ -36,13 +37,13 @@ function apply_gate_sv_optimized_1site!(ψ::Vector{ComplexF64}, U::Matrix{Comple
     newvals = Vector{ComplexF64}(undef, d)
     j = 0
     while j < n
-        @inbounds for i in 0:(step-1)
-            for k in 0:(d-1)
-                buf[k+1] = ψ[j + i + k*step + 1]
+        @inbounds for i in 0:(step - 1)
+            for k in 0:(d - 1)
+                buf[k + 1] = ψ[j + i + k * step + 1]
             end
             mul!(newvals, U, buf)
-            for k in 0:(d-1)
-                ψ[j + i + k*step + 1] = newvals[k+1]
+            for k in 0:(d - 1)
+                ψ[j + i + k * step + 1] = newvals[k + 1]
             end
         end
         j += step_d
@@ -64,7 +65,8 @@ alone... can deliver the bulk of the speedup" for the dominant gate types —
 Pauli, Hadamard, Rz, single-qubit Haar — so a hand-optimized kernel for
 every n-site arity is not required).
 """
-function apply_gate_sv_optimized_nsite!(ψ::Vector{ComplexF64}, U::Matrix{ComplexF64}, target_sites::Vector{Int}, L::Int, d::Int)
+function apply_gate_sv_optimized_nsite!(ψ::Vector{ComplexF64}, U::Matrix{ComplexF64},
+        target_sites::Vector{Int}, L::Int, d::Int)
     n = length(target_sites)
     dims = ntuple(_ -> d, L)
     A = reshape(ψ, dims)
@@ -89,7 +91,8 @@ Mutates `ψ` in place and returns it (caller reassigns
 `state.backend.ψ = apply_gate_sv_optimized!(...)`, matching Tier 1's
 reassignment call-site pattern even though Tier 2 itself mutates in place).
 """
-function apply_gate_sv_optimized!(ψ::Vector{ComplexF64}, U::Matrix{ComplexF64}, target_sites::Vector{Int}, L::Int, d::Int)
+function apply_gate_sv_optimized!(ψ::Vector{ComplexF64}, U::Matrix{ComplexF64},
+        target_sites::Vector{Int}, L::Int, d::Int)
     if length(target_sites) == 1
         apply_gate_sv_optimized_1site!(ψ, U, target_sites[1], L, d)
     else

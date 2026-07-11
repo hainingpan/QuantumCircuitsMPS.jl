@@ -14,7 +14,8 @@ Only the `:Z` axis is currently supported for the Clifford backend;
 backend, but no Clifford implementation exists for them yet).
 """
 function (m::Magnetization)(state::SimulationState{CliffordBackend})
-    m.axis == :Z || throw(ArgumentError("Magnetization for the Clifford backend currently only supports :Z axis, got $(m.axis)"))
+    m.axis == :Z ||
+        throw(ArgumentError("Magnetization for the Clifford backend currently only supports :Z axis, got $(m.axis)"))
     L = state.L
     total = 0.0
     for site in 1:L

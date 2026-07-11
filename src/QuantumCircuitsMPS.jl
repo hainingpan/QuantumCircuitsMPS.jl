@@ -1,13 +1,22 @@
 module QuantumCircuitsMPS
 
-using ITensors
-using ITensorMPS
-using Random
-using LinearAlgebra
+# Explicit imports (ExplicitImports.jl-verified, T29): every name this module
+# uses from its dependencies is imported by name — no implicit `using X`
+# reliance. The standing gate lives in test/quality/explicit_imports.jl.
+using ITensorMPS: ITensorMPS, @OpName_str, @SiteType_str, @StateName_str,
+                  @ValName_str, MPO, MPS, OpName, SiteType, StateName, ValName,
+                  expect, inner, linkind, op, ops, orthogonalize,
+                  orthogonalize!, random_mps, siteind, siteinds, truncate!
+using ITensors: ITensors, ITensor, Index, dag, delta, dim, dims, findindex,
+                inds, noprime, noprime!, plev, prime, scalar, tags
+using LinearAlgebra: LinearAlgebra, Diagonal, I, diag, diagm, mul!, norm,
+                     normalize!, qr, svd, tr
+using Random: Random, AbstractRNG, MersenneTwister
 
 # Core
 include("Core/basis.jl")
 include("Core/rng.jl")
+include("Core/spin_sites.jl")  # arbitrary spin-S SiteType extension + spin_operators
 
 # Backend
 include("Backend/Backend.jl")
@@ -71,6 +80,8 @@ include("StateVector/entanglement.jl")
 include("StateVector/magnetization.jl")
 include("StateVector/domain_wall.jl")
 include("StateVector/string_order.jl")
+include("StateVector/pauli_string.jl")
+include("StateVector/mutual_information.jl")
 
 # Clifford observable/measurement implementations (backend-specific dispatch
 # methods added to already-exported names: born_probability, Magnetization.
@@ -79,6 +90,9 @@ include("StateVector/string_order.jl")
 include("Clifford/measurement.jl")
 include("Clifford/entanglement.jl")
 include("Clifford/magnetization.jl")
+include("Clifford/observables.jl")
+include("Clifford/pauli_string.jl")
+include("Clifford/mutual_information.jl")
 
 # API
 include("API/probabilistic.jl")
@@ -96,19 +110,19 @@ include("Plotting/Plotting.jl")
 
 # === PUBLIC API EXPORTS ===
 # State
-export SimulationState, initialize!, ProductState, RandomMPS
+export SimulationState, initialize!, ProductState, RandomMPS, RandomStateVector
 # Event log (opt-in via SimulationState(...; log_events=true)).
 # Event TYPES (CircuitEvent, GateApplied, MeasurementOutcome) and log_event! are
 # internal — use qualified names (manifest KEEP+ADD tables list only the accessors).
 export events, measurements
 # RNG
 export RNGRegistry, get_rng
-export expected_draws  # v0.1 fixed-draw contract (see docs/api_surface_v0.1.md ADD table)
+export expected_draws  # v0.1 fixed-draw contract
 # NOTE: draw, with_guarded_stream, SentinelRNG, is_aliased are internal —
 # use qualified (QuantumCircuitsMPS.draw, ...). The type-pirating
 # Base.rand(state, stream) extension was removed in v0.1 (use draw).
 # Gates
-export AbstractGate, PauliX, PauliY, PauliZ, Projection, HaarRandom, Measurement, Reset, CZ
+export AbstractGate, PauliX, PauliY, PauliZ, Projection, HaarRandom, Reset, CZ
 export MatrixGate, Rx, Ry, Rz, Hadamard, ProductGate  # v0.1 gates
 export CNOT, PhaseGate, SWAP, RandomClifford  # Clifford backend gates (also usable on MPS/SV)
 export Measure, OnOutcome  # v0.1 feedback system (AbstractFeedback/CallbackFeedback internal — use qualified)
@@ -120,12 +134,17 @@ export StaircaseLeft, StaircaseRight
 export Pointer, move!
 export EachSite, Sites, elements, element_count, is_broadcast  # v0.1 geometry vocabulary
 # Observables
-export AbstractObservable, DomainWall, BornProbability, EntanglementEntropy, StringOrder, Magnetization
+export AbstractObservable, DomainWall, BornProbability, EntanglementEntropy, StringOrder,
+       Magnetization, PauliString,  # PauliString added v0.4.0 (T24)
+       MutualInformation,  # MutualInformation added v0.4.0 (T25)
+       Correlator, EntropyProfile, TripartiteMutualInformation,
+       MagnetizationFluctuations  # composed common observables added v0.4.0 (T38)
+export born_probability  # functional form of BornProbability (used in README/Quick Start)
 export track!, record!, list_observables
 # API — legacy entry points (simulate, simulate_circuits, run_circuit!,
 # CircuitSimulation, with_state, current_state, record_every, record_at_circuits,
 # record_always, get_state, get_observables, circuits_run) were REMOVED in v0.1.0;
-# unexported migration stubs remain in src/API/ (docs/api_surface_v0.1.md REMOVE table).
+# unexported migration stubs remain in src/API/.
 export apply!, apply_with_prob!
 # Circuit (lazy mode API)
 export Circuit, expand_circuit, expand_circuit_grouped, simulate!, ExpandedOp
@@ -135,17 +154,49 @@ export print_circuit
 # Visualization (provided by Luxor extension)
 # _plot_circuit_impl is defined in ext/QuantumCircuitsMPSLuxorExt.jl when Luxor is loaded
 function _plot_circuit_impl end
-function plot_circuit(circuit::Circuit; n_steps::Int=1, gates_spacetime::Int=0, filename::Union{String,Nothing}=nothing)
-    Base.invokelatest(_plot_circuit_impl, circuit; n_steps=n_steps, gates_spacetime=gates_spacetime, filename=filename)
+
+"""
+    plot_circuit(circuit::Circuit; n_steps=1, gates_spacetime=0, filename=nothing)
+
+Export an SVG diagram of `circuit`'s deterministic template (all stochastic
+branches, with probability annotations), resolved for `n_steps` repetitions
+using the `gates_spacetime` seed for stochastic-branch layout — matching
+`expand_circuit(circuit; seed=gates_spacetime)`.
+
+Requires `using Luxor` to be loaded first (the implementation lives in the
+Luxor package extension, `ext/QuantumCircuitsMPSLuxorExt.jl`); calling this
+without Luxor loaded throws a `MethodError` from the un-implemented
+`_plot_circuit_impl`. When `filename` is `nothing`, the SVG is written to a
+temporary file and its path returned; otherwise it is written to `filename`.
+
+See also [`print_circuit`](@ref) for a Luxor-free ASCII/Unicode terminal
+visualization of the same circuit template.
+
+# Example
+```julia
+using QuantumCircuitsMPS, Luxor
+
+circuit = Circuit(L=4, bc=:periodic) do c
+    apply!(c, Reset(), StaircaseRight(1))
+end
+plot_circuit(circuit; gates_spacetime=42, filename="diagram.svg")
+```
+"""
+function plot_circuit(circuit::Circuit; n_steps::Int = 1, gates_spacetime::Int = 0,
+        filename::Union{String, Nothing} = nothing)
+    Base.invokelatest(_plot_circuit_impl, circuit; n_steps = n_steps,
+        gates_spacetime = gates_spacetime, filename = filename)
 end
 export plot_circuit
 
-# === INTERNAL EXPORTS (for CT.jl parity/debugging) ===
-# These are exported for testing/verification but not public API
-export advance!, get_sites, current_position, reset!  # Geometry internals
-export compute_site_staircase_right, compute_site_staircase_left, compute_pair_staircase  # Pure geometry computation
-export apply_op_internal!                      # Apply internals  
-export born_probability                       # Observable internals
-export compute_basis_mapping, physical_to_ram, ram_to_physical # Basis internals
+# NOTE (v0.4.0): the former "INTERNAL EXPORTS (for CT.jl parity/debugging)"
+# block was removed — these remain available via qualified access
+# (e.g. `QuantumCircuitsMPS.advance!`), but are NOT public API:
+#   advance!, get_sites, current_position, reset!          (Geometry internals)
+#   compute_site_staircase_right, compute_site_staircase_left,
+#   compute_pair_staircase                                 (pure geometry computation)
+#   apply_op_internal!                                     (apply internals)
+#   compute_basis_mapping, physical_to_ram, ram_to_physical (basis internals)
+# born_probability was promoted to the public Observables exports above.
 
 end # module

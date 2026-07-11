@@ -10,7 +10,27 @@ Provides abstractions for:
 """
 
 """
-Abstract base type for all geometry specifications.
+    AbstractGeometry
+
+Abstract base type for all geometry specifications — the "where" of a gate
+application (`apply!(state, gate, geometry)`).
+
+Geometries fall into two families, reported by the `is_broadcast(geo)` trait:
+
+- **Broadcast** ("distribution") geometries expand to `K ≥ 1` independent
+  elements, each receiving its own gate application (and, inside
+  `apply_with_prob!`, its own coin): `AllSites`, `Bricklayer`, `EachSite`.
+- **Set** ("region") geometries denote ONE region of sites, a single
+  element: `SingleSite`, `AdjacentPair`, `Sites`, `StaircaseLeft`/
+  `StaircaseRight`, `Pointer`.
+
+The canonical enumeration for either family is
+`elements(geo, L, bc) -> Vector{Vector{Int}}` (physical site indices).
+Dynamic geometries (staircases, `Pointer`) are MUTABLE — staircases advance
+after each application, `Pointer` moves only via `move!`.
+
+Geometries always speak PHYSICAL site indices; backends translate to their
+internal (RAM) indexing via `state.phy_ram`.
 """
 abstract type AbstractGeometry end
 

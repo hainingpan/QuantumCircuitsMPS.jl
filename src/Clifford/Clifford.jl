@@ -134,8 +134,8 @@ end
 
 Sample a random n-qubit Clifford operator from the `:gates_realization` RNG
 stream via `QuantumClifford.random_clifford(rng, gate.n)`, then apply it
-NATIVELY to the stabilizer tableau (via `QuantumClifford.apply!(tableau, op,
-qubit_indices)`) — no dense-matrix conversion (no `QuantumOpticsBase`
+NATIVELY to the stabilizer tableau (via `QuantumClifford.apply!(tableau,
+qubit_indices, op)`) — no dense-matrix conversion (no `QuantumOpticsBase`
 involvement), unlike the MPS/state-vector backends' `gate_matrix` path.
 """
 function _apply_single!(state::SimulationState{CliffordBackend}, gate::RandomClifford, phy_sites::Vector{Int})
@@ -145,7 +145,7 @@ function _apply_single!(state::SimulationState{CliffordBackend}, gate::RandomCli
     ram_sites = [state.phy_ram[ps] for ps in phy_sites]
     rng = get_rng(state.rng_registry, :gates_realization)
     op = QuantumClifford.random_clifford(rng, gate.n)
-    QuantumClifford.apply!(state.backend.tableau, op, reverse(ram_sites))
+    QuantumClifford.apply!(state.backend.tableau, reverse(ram_sites), op)
     return nothing
 end
 
