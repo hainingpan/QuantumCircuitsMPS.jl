@@ -97,7 +97,15 @@ removes one redundant gate and tightens the public export surface.
 - `Bricklayer(:even)` at odd system size `L` under periodic boundary
   conditions no longer double-touches site `L` within a single brickwork
   layer (it now leaves site 1 unpaired, mirroring `:odd`'s existing
-  behavior of leaving site `L` unpaired).
+  behavior of leaving site `L` unpaired). In addition, using
+  `Bricklayer(:odd)`/`Bricklayer(:even)` with odd `L` under `bc=:periodic`
+  now emits a one-time warning (at circuit-build time and on immediate-mode
+  `apply!`): an odd ring has no valid brickwork tiling — each layer leaves
+  one site unpaired (`:odd` → site `L`, `:even` → site 1) and the wrap bond
+  `(L,1)` is gated by neither layer, so an alternating `:odd`/`:even`
+  circuit is effectively open across that bond. Enumeration is unchanged;
+  `:nn` and the NNN sublayers do not warn. Verify intended patterns with
+  `print_circuit`.
 - `SpinSectorProjection` gained a `gate_matrix` method, so it now works on
   the state-vector backend (previously `MethodError: no method matching
   gate_matrix(::SpinSectorProjection)` — the AKLT Quick Start could not run

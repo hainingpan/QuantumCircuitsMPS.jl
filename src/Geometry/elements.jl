@@ -115,7 +115,10 @@ order (API contract — RNG coin consumption follows this order):
   for PBC at even `L`; `:nn` = `:odd` then `:even` plus the `(L,1)` wrap
   bond; `:nnn` = sublayers 1,2,3,4). At odd `L`, single layers (`:odd`,
   `:even`) leave one site unpaired rather than double-touching a site —
-  see the parity branches below.
+  see the parity branches below. Using `:odd`/`:even` at odd `L` under PBC
+  emits a one-time warning at circuit-build / `apply!` time (helper
+  `_warn_bricklayer_odd_pbc` in `Geometry/static.jl` — deliberately NOT
+  called here: `elements` sits in performance-critical loops).
 
 Set geometries return a single element `[[sites...]]`:
 - `SingleSite(i)` → `[[i]]`

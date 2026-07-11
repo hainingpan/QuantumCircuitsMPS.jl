@@ -43,6 +43,11 @@ Record a deterministic gate operation in the circuit builder.
 
 Stores operation as: `(type=:deterministic, gate=gate, geometry=geometry)`
 
+A `Bricklayer(:odd)`/`Bricklayer(:even)` geometry with odd `L` under
+`bc=:periodic` emits a one-time warning at this recording step (no valid
+brickwork tiling exists — see `_warn_bricklayer_odd_pbc`); the operation is
+still recorded unchanged.
+
 # Example
 ```julia
 Circuit(L=4, bc=:periodic) do c
@@ -52,6 +57,8 @@ end
 ```
 """
 function apply!(builder::CircuitBuilder, gate, geometry)
+    geometry isa Bricklayer &&
+        _warn_bricklayer_odd_pbc(geometry, builder.L, builder.bc)
     push!(builder.operations, (type = :deterministic, gate = gate, geometry = geometry))
     return nothing
 end
@@ -149,6 +156,13 @@ function apply_with_prob!(
             "(CIPT physics requires the walk to advance every step). Either make the " *
             "probabilities sum to 1 (e.g. add an explicit identity-like outcome) or use " *
             "a non-walking geometry."))
+    end
+
+    # Odd-L PBC brickwork layers have no valid tiling — warn (once per
+    # parity/L combination), mirroring the deterministic apply! path.
+    for o in outcomes
+        o.geometry isa Bricklayer &&
+            _warn_bricklayer_odd_pbc(o.geometry, builder.L, builder.bc)
     end
 
     # Record stochastic operation

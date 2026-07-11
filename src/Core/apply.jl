@@ -53,6 +53,10 @@ function _apply_dispatch!(state::SimulationState, gate::AbstractGate, geo::Abstr
 end
 
 function _apply_dispatch!(state::SimulationState, gate::AbstractGate, geo::Bricklayer)
+    # Odd-L PBC single layers have no valid brickwork tiling — warn once per
+    # parity/L combination (maxlog=1 inside the helper protects manual
+    # apply! step-loops from warning spam).
+    _warn_bricklayer_odd_pbc(geo, state.L, state.bc)
     pairs = get_pairs(geo, state)
     for (p1, p2) in pairs
         execute!(state, gate, [p1, p2])
