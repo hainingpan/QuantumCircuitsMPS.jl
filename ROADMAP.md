@@ -5,22 +5,6 @@ items are ordered roughly by how well-scoped they are, not by priority. If
 you're interested in tackling one, open an issue first so the design can be
 discussed (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
-## Resolved design questions
-
-### Clifford backend's Born-draw-count contract (resolved in v0.4.0)
-
-The Clifford backend historically consumed a `:born_measurement` draw only
-for genuinely undetermined outcomes (zero draws when the tableau fixed the
-outcome), so `:born_measurement` stream positions drifted vs. MPS/SV after
-the first deterministic measurement and "same seed ⇒ same trajectory" was
-false across backends. **Resolution: Clifford now always consumes exactly
-one draw per measured site, discarding the (redundant) value when the
-outcome is deterministic** — restoring absolute cross-backend seed
-reproducibility, at the one-time cost of breaking pre-v0.4.0 seeded
-Clifford trajectories. See the
-[Clifford backend docs](docs/src/backends/clifford.md) ("Cross-Backend RNG
-Reproducibility") and CHANGELOG 0.4.0.
-
 ## Feature ideas
 
 ### Higher-dimensional (2D+) circuits
@@ -78,9 +62,7 @@ qubit-only by design, so it isn't planned the same way.
 ### Entanglement negativity
 
 Not implemented in v0.4.0. Would require the partial transpose of the
-two-block reduced density matrix plus its trace norm. The MPS/state-vector
-subset-RDM machinery added for `MutualInformation` (`_mps_subset_rdm_probs`
-/ `_sv_subset_probs`) is the natural starting point; Clifford-state
+two-block reduced density matrix plus its trace norm. The subset-RDM machinery added for `MutualInformation` is the natural starting point; Clifford-state
 negativity is also known to be poly-time computable via the bipartite
 stabilizer group structure, so all three backends are plausible.
 
@@ -105,10 +87,7 @@ reconstruction.
 ### Named RNG streams for stochastic operations
 
 The unified stochastic engine (`apply_with_prob!`) always draws its
-per-element coin from the single `:gates_spacetime` stream — this was
-explicitly audited in v0.4.0 (`src/Core/rng.jl`) and confirmed to have no
-discrepancies against its documented contract, but the stream name itself is
-hardcoded. Allowing independently named streams per stochastic operation
+per-element coin from the single `:gates_spacetime` stream — confirmed to match its documented contract, but the stream name itself is hardcoded. Allowing independently named streams per stochastic operation
 would let correlated and uncorrelated randomness be composed more flexibly
 (e.g. two independent measurement processes in the same circuit that
 shouldn't share a coin sequence) — deferred until a concrete research use
@@ -121,27 +100,6 @@ The test suite currently uses plain `@testset`/`include` composition in
 [TestItemRunner.jl](https://github.com/julia-vscode/TestItemRunner.jl) would
 enable parallel test execution and per-test-item IDE integration (VS Code
 Julia extension test explorer), at the cost of restructuring every test file
-into `@testitem` blocks. Given the suite's current size (~7000 assertions),
-this is a mechanical but nontrivial migration best done as its own
+into `@testitem` blocks. Given the suite's current size, this
+is a mechanical but nontrivial migration best done as its own
 dedicated pass, not incrementally.
-
-## Smaller, more contained follow-ups
-
-These are lower-effort items noted during the v0.4.0 audit that didn't meet
-the bar for that release's scope:
-
-- **`Pointer` geometry inside `simulate!`**: `apply!(state, gate, pointer)`
-  works in eager mode, but `Pointer` has no `compute_sites` method for the
-  step-driven `Circuit`/`simulate!` path, so it throws `MethodError` if used
-  inside a circuit builder. Either implement the missing method or document
-  the restriction more prominently.
-- **Non-contiguous individual regions for `MutualInformation`**: currently
-  each of the two regions must be a single contiguous unit range (only the
-  two regions' mutual disjointness is unconstrained). The underlying
-  subset-entropy machinery on all three backends already handles arbitrary
-  (non-contiguous) subsets — lifting the constructor restriction is a
-  validation/documentation change, not new physics.
-- **QuantumClifford deprecation warning**: `src/Clifford/Clifford.jl` still
-  calls the deprecated `apply!(stab, op, indices)` argument order (should be
-  `apply!(stab, indices, op)`); harmless today, trivial to fix, deferred to
-  avoid touching Clifford source concurrently with the v0.4.0 audit work.
