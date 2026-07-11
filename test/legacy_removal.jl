@@ -1,5 +1,6 @@
 # === Task 14: legacy API removal — migration stubs + export surface ===
-# Contract under test: docs/api_surface_v0.1.md (KEEP + ADD + REMOVE tables).
+# Contract under test: the v0.1 API-surface manifest (KEEP + ADD + REMOVE
+# tables), maintained inline as the `keep`/`add` arrays below.
 # Removed entry points must NOT vanish silently (UndefVarError) — each remains
 # defined in the module as an unexported stub throwing a migration error.
 
@@ -7,7 +8,7 @@ using Test
 using QuantumCircuitsMPS
 
 @testset "Legacy API removal (v0.1.0, Task 14)" begin
-    @testset "EXPORTS: surface == manifest KEEP + ADD (docs/api_surface_v0.1.md)" begin
+    @testset "EXPORTS: surface == manifest KEEP + ADD" begin
         # KEEP table (v0.4.0 surface: CT.jl-parity internal exports removed,
         # Measurement removed, born_probability kept as public)
         keep = [

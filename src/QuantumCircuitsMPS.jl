@@ -117,7 +117,7 @@ export SimulationState, initialize!, ProductState, RandomMPS, RandomStateVector
 export events, measurements
 # RNG
 export RNGRegistry, get_rng
-export expected_draws  # v0.1 fixed-draw contract (see docs/api_surface_v0.1.md ADD table)
+export expected_draws  # v0.1 fixed-draw contract
 # NOTE: draw, with_guarded_stream, SentinelRNG, is_aliased are internal —
 # use qualified (QuantumCircuitsMPS.draw, ...). The type-pirating
 # Base.rand(state, stream) extension was removed in v0.1 (use draw).
@@ -144,7 +144,7 @@ export track!, record!, list_observables
 # API — legacy entry points (simulate, simulate_circuits, run_circuit!,
 # CircuitSimulation, with_state, current_state, record_every, record_at_circuits,
 # record_always, get_state, get_observables, circuits_run) were REMOVED in v0.1.0;
-# unexported migration stubs remain in src/API/ (docs/api_surface_v0.1.md REMOVE table).
+# unexported migration stubs remain in src/API/.
 export apply!, apply_with_prob!
 # Circuit (lazy mode API)
 export Circuit, expand_circuit, expand_circuit_grouped, simulate!, ExpandedOp

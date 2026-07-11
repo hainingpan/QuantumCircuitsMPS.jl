@@ -98,7 +98,7 @@ struct SpinSectorMeasurement <: AbstractGate
 
     function SpinSectorMeasurement(sectors::Vector{Int} = [0, 1, 2]; feedback = nothing)
         # feedback= is NOT supported for SpinSectorMeasurement in v0.1
-        # (deferred to v0.2 — see docs/api_surface_v0.1.md). Erroring here is
+        # (deferred to a later release). Erroring here is
         # deliberate: silently ignoring it would be an implicit behavior trap.
         feedback === nothing || throw(ArgumentError(
             "SpinSectorMeasurement does not support feedback= in v0.1 " *
