@@ -115,6 +115,19 @@ removes one redundant gate and tightens the public export surface.
 
 ### Changed / BREAKING
 
+- **BREAKING — Clifford Born-draw contract (redundant draw)**: the Clifford
+  backend's measurement primitive now consumes exactly ONE `:born_measurement`
+  draw per measured site — always — matching MPS/state-vector. When the
+  stabilizer tableau fixes the outcome (deterministic measurement), the draw
+  is made anyway and its value is **discarded** (a deliberate *redundant
+  draw*). This restores absolute cross-backend reproducibility: same
+  `RNGRegistry` seeds now produce the same measurement record on all three
+  backends. **Migration impact**: seeded Clifford trajectories generated
+  with earlier versions (which consumed zero draws for deterministic
+  outcomes) are NOT reproducible under the new contract — a one-time break.
+  MPS/state-vector trajectories are completely unaffected. Deterministic
+  outcomes themselves are unchanged (still read off the tableau); only the
+  RNG stream position differs.
 - **BREAKING — removed**: the `Measurement` gate. Use `Measure(:Z)` instead
   (drop-in replacement: same Born sampling, same one-draw-per-measurement
   contract, same `"Meas"` circuit label, bit-identical trajectories under the

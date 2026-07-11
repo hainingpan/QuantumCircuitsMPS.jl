@@ -14,7 +14,7 @@
 
 **"PyTorch for Quantum Circuits"** — a pure Julia library for simulating quantum circuits with three interchangeable backends: Matrix Product States (MPS, via ITensors.jl, `L=100+`), an exact dense state vector (`L≲25`, for cross-validation), and a stabilizer tableau (Clifford-only gates, `L=100-1000+`). It's purpose-built for researchers studying Measurement-Induced (MIPT) and Control-Induced (CIPT) Phase Transitions in monitored quantum circuits, where feedback, measurements, and unitary dynamics compete to create distinct entanglement phases.
 
-Physicists write `apply!(state, HaarRandom(), Bricklayer(:odd))` and never see ITensor index objects, SVD calls, or tensor contractions — the package manages the gap between physics intent (Gates + Geometry) and low-level backend details. Independent, named RNG streams (`:gates_spacetime`, `:gates_realization`, `:born_measurement`, `:state_init`) give every trajectory reproducibility on a given backend.
+Physicists write `apply!(state, HaarRandom(), Bricklayer(:odd))` and never see ITensor index objects, SVD calls, or tensor contractions — the package manages the gap between physics intent (Gates + Geometry) and low-level backend details. Independent, named RNG streams (`:gates_spacetime`, `:gates_realization`, `:born_measurement`, `:state_init`) make every trajectory reproducible from its seeds — on a backend *and across backends*: the same seeds produce the same measurement record on MPS, state vector, and Clifford alike (every measurement consumes exactly one Born draw, deterministic or not).
 
 ---
 ## Comparison with Existing Julia Quantum Libraries

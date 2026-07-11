@@ -5,37 +5,21 @@ items are ordered roughly by how well-scoped they are, not by priority. If
 you're interested in tackling one, open an issue first so the design can be
 discussed (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
-## Open design question (needs resolution before further RNG work)
+## Resolved design questions
 
-### Clifford backend's Born-draw-count contract
+### Clifford backend's Born-draw-count contract (resolved in v0.4.0)
 
-On the MPS/state-vector backends, every measurement consumes exactly one
-`:born_measurement` RNG draw, even when the outcome is deterministic. The
-Clifford backend only draws when the outcome is genuinely undetermined (zero
-draws for deterministic measurements) — this is documented, intentional
-behavior for the stabilizer formalism, not a bug. The consequence is that
-`:born_measurement` stream positions drift between Clifford and MPS/SV after
-the first deterministic measurement in a trajectory, so "same seed" no
-longer implies "same trajectory" across backends past that point (entropy
-trajectories still agree exactly, since they're Pauli-frame invariant, which
-is why this went uncaught for a while).
-
-Three options were identified and none was picked during the v0.4.0 audit,
-because each has a real cost:
-
-- **Force Clifford to always draw** one `:born_measurement` value per
-  measurement (discarding it when deterministic) — restores cross-backend
-  lockstep, but changes every existing seeded Clifford trajectory (a
-  golden/regression-breaking change).
-- **Keep the current divergence**, document it loudly — no behavior change,
-  but "same seed ⇒ same trajectory" stays permanently false across backends
-  once any deterministic measurement occurs.
-- **Draw-per-measurement from a separate discard stream** — preserves
-  Clifford's historical trajectories but doesn't fix cross-backend parity
-  either; strictly worse than the other two for the stated goal.
-
-This needs a deliberate decision (and, if Option A is chosen, a version bump
-with a migration note), not a silent pick.
+The Clifford backend historically consumed a `:born_measurement` draw only
+for genuinely undetermined outcomes (zero draws when the tableau fixed the
+outcome), so `:born_measurement` stream positions drifted vs. MPS/SV after
+the first deterministic measurement and "same seed ⇒ same trajectory" was
+false across backends. **Resolution: Clifford now always consumes exactly
+one draw per measured site, discarding the (redundant) value when the
+outcome is deterministic** — restoring absolute cross-backend seed
+reproducibility, at the one-time cost of breaking pre-v0.4.0 seeded
+Clifford trajectories. See the
+[Clifford backend docs](docs/src/backends/clifford.md) ("Cross-Backend RNG
+Reproducibility") and CHANGELOG 0.4.0.
 
 ## Feature ideas
 

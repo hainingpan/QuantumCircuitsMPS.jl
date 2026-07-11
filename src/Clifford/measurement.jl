@@ -45,40 +45,55 @@ end
 
 Override the default (Projection-based) `_measure_single_site!` for the
 Clifford backend. Uses `QuantumClifford.projectZ!` to measure site `site`
-in the Z basis, mutating `state.backend.tableau` in place:
+in the Z basis, mutating `state.backend.tableau` in place.
 
-- Deterministic case (`anticom_index == 0`): outcome is read directly off
-  the returned phase byte; NO randomness is consumed.
+**Draw contract (REDUNDANT-DRAW, cross-backend lockstep):** exactly ONE
+scalar `:born_measurement` draw is consumed per measured site — always,
+unconditionally — matching the generic MPS/SV `_measure_single_site!`
+(Core/apply.jl) draw-for-draw:
+
+- Deterministic case (`anticom_index == 0`): the outcome is read directly
+  off the returned phase byte. The draw is REDUNDANT here (the stabilizer
+  formalism already fixes the outcome) and its value is DISCARDED — it is
+  consumed purely to keep the `:born_measurement` stream position identical
+  to the MPS/SV backends, where the (equally ignored) draw is structurally
+  unavoidable.
 - Undetermined case (`anticom_index > 0`): the outcome is genuinely random
-  (50/50), drawn from the `:born_measurement` RNG stream, and the phase of
-  the anticommuting stabilizer row is set accordingly.
+  (50/50) and uses the same draw via the shared `rand(rng) < p₀ ? 0 : 1`
+  threshold convention (`p₀ = 0.5` exactly for a stabilizer state); the
+  phase of the anticommuting stabilizer row is set accordingly.
 
-!!! note "DECISION NEEDED — cross-backend Born-draw-count contract"
-    The MPS/SV core `_measure_single_site!` (Core/apply.jl) ALWAYS consumes
-    exactly one `:born_measurement` draw per measured site, even when the
-    outcome is deterministic; this override consumes ZERO draws for
-    deterministic outcomes. Consequence: after the first deterministic
-    measurement, the `:born_measurement` stream positions drift and Clifford
-    trajectories diverge from MPS/SV under the "same seed" (audit T7 + T11;
-    entropy trajectories still agree — Pauli-frame invariant). Whether
-    Clifford should burn a draw for deterministic outcomes to restore
-    cross-backend lockstep (at the cost of changing all existing seeded
-    Clifford trajectories) is an open design question — see the
-    `DECISION NEEDED: Clifford Born-draw-count contract` block in
-    `.sisyphus/notepads/v04-findings.md` (T17). Do NOT change this
-    consumption pattern without resolving that decision.
+This deliberate redundant draw is what guarantees ABSOLUTE cross-backend
+reproducibility: same seeds ⇒ same measurement record on MPS, state-vector,
+and Clifford alike (audit T7 + T11, `test/audit/cross_backend.jl` (b),
+`test/audit/born_measurement.jl` (e)).
+
+!!! note "History"
+    Before v0.4.0's release audit, this override consumed ZERO draws for
+    deterministic outcomes, so Clifford trajectories diverged from MPS/SV
+    under the same seed after the first deterministic measurement
+    (entropies still agreed — Pauli-frame invariant). The contract was
+    resolved to "always draw, discard if deterministic"; seeded Clifford
+    trajectories produced by earlier versions are NOT reproducible under
+    the new contract (one-time break, see CHANGELOG 0.4.0).
 
 Logs a `MeasurementOutcome` event exactly like the default implementation
 (Core/apply.jl) does, and returns the outcome (0 or 1).
 """
 function _measure_single_site!(state::SimulationState{CliffordBackend}, site::Int)
     ram_site = state.phy_ram[site]
+    # REDUNDANT-DRAW CONTRACT: draw BEFORE the determinism check, exactly one
+    # scalar per measured site (mirrors Core/apply.jl line-for-line), so the
+    # :born_measurement stream advances identically on all three backends.
+    born_measurement_rng = get_rng(state.rng_registry, :born_measurement)
+    r = rand(born_measurement_rng)
     _, anticom_index, result = QuantumClifford.projectZ!(state.backend.tableau, ram_site)
     outcome = if anticom_index == 0
+        # Deterministic: outcome fixed by the tableau; `r` is discarded on
+        # purpose (see docstring — cross-backend stream-position lockstep).
         result == 0x00 ? 0 : 1
     else
-        born_measurement_rng = get_rng(state.rng_registry, :born_measurement)
-        o = rand(born_measurement_rng) < 0.5 ? 0 : 1
+        o = r < 0.5 ? 0 : 1
         QuantumClifford.phases(QuantumClifford.stabilizerview(state.backend.tableau))[anticom_index] = (o ==
                                                                                                         0 ?
                                                                                                         0x00 :

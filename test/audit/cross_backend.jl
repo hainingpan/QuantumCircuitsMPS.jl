@@ -19,11 +19,13 @@
 #   (e) same-seed determinism: identical reruns are bitwise identical
 #
 # ── AUDIT VERDICT SUMMARY (2026-07-07, Julia 1.12.6) ────────────────────────
-# 1. MPS-vs-SV parity is TOLERANCE-LEVEL, NOT bitwise: same seeds produce the
-#    same measurement outcomes and the same trajectory branch, but observables
-#    differ at float-roundoff level (max |Δ| ≈ 3e-15; different contraction
-#    orders). The README's "bit-identical trajectories" claim is therefore
-#    REFUTED in the strict bitwise sense — encoded below as @test_broken.
+# 1. MPS-vs-SV parity contract: same seeds ⇒ same measurement outcomes and
+#    same trajectory branch (exact integer equality, asserted in (b));
+#    observable VALUES agree to float roundoff only (measured max |Δ| ≈ 3e-15
+#    — different contraction orders round differently), so the value contract
+#    is the tolerance assertion ≤ 1e-10. Bitwise `==` of cross-backend
+#    Float64 observables is a non-goal and is deliberately NOT asserted
+#    (the old README's "bit-identical" claim was corrected in T31).
 #    (Same-BACKEND same-seed reruns ARE bitwise identical — scenario (e).)
 # 2. FINDING (FIXED in T17): SpinSectorProjection was BROKEN on the SV
 #    backend — `gate_matrix(::SpinSectorProjection)` had no method, so the SV
@@ -31,15 +33,17 @@
 #    MethodError. T17 added the method (src/Gates/spin_measurement.jl); the
 #    S=1 MPS-vs-SV cross-check below additionally validates the equivalent
 #    MatrixGate(P01) + renormalize route against MPS.
-# 3. FINDING: the Clifford backend VIOLATES the one-Born-draw-per-measurement
-#    contract (src/Core/apply.jl:105-106): Core `_measure_single_site!`
-#    always consumes exactly one `:born_measurement` draw, while the Clifford
-#    override (src/Clifford/measurement.jl:59-72) consumes a draw ONLY for
-#    undetermined outcomes. After the first deterministic measurement the
-#    stream positions diverge, so subsequent random outcomes differ from
-#    MPS/SV under the same seed. Entropy trajectories still agree exactly
-#    (Pauli-frame invariant), but outcome sequences and Mz trajectories do
-#    not. Encoded as @test_broken.
+# 3. FINDING (RESOLVED, v0.4.0 release audit): the Clifford backend used to
+#    violate the one-Born-draw-per-measurement contract (its override drew
+#    ONLY for undetermined outcomes; src/Core/apply.jl always draws), so
+#    stream positions diverged after the first deterministic measurement.
+#    RESOLUTION: the Clifford override (src/Clifford/measurement.jl) now
+#    makes a REDUNDANT draw for deterministic outcomes (value discarded,
+#    stream advanced) — "same seed ⇒ same trajectory" holds across all three
+#    backends. The former @test_broken pins below are now hard @test guards
+#    of that cross-backend lockstep. (Historical pre-v0.4.0 seeded Clifford
+#    trajectories are NOT reproducible under the new contract — one-time
+#    break, CHANGELOG 0.4.0.)
 # ─────────────────────────────────────────────────────────────────────────────
 
 using Test
@@ -136,14 +140,11 @@ end
         @test maximum(S_mps) > 0.01
         @test maximum(S_sv) > 0.01
 
-        # FINDING (README claim REFUTED): parity is NOT bitwise — observables
-        # differ at float-roundoff level (~3e-15) from differing contraction
-        # orders, even though the trajectory branch (measurement outcomes) is
-        # identical. README's "bit-identical trajectories across backends"
-        # wording must be corrected in T31. Do NOT "fix" this by weakening —
-        # if these ever become bitwise-equal, flip @test_broken → @test.
-        @test_broken S_mps == S_sv
-        @test_broken Mz_mps == Mz_sv
+        # NOTE: bitwise Float64 equality across backends is intentionally NOT
+        # asserted — different contraction orders round differently (~3e-15),
+        # so `S_mps == S_sv` would be an untestable non-goal. The contract is
+        # the pair of assertions above: identical trajectory branch, values
+        # within 1e-10. Outcome-record equality is asserted exactly in (b).
     end
 
     # ═══════════════════════════════════════════════════════════════════════
@@ -157,10 +158,10 @@ end
         S_mps, S_sv, S_cl = (st.observables[:S] for st in (st_mps, st_sv, st_cl))
         Mz_mps, Mz_sv, Mz_cl = (st.observables[:Mz] for st in (st_mps, st_sv, st_cl))
 
-        # Entropy trajectories agree across ALL THREE backends. For stabilizer
-        # circuits entanglement is invariant under the Pauli-frame difference
-        # induced by divergent measurement outcomes (see finding below), so
-        # this holds exactly even though outcome sequences diverge.
+        # Entropy trajectories agree across ALL THREE backends. (For
+        # stabilizer circuits entanglement is Pauli-frame invariant, so this
+        # held exactly even under the historical pre-v0.4.0 draw-count
+        # divergence — outcome sequences now match too, see below.)
         @test maximum(abs.(S_mps .- S_sv)) ≤ 1e-10
         @test maximum(abs.(S_mps .- S_cl)) ≤ 1e-10
         @test maximum(abs.(S_sv .- S_cl)) ≤ 1e-10
@@ -180,21 +181,18 @@ end
         @test [m.sites for m in m_mps] == [m.sites for m in m_sv] ==
               [m.sites for m in m_cl]
 
-        # FINDING: Clifford violates the one-Born-draw-per-measurement
-        # contract (src/Core/apply.jl:105-106 always draws; the Clifford
-        # override src/Clifford/measurement.jl:59-72 draws ONLY when the
-        # outcome is undetermined). After the first deterministic measurement
-        # the `:born_measurement` stream positions drift, so random outcomes
-        # diverge from MPS/SV under the same seed (with these pinned seeds:
-        # measurements #6, #8, #9 flip), and the Mz trajectory differs by
-        # O(1/L) at intermediate steps. Final Born probabilities happen to
-        # re-converge for these seeds; that is NOT guaranteed in general.
-        # T17: deliberately NOT fixed — genuine design question; see the
-        # "DECISION NEEDED: Clifford Born-draw-count contract" block in
-        # .sisyphus/notepads/v04-findings.md and the note in
-        # src/Clifford/measurement.jl. These stay @test_broken until decided.
-        @test_broken [m.outcome for m in m_mps] == [m.outcome for m in m_cl]
-        @test_broken maximum(abs.(Mz_mps .- Mz_cl)) ≤ 1e-10
+        # RESOLVED (v0.4.0 release audit): Clifford now honors the
+        # one-Born-draw-per-measurement contract via a REDUNDANT draw for
+        # deterministic outcomes (value discarded, stream advanced —
+        # src/Clifford/measurement.jl). The `:born_measurement` stream
+        # position is therefore in lockstep across all three backends, and
+        # the outcome sequence + Mz trajectory match MPS/SV exactly under
+        # the same seed. These were @test_broken while the contract was an
+        # open design question ("DECISION NEEDED" in
+        # .sisyphus/notepads/v04-findings.md); with these pinned seeds the
+        # old behavior flipped measurements #6, #8, #9. Now hard guards.
+        @test [m.outcome for m in m_mps] == [m.outcome for m in m_cl]
+        @test maximum(abs.(Mz_mps .- Mz_cl)) ≤ 1e-10
     end
 
     # ═══════════════════════════════════════════════════════════════════════
@@ -303,8 +301,7 @@ end
         @test maximum(abs.(Mz_mps .- Mz_sv)) ≤ 1e-10
         # Non-trivial trajectory guard: Reset/Haar competition moved Mz
         @test maximum(abs.(Mz_mps)) > 0.01
-        # FINDING (same as (a)): tolerance-level, not bitwise
-        @test_broken Mz_mps == Mz_sv
+        # (Bitwise Float64 equality not asserted — see note in (a).)
     end
 
     # ═══════════════════════════════════════════════════════════════════════

@@ -30,8 +30,9 @@
 #   This is documented intended behavior of the MPS implementation, but it makes
 #   `EntanglementEntropy(cut=k)` mean DIFFERENT physical bipartitions across
 #   backends for PBC + k ≠ L÷2 — recorded as an audit finding (see
-#   .sisyphus/notepads/v04-findings.md, "T6 Entanglement") and encoded as
-#   @test_broken cross-backend equality below. Relevant for T38 (EntropyProfile).
+#   .sisyphus/notepads/v04-findings.md, "T6 Entanglement"); each backend's
+#   value is pinned EXACTLY in testset (f) below (cross-backend equality is
+#   intentionally not asserted there). Relevant for T38 (EntropyProfile).
 
 using Test
 using QuantumCircuitsMPS
@@ -235,8 +236,10 @@ end
         @test S_mps ≈ 1.0 atol=1e-8            # folded RAM {1,2} = physical {2,3}
 
         # The naive cross-backend expectation "same cut ⇒ same physical
-        # bipartition" does NOT hold under PBC for cut ≠ L÷2:
-        @test_broken S_mps ≈ S_sv atol=1e-8
+        # bipartition" does NOT hold under PBC for cut ≠ L÷2. The exact
+        # per-backend pins above (S_sv = S_cl = 0, S_mps = 1) ARE the
+        # documented contract; asserting S_mps ≈ S_sv here would be wrong
+        # by design, so no cross-backend equality is tested at this cut.
 
         # Fold-aligned half-cut agrees even for this state (region {1,2,3,4}
         # contains the full Bell pair on every backend → S = 0):
