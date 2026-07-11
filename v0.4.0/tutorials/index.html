@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Tutorials · QuantumCircuitsMPS.jl</title><meta name="title" content="Tutorials · QuantumCircuitsMPS.jl"/><meta property="og:title" content="Tutorials · QuantumCircuitsMPS.jl"/><meta property="twitter:title" content="Tutorials · QuantumCircuitsMPS.jl"/><meta name="description" content="Documentation for QuantumCircuitsMPS.jl."/><meta property="og:description" content="Documentation for QuantumCircuitsMPS.jl."/><meta property="twitter:description" content="Documentation for QuantumCircuitsMPS.jl."/><meta property="og:url" content="https://hainingpan.github.io/QuantumCircuitsMPS.jl/tutorials/"/><meta property="twitter:url" content="https://hainingpan.github.io/QuantumCircuitsMPS.jl/tutorials/"/><link rel="canonical" href="https://hainingpan.github.io/QuantumCircuitsMPS.jl/tutorials/"/><script data-outdated-warner src="../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL=".."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../assets/documenter.js"></script><script src="../search_index.js"></script><script src="../siteinfo.js"></script><script src="../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../assets/themeswap.js"></script></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../">QuantumCircuitsMPS.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../">Home</a></li><li><a class="tocitem" href="../design/">Design Philosophy</a></li><li><span class="tocitem">Backends</span><ul><li><a class="tocitem" href="../backends/mps/">MPS Backend</a></li><li><a class="tocitem" href="../backends/statevector/">State Vector Backend</a></li><li><a class="tocitem" href="../backends/clifford/">Clifford Backend</a></li></ul></li><li class="is-active"><a class="tocitem" href>Tutorials</a><ul class="internal"><li><a class="tocitem" href="#MIPT-Example:-Measurement-Induced-Phase-Transition"><span>MIPT Example: Measurement-Induced Phase Transition</span></a></li><li><a class="tocitem" href="#CIPT-Example:-Control-Induced-Phase-Transition"><span>CIPT Example: Control-Induced Phase Transition</span></a></li><li><a class="tocitem" href="#AKLT-Example:-Forced-Measurement-Protocol"><span>AKLT Example: Forced Measurement Protocol</span></a></li><li><a class="tocitem" href="#Feedback-and-Custom-Gates"><span>Feedback &amp; Custom Gates</span></a></li><li><a class="tocitem" href="#See-Also"><span>See Also</span></a></li></ul></li><li><a class="tocitem" href="../custom_observables/">Custom Observables</a></li><li><a class="tocitem" href="../api/">API Reference</a></li><li><a class="tocitem" href="../internals/">Private / Internal API</a></li><li><span class="tocitem">Developer Docs</span><ul><li><a class="tocitem" href="../devdocs/backend_interface/">Backend Interface Contract</a></li></ul></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li class="is-active"><a href>Tutorials</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Tutorials</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/hainingpan/QuantumCircuitsMPS.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/hainingpan/QuantumCircuitsMPS.jl/blob/dev/docs/src/tutorials.md" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="Tutorials"><a class="docs-heading-anchor" href="#Tutorials">Tutorials</a><a id="Tutorials-1"></a><a class="docs-heading-anchor-permalink" href="#Tutorials" title="Permalink"></a></h1><p>Four Jupyter notebooks in <a href="https://github.com/hainingpan/QuantumCircuitsMPS.jl/tree/dev/examples"><code>examples/</code></a> walk through full research workflows end-to-end, re-executed top-to-bottom against the v0.4.0 API:</p><table><tr><th style="text-align: right">Notebook</th><th style="text-align: right">Topic</th></tr><tr><td style="text-align: right"><a href="https://github.com/hainingpan/QuantumCircuitsMPS.jl/blob/dev/examples/mipt_example.ipynb"><code>mipt_example.ipynb</code></a></td><td style="text-align: right">Measurement-Induced Phase Transition: entanglement entropy vs. measurement rate <code>p</code>, full sweep</td></tr><tr><td style="text-align: right"><a href="https://github.com/hainingpan/QuantumCircuitsMPS.jl/blob/dev/examples/cipt_example.ipynb"><code>cipt_example.ipynb</code></a></td><td style="text-align: right">Control-Induced Phase Transition: staircase Reset/Haar competition, writes <code>cipt_Mz_data.csv</code></td></tr><tr><td style="text-align: right"><a href="https://github.com/hainingpan/QuantumCircuitsMPS.jl/blob/dev/examples/cipt_fss.ipynb"><code>cipt_fss.ipynb</code></a></td><td style="text-align: right">Finite-size scaling analysis of the CIPT transition (Python notebook — pandas + <code>fss</code>, consumes the CSV from <code>cipt_example.ipynb</code>)</td></tr><tr><td style="text-align: right"><a href="https://github.com/hainingpan/QuantumCircuitsMPS.jl/blob/dev/examples/AKLT_forcedmeas.ipynb"><code>AKLT_forcedmeas.ipynb</code></a></td><td style="text-align: right">AKLT ground-state preparation via forced spin-sector projection, including NNN support</td></tr></table><p>The three quick-start snippets below are the condensed, standalone versions of the Julia notebooks (<code>mipt_example</code>, <code>cipt_example</code>, <code>AKLT_forcedmeas</code>) — enough to run end-to-end in a REPL without opening Jupyter. See the <a href="../backends/statevector/#State-Vector-Backend">State Vector Backend</a> and <a href="../backends/clifford/#Clifford-Backend">Clifford Backend</a> pages for the equivalent snippets on those two backends.</p><h2 id="MIPT-Example:-Measurement-Induced-Phase-Transition"><a class="docs-heading-anchor" href="#MIPT-Example:-Measurement-Induced-Phase-Transition">MIPT Example: Measurement-Induced Phase Transition</a><a id="MIPT-Example:-Measurement-Induced-Phase-Transition-1"></a><a class="docs-heading-anchor-permalink" href="#MIPT-Example:-Measurement-Induced-Phase-Transition" title="Permalink"></a></h2><pre><code class="language-julia hljs">using QuantumCircuitsMPS
+
+# System parameters
+L = 12                  # 12 qubits
+p = 0.15               # Measurement probability (near critical point)
+n_steps = 50           # Time evolution steps
+
+# Haar random unitaries + stochastic measurements; record! marks snapshot points
+circuit = Circuit(L=L, bc=:periodic) do c
+    # Even gates → measure → odd gates → measure per timestep
+    apply!(c, HaarRandom(), Bricklayer(:even))
+    apply_with_prob!(c; outcomes=[
+        (probability=p, gate=Measure(:Z), geometry=AllSites())
+    ])
+    record!(c, :entropy)
+    apply!(c, HaarRandom(), Bricklayer(:odd))
+    apply_with_prob!(c; outcomes=[
+        (probability=p, gate=Measure(:Z), geometry=AllSites())
+    ])
+    record!(c, :entropy)
+end
+
+# Initialize state and track entanglement entropy
+state = SimulationState(
+    L=L, bc=:periodic, maxdim=64,
+    rng=RNGRegistry(gates_spacetime=42, born_measurement=1, gates_realization=2)
+)
+initialize!(state, ProductState(binary_int=0))
+track!(state, :entropy =&gt; EntanglementEntropy(; cut=L÷2))
+
+# record_when=:marks fires at each record!(c, ...) marker, twice per step
+simulate!(circuit, state; n_steps=n_steps, record_when=:marks)
+
+# Extract entropy trajectory
+entropies = state.observables[:entropy]
+println(&quot;Final entropy: $(entropies[end])&quot;)
+
+# See examples/mipt_example.ipynb for the full tutorial</code></pre><p><strong>Physics</strong>: The competition between entangling Haar gates and disentangling measurements creates a phase transition at critical measurement rate p<em>c ≈ 0.16. Below p</em>c, the system exhibits volume-law entanglement; above p_c, area-law entanglement emerges.</p><h2 id="CIPT-Example:-Control-Induced-Phase-Transition"><a class="docs-heading-anchor" href="#CIPT-Example:-Control-Induced-Phase-Transition">CIPT Example: Control-Induced Phase Transition</a><a id="CIPT-Example:-Control-Induced-Phase-Transition-1"></a><a class="docs-heading-anchor-permalink" href="#CIPT-Example:-Control-Induced-Phase-Transition" title="Permalink"></a></h2><pre><code class="language-julia hljs">using QuantumCircuitsMPS
+
+# System parameters
+L = 8                   # Number of qubits
+p_ctrl = 0.5            # Control probability (critical point p_c ≈ 0.5)
+n_steps = 2 * L^2       # Timesteps (staircase sweeps)
+
+# Build circuit: each step, a coin flip applies Reset (moving left) or Haar (moving right)
+left = StaircaseLeft(1)
+right = StaircaseRight(1)
+
+circuit = Circuit(L=L, bc=:periodic, p_ctrl=p_ctrl) do c
+    apply_with_prob!(c; outcomes=[
+        (probability=c.params[:p_ctrl], gate=Reset(), geometry=left),
+        (probability=1-c.params[:p_ctrl], gate=HaarRandom(), geometry=right)
+    ])
+end
+
+# Initialize state and track magnetization Mz = (1/L) Σᵢ ⟨Zᵢ⟩
+state = SimulationState(L=L, bc=:periodic, maxdim=64,
+    rng=RNGRegistry(gates_spacetime=42, born_measurement=1, gates_realization=2))
+initialize!(state, ProductState(binary_int=0))
+track!(state, :Mz =&gt; Magnetization(:Z))
+
+# Run simulation
+simulate!(circuit, state; n_steps=n_steps, record_when=:every_gate)
+
+mz_vals = state.observables[:Mz]
+println(&quot;Final Mz: $(mz_vals[end])&quot;)
+
+# See examples/cipt_example.ipynb for the full tutorial</code></pre><p><strong>Physics</strong>: The competition between Reset gates (which project qubits to |0⟩) and Haar random unitaries (which entangle qubits) drives a phase transition at p<em>c ≈ 0.5. In the reset-dominated phase (p</em>ctrl &gt; 0.5), the magnetization Mz → +1 as qubits are repeatedly reset to |0⟩. In the unitary-dominated phase (p_ctrl &lt; 0.5), Mz → 0 as random unitaries scramble the state. The staircase geometries sweep in opposite directions, creating the spatial competition that drives the transition.</p><p><code>Reset()</code> above is sugar: it&#39;s exactly <code>Measure(:Z; feedback=OnOutcome(1 =&gt; PauliX()))</code> (measure, then flip back to |0⟩ if the outcome was 1) — see <a href="#Feedback-and-Custom-Gates">Feedback &amp; Custom Gates</a> below for the general form, which lets you swap the flip for any gate, or for an arbitrary closure.</p><h2 id="AKLT-Example:-Forced-Measurement-Protocol"><a class="docs-heading-anchor" href="#AKLT-Example:-Forced-Measurement-Protocol">AKLT Example: Forced Measurement Protocol</a><a id="AKLT-Example:-Forced-Measurement-Protocol-1"></a><a class="docs-heading-anchor-permalink" href="#AKLT-Example:-Forced-Measurement-Protocol" title="Permalink"></a></h2><pre><code class="language-julia hljs">using QuantumCircuitsMPS
+
+# System parameters
+L = 12                    # Chain length
+bc = :periodic            # Boundary conditions
+p_nn = 1.0               # Pure NN projections (set to 0.0 for NNN)
+
+# Create spin projection gate (projects out S=2 quintet sector)
+P0, P1 = total_spin_projector(0), total_spin_projector(1)
+proj_gate = SpinSectorProjection(P0 + P1)
+
+# Build circuit: apply projections to all NN pairs
+circuit = Circuit(L=L, bc=bc) do c
+    apply_with_prob!(c; outcomes=[
+        (probability=p_nn, gate=proj_gate, geometry=Bricklayer(:nn)),
+        (probability=1-p_nn, gate=proj_gate, geometry=Bricklayer(:nnn))
+    ])
+end
+
+# Initialize state and track observables
+state = SimulationState(L=L, bc=bc, site_type=&quot;S=1&quot;, maxdim=128,
+    rng=RNGRegistry(gates_spacetime=42, gates_realization=2, born_measurement=3))
+initialize!(state, ProductState(spin_state=&quot;Z0&quot;))
+
+track!(state, :entropy =&gt; EntanglementEntropy(cut=L÷2, renyi_index=1, base=2))
+track!(state, :string_order =&gt; StringOrder(1, L÷2+1, order=1))
+
+# Run L layers of projections
+simulate!(circuit, state; n_steps=L, record_when=:every_step)
+
+# Results: NN AKLT converges to S ≈ 2.0, |SO| ≈ 0.444
+println(&quot;Entropy: $(state.observables[:entropy][end])&quot;)
+println(&quot;|String Order|: $(abs(state.observables[:string_order][end]))&quot;)
+
+# See examples/AKLT_forcedmeas.ipynb for the full tutorial with NNN support</code></pre><p><strong>Physics</strong>: The AKLT (Affleck-Kennedy-Lieb-Tasaki) state is a paradigmatic example of symmetry-protected topological order. By projecting out the S=2 quintet sector from adjacent spin-1 pairs, the protocol converges to the AKLT ground state characterized by string order parameter |O| ≈ 4/9. See <a href="../api/#Arbitrary-Spin-S-Support">Arbitrary Spin-S Support</a> for running the same protocol at higher spin.</p><h2 id="Feedback-and-Custom-Gates"><a class="docs-heading-anchor" href="#Feedback-and-Custom-Gates">Feedback &amp; Custom Gates</a><a id="Feedback-and-Custom-Gates-1"></a><a class="docs-heading-anchor-permalink" href="#Feedback-and-Custom-Gates" title="Permalink"></a></h2><p>Measurement feedback, arbitrary unitaries, and correlated layers are all first-class:</p><pre><code class="language-julia hljs">using QuantumCircuitsMPS
+
+# --- 1. Closure feedback: adaptive random-unitary response ---
+L = 6
+circuit = Circuit(L=L, bc=:open) do c
+    apply!(c, HaarRandom(), Bricklayer(:odd))
+    apply_with_prob!(c; outcomes=[
+        (probability=1.0,
+         gate=Measure(:Z; feedback=(state, sites, outcome) -&gt;
+             outcome == 1 &amp;&amp; apply!(state, HaarRandom(1), SingleSite(sites[1]))),
+         geometry=EachSite(2:L-1))
+    ])
+end
+
+state = SimulationState(L=L, bc=:open, maxdim=32,
+    rng=RNGRegistry(gates_spacetime=7, gates_realization=8, born_measurement=9, state_init=1),
+    log_events=true)
+initialize!(state, ProductState(binary_int=0))
+simulate!(circuit, state; n_steps=3)
+n_outcomes = length(QuantumCircuitsMPS.measurements(state))
+println(&quot;Feedback circuit ran 3 steps, $(n_outcomes) measurement outcomes logged&quot;)
+
+# --- 2. MatrixGate: any hand-supplied unitary as a gate ---
+state2 = SimulationState(L=2, bc=:open, maxdim=16,
+    rng=RNGRegistry(gates_spacetime=1, gates_realization=2, born_measurement=3))
+initialize!(state2, ProductState(binary_int=0))
+apply!(state2, MatrixGate([0.0 1.0; 1.0 0.0]), SingleSite(1))
+println(&quot;MatrixGate(X) flipped site 1: P(site1=1) = $(born_probability(state2, 1, 1))&quot;)
+
+# --- 3. ProductGate: ONE coin governs an entire correlated layer ---
+pg_haar = ProductGate(HaarRandom(), Bricklayer(:even))
+state3 = SimulationState(L=4, bc=:open, maxdim=16,
+    rng=RNGRegistry(gates_spacetime=1, gates_realization=2, born_measurement=3))
+initialize!(state3, ProductState(binary_int=0))
+track!(state3, :entropy =&gt; EntanglementEntropy(; cut=2))
+apply!(state3, pg_haar)  # geometry omitted — fills in Sites(union) automatically
+record!(state3)
+println(&quot;ProductGate layer applied: entropy = $(state3.observables[:entropy][end])&quot;)</code></pre><h2 id="See-Also"><a class="docs-heading-anchor" href="#See-Also">See Also</a><a id="See-Also-1"></a><a class="docs-heading-anchor-permalink" href="#See-Also" title="Permalink"></a></h2><ul><li><a href="../custom_observables/#Custom-Observables">Custom Observables</a> — the <code>track!</code>/callable-struct contract for writing your own trackers, with worked examples</li><li><a href="../design/#Design-Philosophy">Design Philosophy</a> — the Unified Stochastic Rule and Broadcast-vs-Set geometry vocabulary used throughout these examples</li><li><a href="../api/#API-Reference">API Reference</a> — full listing of every gate, geometry, and observable</li></ul></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../backends/clifford/">« Clifford Backend</a><a class="docs-footer-nextpage" href="../custom_observables/">Custom Observables »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Saturday 11 July 2026 23:14">Saturday 11 July 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
