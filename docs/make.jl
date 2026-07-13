@@ -12,6 +12,18 @@ using QuantumCircuitsMPS
 
 bib = CitationBibliography(joinpath(@__DIR__, "src", "refs.bib"); style=:numeric)
 
+# Build-time copy: CHANGELOG.md is the single source of truth.
+# docs/src/changelog.md is auto-generated and .gitignored.
+# Post-copy fixup: rewrite relative repo links (e.g. ROADMAP.md) to absolute
+# GitHub URLs so Documenter's strict cross-reference checker doesn't fail.
+let changelog_dst = joinpath(@__DIR__, "src", "changelog.md")
+    cp(joinpath(@__DIR__, "..", "CHANGELOG.md"), changelog_dst; force=true)
+    txt = read(changelog_dst, String)
+    txt = replace(txt,
+        "(ROADMAP.md)" => "(https://github.com/hainingpan/QuantumCircuitsMPS.jl/blob/dev/ROADMAP.md)")
+    write(changelog_dst, txt)
+end
+
 makedocs(;
     modules=[QuantumCircuitsMPS],
     plugins=[bib],
@@ -48,6 +60,7 @@ makedocs(;
         "Developer Docs" => [
             "devdocs/backend_interface.md",
         ],
+        "Changelog" => "changelog.md",
     ],
     # T30 (v0.4.0): docstring coverage is complete (every exported symbol
     # documented, every unexported docstring reachable via internals.md's

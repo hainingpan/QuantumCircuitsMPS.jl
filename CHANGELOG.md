@@ -8,6 +8,75 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-07-13
+
+This release adds a fourth simulation backend: a fermionic Gaussian
+(free-fermion) backend for circuits built entirely out of Gaussian-preserving
+gates and parity measurements, along with two new gates, a Majorana-chain
+site granularity for class-DIII circuits, and a matching documentation and
+test suite.
+
+### Added
+
+- **Gaussian backend** (`backend=:gaussian`): a pure fermionic Gaussian state
+  is represented as a dense `2L×2L` real antisymmetric Majorana covariance
+  matrix `Γ` (`Γ[a,b] = (i/2)⟨[γ_a,γ_b]⟩`, satisfying `Γ² = -I`) instead of
+  an MPS, state vector, or stabilizer tableau; `GaussianBackend` holds
+  `corr`, a `scratch` buffer, `purify_tol` (default `1e-10`), and
+  `majoranas_per_site`. `apply!`, `track!`, `record!`, and `simulate!` work
+  unchanged — only the `SimulationState(...; backend=:gaussian)` constructor
+  call differs. Gate/measurement application is `O(L³)` per operation
+  (Schur-complement contraction on `Γ`, no truncation error, exact for any
+  circuit depth), and a re-purification step (`purify!`, eigen-clamping
+  `iΓ`'s spectrum back to `±1`) fires automatically whenever floating-point
+  drift exceeds `purify_tol`.
+- Two new gates, dispatched only on the Gaussian backend (informative
+  `ArgumentError` rejection on MPS/state-vector/Clifford):
+  - `GaussianHaar()` — Haar-random `SO(4)` rotation (fermionic-mode
+    granularity) or `SO(2)` rotation (Majorana-chain granularity,
+    `exp(θγ_aγ_b)`, `θ ~ U[0,2π)`), drawn from `:gates_realization` and
+    conjugated directly onto `Γ`.
+  - `BondParity()` — projective bond-parity measurement `iγ_{2i}γ_{2i+1}`
+    between adjacent sites (fermionic-mode) or `iγ_iγ_{i+1}` between
+    adjacent Majorana sites (Majorana chain), with PBC wrap support;
+    consumes one `:born_measurement` draw per bond under the same
+    redundant-draw contract as `Measure`.
+- `PauliX()`, `Measure(:Z)`, and `Reset()` now also work on the Gaussian
+  backend: `PauliX` flips fermionic occupation parity (a single Majorana
+  row/column sign flip), `Measure(:Z)` is a projective on-site
+  occupation-parity measurement (`iγ_{2i-1}γ_{2i}`), and `Reset()` composes
+  the two, matching the existing semantics on every other backend.
+- **Majorana-chain site granularity** (`site_type="Majorana"`): each site is
+  one Majorana mode rather than one fermionic mode (`Γ` is `L×L` instead of
+  `2L×2L`; requires even `L`), directly modeling the staggered class-DIII
+  monitored Majorana-chain circuit family — `GaussianHaar`/`BondParity` on
+  `Bricklayer(:odd)`/`Bricklayer(:even)` reproduce the protocol with no new
+  gate types.
+- `RandomGaussianState` initial-state type: draws `O ∈ SO(2L)` (or `SO(L)`
+  on the Majorana chain) from `:state_init` via an exact Haar sampler,
+  `haar_orthogonal`, using QR decomposition of a Ginibre matrix.
+- Gaussian-backend observable support: `EntanglementEntropy` (von Neumann
+  only, covariance-matrix formula; `renyi_index != 1` rejected),
+  `Magnetization(:Z)` (fermionic-mode granularity only), `BornProbability`,
+  `MutualInformation` and `TripartiteMutualInformation` (von Neumann only;
+  the only backend that accepts non-contiguous or PBC-wrapped region pairs,
+  since a covariance-matrix reduced state is just an index selection), and
+  `EntropyProfile`. `StringOrder`, `DomainWall`, `PauliString`, `Correlator`,
+  and `MagnetizationFluctuations` are rejected with an informative
+  `ArgumentError` (no fermionic-Gaussian formula exists for these).
+- New Documenter.jl page `docs/src/backends/gaussian.md` documenting the
+  backend, and a substantially expanded `docs/src/devdocs/backend_interface.md`
+  developer-docs page covering the Gaussian method tables (`initialize!`,
+  `_apply_single!`, `_measure_single_site!`, `born_probability`,
+  observables).
+- `examples/gaussian_example.ipynb` / `examples/gaussian_example.jl`:
+  reproduces the class-DIII phase diagram via the staggered monitored
+  Majorana-chain protocol.
+- New `test/gaussian/` suite (14 files): construction and rejection checks,
+  gate and measurement tests, an oracle-based cross-validation against an
+  independent reference implementation, golden-value regression tests, and
+  Majorana-chain-specific coverage.
+
 ## [0.4.0] - 2026-07-07
 
 This release is a quality/hardening pass across the whole package: a systematic
@@ -258,7 +327,8 @@ documentation.
 
 Initial clean release, with CIPT and MIPT example notebooks.
 
-[Unreleased]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.2.0...v0.2.1
