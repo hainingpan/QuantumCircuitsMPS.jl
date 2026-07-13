@@ -63,7 +63,7 @@ end
                        kwargs...)
 
 Fresh `SimulationState` of the requested backend (`:mps`, `:statevector`,
-`:clifford`), initialized to `ProductState(binary_int=binary_int)`.
+`:clifford`, `:gaussian`), initialized to `ProductState(binary_int=binary_int)`.
 
 `maxdim` is forwarded ONLY for the MPS backend (`nothing` → constructor
 default), matching the historical `backend == :mps ? (maxdim=...,) :
@@ -77,6 +77,8 @@ function make_backend_state(backend::Symbol, L::Int;
     backend_kwargs = if backend == :mps
         maxdim === nothing ? NamedTuple() : (; maxdim = maxdim)
     else
+        # :statevector, :clifford, :gaussian — `maxdim` is not forwarded
+        # (accepted-and-ignored by the constructor anyway for these backends).
         (; backend = backend)
     end
     state = SimulationState(; L = L, bc = bc, backend_kwargs..., kwargs...,

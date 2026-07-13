@@ -122,9 +122,22 @@ end
         @test occursin("disjoint", err.msg)
         @test_throws ArgumentError MutualInformation(2, 2)
 
-        # non-contiguous individual region rejected
-        @test_throws ArgumentError MutualInformation([1, 3], [5])
-        @test_throws ArgumentError MutualInformation([1], [3, 5])
+        # non-contiguous individual region: constructible (the Gaussian
+        # backend supports arbitrary subsets) but REJECTED at evaluation
+        # time on the MPS/state-vector/Clifford backends
+        mi_nc = MutualInformation([1, 3], [5])
+        @test mi_nc isa MutualInformation
+        for backend in (:mps, :statevector, :clifford)
+            nc_err = try
+                mi_nc(_mi_state(backend, 6))
+                nothing
+            catch e
+                e
+            end
+            @test nc_err isa ArgumentError
+            @test occursin("CONTIGUOUS", nc_err.msg)
+        end
+        @test_throws ArgumentError MutualInformation([1], [3, 5])(_mi_state(:mps, 6))
         # empty / non-positive
         @test_throws ArgumentError MutualInformation(Int[], [2])
         @test_throws ArgumentError MutualInformation(0:1, 3:4)

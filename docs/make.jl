@@ -7,10 +7,14 @@ Pkg.develop(PackageSpec(path=dirname(@__DIR__)))
 Pkg.instantiate()
 
 using Documenter
+using DocumenterCitations
 using QuantumCircuitsMPS
+
+bib = CitationBibliography(joinpath(@__DIR__, "src", "refs.bib"); style=:numeric)
 
 makedocs(;
     modules=[QuantumCircuitsMPS],
+    plugins=[bib],
     authors="Haining Pan <haining.pan.physics@gmail.com>, Jedediah H Pixley <jed.pixley@physics.rutgers.edu>",
     sitename="QuantumCircuitsMPS.jl",
     format=Documenter.HTML(;
@@ -35,6 +39,7 @@ makedocs(;
             "backends/mps.md",
             "backends/statevector.md",
             "backends/clifford.md",
+            "backends/gaussian.md",
         ],
         "Tutorials" => "tutorials.md",
         "Custom Observables" => "custom_observables.md",

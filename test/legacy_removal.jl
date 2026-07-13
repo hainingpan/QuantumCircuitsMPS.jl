@@ -47,7 +47,11 @@ using QuantumCircuitsMPS
             :MutualInformation,  # v0.4.0 (T25): I(A:B) = S(A)+S(B)-S(A∪B) (all 3 backends)
             # v0.4.0 (T38): composed common observables (all 3 backends)
             :Correlator, :EntropyProfile, :TripartiteMutualInformation,
-            :MagnetizationFluctuations
+            :MagnetizationFluctuations,
+            # Gaussian (free-fermion) backend surface (gaussian-backend plan):
+            # backend payload struct (exposed for `isa` checks), the two
+            # Gaussian gate types, and the random-Gaussian init spec.
+            :GaussianBackend, :GaussianHaar, :BondParity, :RandomGaussianState
         ]
         # Geometry contract helpers documented in the KEEP table's
         # AbstractGeometry row ("Gains canonical elements(geo, L, bc),
@@ -63,7 +67,7 @@ using QuantumCircuitsMPS
         @test isempty(extra) || error("Exports beyond manifest KEEP+ADD: $extra")
         @test isempty(missing_) ||
               error("Manifest KEEP+ADD symbols not exported: $missing_")
-        @test length(actual) == 76
+        @test length(actual) == 80
 
         # REMOVE-table symbols must not be exported
         removed = (:simulate, :simulate_circuits, :run_circuit!, :CircuitSimulation,

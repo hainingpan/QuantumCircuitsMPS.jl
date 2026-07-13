@@ -7,6 +7,39 @@ discussed (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 ## Feature ideas
 
+### Gaussian backend follow-ups
+
+The Gaussian (free-fermion / Majorana-covariance-matrix) backend
+(`backend=:gaussian`) shipped as a fourth backend alongside MPS, state
+vector, and Clifford: `GaussianHaar`/`PauliX`/`Measure(:Z)`/`BondParity`/
+`Reset` gates, `EntanglementEntropy`/`Magnetization`/`MutualInformation`/
+`TripartiteMutualInformation` observables, both fermionic-mode and
+Majorana-chain (`site_type="Majorana"`) site granularities, and an example
+notebook reproducing the class-DIII staggered monitored Majorana-chain phase
+diagram of Pan et al. Follow-ups deliberately deferred from the initial
+implementation:
+
+- **Weak (partial) measurement**: the backend currently supports only
+  projective (`p=1`) parity measurements. Python GTN's `get_Born_tri_op`-style
+  weak-measurement generalization (`p<1` Kraus operators interpolating
+  between "do nothing" and a projective measurement) is a natural extension
+  for studying continuously-tuned measurement strength, but was scoped out
+  of the initial MVP.
+- **`PauliString` via Pfaffians**: `PauliString`, and everything composed
+  from it (`Correlator`, `MagnetizationFluctuations`), is currently rejected
+  on the Gaussian backend with an informative `ArgumentError` — Pauli-string
+  expectation values are a qubit-formalism observable with no direct
+  covariance-matrix analog, but a Jordan–Wigner-string expectation value can
+  in principle be expressed as a Pfaffian of a sub-covariance matrix (the
+  same machinery `test/gaussian/oracle.jl`'s ED oracle already uses for
+  exact many-body reconstruction). Deliberately not implemented in the
+  initial pass.
+- **2D Gaussian circuits**: see "Higher-dimensional (2D+) circuits" below —
+  the Gaussian backend's covariance-matrix representation is dimension-
+  agnostic in the same sense as the state-vector and Clifford backends (no
+  MPS-style area-law bottleneck), making it a natural first target if 2D
+  geometry support is ever added.
+
 ### Higher-dimensional (2D+) circuits
 
 Everything today is strictly one-dimensional: sites are indexed `1:L` along a
@@ -15,12 +48,12 @@ geometry (`Bricklayer`, `AllSites`, `StaircaseLeft`, ...) enumerates chain
 sites/bonds. Supporting 2D (or higher) circuit geometries would require a
 lattice/coordinate abstraction in `src/Geometry/`, new geometry types (e.g.
 plaquette or row/column brickwork layers), and backend consideration: the
-state-vector and Clifford backends are dimension-agnostic once sites are
-mapped to a linear index, but the MPS backend would need a snake/space-filling
-site ordering and would suffer the usual entanglement-area-law cost of
-representing 2D states with a 1D tensor train. This is a major, cross-cutting
-addition; until then, 1D-only is a documented limitation (see README
-"Known Limitations").
+state-vector, Clifford, and Gaussian backends are dimension-agnostic once
+sites are mapped to a linear index, but the MPS backend would need a
+snake/space-filling site ordering and would suffer the usual entanglement-
+area-law cost of representing 2D states with a 1D tensor train. This is a
+major, cross-cutting addition; until then, 1D-only is a documented limitation
+(see README "Known Limitations").
 
 ### Noise channels (Kraus operators / density-matrix state)
 

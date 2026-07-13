@@ -82,6 +82,8 @@ gate_label(::Ry) = "Ry"
 gate_label(::Rz) = "Rz"
 gate_label(::Hadamard) = "H"
 gate_label(::RandomClifford) = "Cl"
+gate_label(::GaussianHaar) = "GHaar"
+gate_label(::BondParity) = "BondP"
 gate_label(g::AbstractGate) = string(typeof(g))  # Fallback
 
 """
