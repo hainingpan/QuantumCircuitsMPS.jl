@@ -12,7 +12,7 @@
 ---
 ## What is QuantumCircuitsMPS.jl?
 
-**"PyTorch for Quantum Circuits"** — a pure Julia library for simulating **one-dimensional (1D)** quantum circuits with three interchangeable backends: Matrix Product States (MPS, via ITensors.jl, `L=100+`), an exact dense state vector (`L≲25`, for cross-validation), and a stabilizer tableau (Clifford-only gates, `L=100-1000+`). It's purpose-built for researchers studying Measurement-Induced (MIPT) and Control-Induced (CIPT) Phase Transitions in monitored quantum circuits, where feedback, measurements, and unitary dynamics compete to create distinct entanglement phases.
+**"PyTorch for Quantum Circuits"** — a pure Julia library for simulating **one-dimensional (1D)** quantum circuits with four interchangeable backends: Matrix Product States (MPS, via ITensors.jl, `L=100+`), an exact dense state vector (`L≲25`, for cross-validation), a stabilizer tableau (Clifford-only gates, `L=100-1000+`), and a fermionic Gaussian (free-fermion Majorana-covariance-matrix) backend for Gaussian-preserving circuits, exact and polynomial-time. It's purpose-built for researchers studying Measurement-Induced (MIPT) and Control-Induced (CIPT) Phase Transitions in monitored quantum circuits, where feedback, measurements, and unitary dynamics compete to create distinct entanglement phases.
 
 Physicists write `apply!(state, HaarRandom(), Bricklayer(:odd))` and never see ITensor index objects, SVD calls, or tensor contractions — the package manages the gap between physics intent (Gates + Geometry) and low-level backend details. Independent, named RNG streams (`:gates_spacetime`, `:gates_realization`, `:born_measurement`, `:state_init`) make every trajectory reproducible from its seeds — on a backend *and across backends*: the same seeds produce the same measurement record on MPS, state vector, and Clifford alike (every measurement consumes exactly one Born draw, deterministic or not).
 
@@ -22,9 +22,9 @@ Physicists write `apply!(state, HaarRandom(), Bricklayer(:odd))` and never see I
 | Feature | ITensors.jl | PastaQ.jl | Yao.jl | **This Package** |
 |---|---|---|---|---|
 | **Primary focus** | Tensor networks | Tomography & benchmarking | Variational algorithms | **MIPT/CIPT dynamics** |
-| **Backend** | MPS/MPO | MPS/MPO | State vector | **MPS + state vector + Clifford tableau** |
+| **Backend** | MPS/MPO | MPS/MPO | State vector | **MPS + state vector + Clifford tableau + Gaussian (free-fermion)** |
 | **MIPT/CIPT support** | Build from scratch | Manual logic | State-vector limited | **First-class** |
-| **Scalability** | N=100+ | N=100+ | ~30 qubits | **N=100+ (N=1000+ Clifford-only)** |
+| **Scalability** | N=100+ | N=100+ | ~30 qubits | **N=100+ (N=1000+ Clifford-only; Gaussian polynomial, `O(L³)`/gate)** |
 | **API level** | Tensor-level | Circuit + Tomography | Block-level | **Physics-level** |
 
 ---
@@ -91,17 +91,19 @@ Beyond qubits, `SimulationState(...; site_type="S=k/2")` supports arbitrary spin
 ---
 ## Backends
 
-`apply!`, `track!`, `record!`, `simulate!` work identically on all three backends — only the `SimulationState(...; backend=...)` constructor call changes.
+`apply!`, `track!`, `record!`, `simulate!` work identically on all four backends — only the `SimulationState(...; backend=...)` constructor call changes.
 
 - **MPS** (default, `backend=:mps`): tensor-network state via ITensors.jl, bond-dimension-limited (`maxdim`), scales to `L=100+` for generic circuits. [MPS Backend →](https://hainingpan.github.io/QuantumCircuitsMPS.jl/backends/mps/)
 - **State vector** (`backend=:statevector`): exact, dense `Vector{ComplexF64}`, zero truncation error, the reference every correctness check is validated against. [State Vector Backend →](https://hainingpan.github.io/QuantumCircuitsMPS.jl/backends/statevector/)
 - **Clifford** (`backend=:clifford`): stabilizer tableau via QuantumClifford.jl, polynomial scaling, Clifford-group gates only. [Clifford Backend →](https://hainingpan.github.io/QuantumCircuitsMPS.jl/backends/clifford/)
+- **Gaussian** (`backend=:gaussian`): fermionic Gaussian state via a dense Majorana covariance matrix, polynomial scaling, exact for Gaussian-preserving gates (`GaussianHaar`, `PauliX`, parity measurements) only — includes a Majorana-chain site granularity for the class-DIII monitored-Majorana-chain circuit family. [Gaussian Backend →](https://hainingpan.github.io/QuantumCircuitsMPS.jl/backends/gaussian/)
 
-| Backend | Memory scaling | Practical qubit range |
+| Backend | Memory scaling | Practical qubit/mode range |
 |---|---|---|
 | State vector | `2^L` (exponential) | `L ≲ 25-27` |
 | MPS | Bond-dimension dependent (`maxdim`) | `L = 100+` |
 | **Clifford** | `O(L²)` (polynomial) | **`L = 100-1000+`** |
+| **Gaussian** | `O(L²)` (polynomial) | **`L = 100+`** (dense `O(L³)` per gate/measurement) |
 
 ---
 ## Key Functions

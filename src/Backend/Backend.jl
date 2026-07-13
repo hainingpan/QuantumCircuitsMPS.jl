@@ -69,3 +69,37 @@ which enables efficient O(n²) measurement via `project!`.
 mutable struct CliffordBackend <: AbstractBackend
     tableau::Union{MixedDestabilizer, Nothing}
 end
+
+"""
+Gaussian (free-fermion) backend: holds a Majorana covariance matrix Γ for
+Gaussian-state simulation of fermionic circuits.
+
+`corr` is the `2L×2L` real antisymmetric Majorana covariance matrix
+`Γ[a,b] = (i/2)⟨[γ_a, γ_b]⟩`, satisfying the invariant `Γ² = -I` for a pure
+Gaussian state. Mode `i` (1-indexed, `1 <= i <= L`) maps to Majorana indices
+`(2i−1, 2i)`.
+
+`scratch` is a preallocated `2L×2L` buffer of the same size as `corr`, used
+by the Gaussian gate-application kernel to avoid per-gate allocation.
+
+`purify_tol` is the threshold on `‖Γ² + I‖` (or an equivalent purity
+diagnostic) above which the backend re-purifies `corr` to correct
+floating-point drift from repeated updates (default `1e-10`).
+
+`majoranas_per_site` selects the SITE GRANULARITY (set from `site_type` in
+the `SimulationState` constructor, `src/State/State.jl`):
+- `2` (default, `site_type="Qubit"`): each site is one fermionic mode
+  carrying the Majorana pair `(2i−1, 2i)`; Γ is `2L×2L`.
+- `1` (`site_type="Majorana"`): each site IS one Majorana mode (index `i`);
+  Γ is `L×L` and `L` must be even (a pure Gaussian state has an even number
+  of Majoranas). Same covariance-matrix machinery, same gate types — only
+  the site→Majorana index mapping (`site_majoranas`) changes.
+"""
+mutable struct GaussianBackend <: AbstractBackend
+    corr::Union{Matrix{Float64},Nothing}     # N×N Majorana covariance matrix Γ (antisymmetric), N = L·majoranas_per_site
+    scratch::Union{Matrix{Float64},Nothing}  # preallocated scratch buffer (same size)
+    purify_tol::Float64                      # re-purification trigger threshold (default 1e-10)
+    majoranas_per_site::Int                  # 2 = fermionic mode per site (default), 1 = Majorana chain
+end
+GaussianBackend(; purify_tol=1e-10, majoranas_per_site=2) =
+    GaussianBackend(nothing, nothing, purify_tol, majoranas_per_site)

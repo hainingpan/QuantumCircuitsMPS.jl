@@ -26,10 +26,17 @@ using LinearAlgebra: Hermitian, eigvals
 
 Mutual information I(A:B) = S(A) + S(B) - S(A∪B) between two site regions.
 
-Each region must be a CONTIGUOUS, non-empty range of physical sites (a
-`UnitRange` like `2:4`, a single `Int`, or a vector of consecutive integers),
+Each region is a non-empty, duplicate-free collection of physical sites (a
+`UnitRange` like `2:4`, a single `Int`, or a `Vector{Int}`; stored sorted),
 and the two regions must be DISJOINT. Regions refer to physical sites on all
 backends and under all boundary conditions.
+
+On the MPS, state-vector, and Clifford backends each region must additionally
+be CONTIGUOUS (a plain ascending range): non-contiguous input is accepted at
+construction (so one observable object can serve every backend) but rejected
+with an `ArgumentError` when EVALUATED on those backends. The Gaussian
+(covariance-matrix) backend supports arbitrary site subsets — including
+non-contiguous and PBC-wrapped regions such as `[7, 8, 1, 2]` at L=8.
 
 # Arguments
 - `regionA`, `regionB`: the two site regions (contiguous, disjoint)
@@ -53,6 +60,8 @@ backends and under all boundary conditions.
   (memory/time scale as d^L).
 - Clifford: poly-time GF(2)-rank stabilizer entropies; every Rényi index
   gives the same value (flat entanglement spectrum).
+- Gaussian: three covariance-submatrix eigendecompositions,
+  O((|A|+|B|)³) — arbitrary site subsets, von Neumann only.
 
 # Properties (analytic anchors)
 - Product state: I = 0
@@ -69,16 +78,16 @@ track!(state, :I => MutualInformation(1, 4))
 ```
 """
 struct MutualInformation <: AbstractObservable
-    regionA::UnitRange{Int}
-    regionB::UnitRange{Int}
+    regionA::Vector{Int}
+    regionB::Vector{Int}
     renyi_index::Int
     threshold::Float64
     base::Float64
 
     function MutualInformation(regionA, regionB; renyi_index::Int = 1,
             threshold::Float64 = 1e-16, base::Real = ℯ)
-        A = _mi_contiguous_region(regionA, "regionA")
-        B = _mi_contiguous_region(regionB, "regionB")
+        A = _mi_region_vector(regionA, "regionA")
+        B = _mi_region_vector(regionB, "regionB")
         isempty(intersect(A, B)) ||
             throw(ArgumentError(
                 "MutualInformation regions must be disjoint; regionA=$A and regionB=$B " *
@@ -92,13 +101,16 @@ struct MutualInformation <: AbstractObservable
 end
 
 """
-    _mi_contiguous_region(r, which::String) -> UnitRange{Int}
+    _mi_region_vector(r, which::String) -> Vector{Int}
 
-Normalize a region spec (Int, range, or vector of integers) into a
-`UnitRange{Int}`, throwing an informative `ArgumentError` unless it is a
-non-empty, positive, strictly contiguous ascending set of sites.
+Normalize a region spec (Int, range, or vector of integers) into a sorted,
+duplicate-free `Vector{Int}` of positive sites, throwing an informative
+`ArgumentError` if empty, repeated, or non-positive. Contiguity is NOT
+required here — it is enforced per backend at evaluation time (see
+`_validate_mutual_information`); the Gaussian backend accepts arbitrary
+site subsets.
 """
-function _mi_contiguous_region(r, which::String)
+function _mi_region_vector(r, which::String)
     v = r isa Integer ? [Int(r)] : Int.(vec(collect(r)))
     isempty(v) &&
         throw(ArgumentError("MutualInformation $which must be non-empty"))
@@ -107,7 +119,28 @@ function _mi_contiguous_region(r, which::String)
     sort!(v)
     first(v) >= 1 ||
         throw(ArgumentError("MutualInformation $which sites must be positive, got $(first(v))"))
-    v == collect(first(v):last(v)) ||
+    return v
+end
+
+"""
+    _mi_is_contiguous(v::Vector{Int}) -> Bool
+
+`true` iff the (sorted) site vector is a plain ascending unit-step range.
+"""
+_mi_is_contiguous(v::Vector{Int}) = v == first(v):last(v)
+
+"""
+    _mi_contiguous_region(r, which::String) -> UnitRange{Int}
+
+Normalize a region spec (Int, range, or vector of integers) into a
+`UnitRange{Int}`, throwing an informative `ArgumentError` unless it is a
+non-empty, positive, strictly contiguous ascending set of sites. Used where
+contiguity is a CONSTRUCTION-time requirement (e.g.
+`TripartiteMutualInformation`'s region layout).
+"""
+function _mi_contiguous_region(r, which::String)
+    v = _mi_region_vector(r, which)
+    _mi_is_contiguous(v) ||
         throw(ArgumentError(
             "MutualInformation $which must be a CONTIGUOUS site range " *
             "(e.g. 2:4); got $v. Non-contiguous individual regions are not supported."))
@@ -115,15 +148,39 @@ function _mi_contiguous_region(r, which::String)
 end
 
 """
-    _validate_mutual_information(mi::MutualInformation, state) -> nothing
+    _mi_validate_bounds(mi::MutualInformation, state) -> nothing
 
-Shared evaluation-time validation for all backends: region sites within `1:L`.
+Evaluation-time bounds check shared by ALL backends (including Gaussian):
+every region site must lie within `1:L`. Regions are stored sorted, so
+checking `last` suffices.
 """
-function _validate_mutual_information(mi::MutualInformation, state)
+function _mi_validate_bounds(mi::MutualInformation, state)
     for (which, region) in (("regionA", mi.regionA), ("regionB", mi.regionB))
         last(region) <= state.L ||
             throw(ArgumentError(
                 "MutualInformation $which=$region exceeds system size L=$(state.L)"))
+    end
+    return nothing
+end
+
+"""
+    _validate_mutual_information(mi::MutualInformation, state) -> nothing
+
+Shared evaluation-time validation for the MPS, state-vector, and Clifford
+backends: region sites within `1:L` AND each region CONTIGUOUS (these
+backends keep the historical contiguous-region contract). The Gaussian
+override calls `_mi_validate_bounds` only and accepts arbitrary site
+subsets (see `src/Gaussian/mutual_information.jl`).
+"""
+function _validate_mutual_information(mi::MutualInformation, state)
+    _mi_validate_bounds(mi, state)
+    for (which, region) in (("regionA", mi.regionA), ("regionB", mi.regionB))
+        _mi_is_contiguous(region) ||
+            throw(ArgumentError(
+                "MutualInformation $which must be a CONTIGUOUS site range " *
+                "(e.g. 2:4) on this backend; got $region. Arbitrary " *
+                "(non-contiguous or PBC-wrapped) regions are only supported " *
+                "on backend=:gaussian."))
     end
     return nothing
 end

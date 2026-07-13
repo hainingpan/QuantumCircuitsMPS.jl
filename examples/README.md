@@ -1,6 +1,6 @@
 # Examples
 
-Four notebooks demonstrate the package's core use cases. Three are Julia
+Five notebooks demonstrate the package's core use cases. Four are Julia
 notebooks (run with the `Julia (Auto Threads) 1.12` kernel); one is a Python
 notebook that post-processes data produced by one of the Julia notebooks.
 
@@ -10,6 +10,7 @@ notebook that post-processes data produced by one of the Julia notebooks.
 | [`cipt_example.ipynb`](cipt_example.ipynb) | Julia | Control-Induced Phase Transition (CIPT): Reset/Haar staircase geometry, steady-state magnetization `Mz(p, L)`. Writes `cipt_Mz_data.csv` (ensemble-averaged `Mz_mean`/`Mz_sem` per `(p, L)`) for downstream finite-size-scaling analysis. | Several minutes to ~tens of minutes depending on ensemble size (`ensemble_size=500` in the shipped run) and `L` range. |
 | [`cipt_fss.ipynb`](cipt_fss.ipynb) | **Python** | Finite-size scaling (FSS) data collapse of `cipt_Mz_data.csv` using the [FSS](https://github.com/hainingpan/FSS) package (`DataCollapse`), fitting `p_c`/`nu` and plotting raw + collapsed curves. | Seconds (fit is on a small ensemble-averaged CSV, no simulation). |
 | [`AKLT_forcedmeas.ipynb`](AKLT_forcedmeas.ipynb) | Julia | Prepares the spin-1 AKLT state via repeated forced projection onto the `S=2` sector on pairs of sites; verifies string order / entanglement signatures. | Minutes on a laptop for moderate `L`. |
+| [`gaussian_example.ipynb`](gaussian_example.ipynb) | Julia | Class-DIII monitored Majorana chain (Gaussian backend, `site_type="Majorana"`) — reproduces Fig. 1b of Pan, Shapourian, Jian, *Topological Modes in Monitored Quantum Dynamics*, PRB **112**, 144301 (2025) [arXiv:2411.04191] (shift-averaged antipodal MI vs `p` phase diagram). | ~5 min (≈90 s sweep single-threaded at the shipped `L≤64`, 50 realizations). |
 
 ## Cross-language pipeline: `cipt_example.ipynb` → `cipt_fss.ipynb`
 

@@ -31,6 +31,8 @@ include("testutils.jl")
     include("gates/test_new_gates.jl")
     include("clifford/test_clifford.jl")
     include("clifford/cross_validation.jl")
+    include("gaussian/test_gaussian.jl")
+    include("gaussian/cross_validation.jl")
     for dir in ("audit", "regression", "features", "quality")
         d = joinpath(@__DIR__, dir)
         isdir(d) || continue

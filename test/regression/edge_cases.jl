@@ -193,7 +193,7 @@ using LinearAlgebra: norm
         catch e
             e
         end
-        @test occursin("backend must be :mps, :statevector, or :clifford",
+        @test occursin("backend must be :mps, :statevector, :clifford, or :gaussian",
             err_backend.msg)
     end
 

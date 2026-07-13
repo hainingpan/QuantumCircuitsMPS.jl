@@ -8,10 +8,11 @@ those two levels separate: users describe the physics, while the package
 selects and operates the numerical representation.
 
 The result is one simulation vocabulary that can be used for exploratory
-small-system state vector simulation, scalable matrix product states, and large-scale
-Clifford-gate simulations.
+small-system state vector simulation, scalable matrix product states,
+large-scale Clifford-gate simulations, and  free-fermion
+(Gaussian) simulations.
 
-## One Model, Three Backends
+## One Model, Four Backends
 
 ```@raw html
 <pre class="mermaid">
@@ -29,10 +30,12 @@ flowchart TB
     D --> E["MPS Backend<br/>ITensors.jl and ITensorMPS.jl"]
     D --> F["State-Vector Backend<br/>Exact dense wavefunction"]
     D --> G["Clifford Backend<br/>QuantumClifford.jl tableau"]
+    D --> I["Gaussian Backend<br/>Majorana covariance matrix"]
 
     E --> H["Updated state and recorded observables"]
     F --> H
     G --> H
+    I --> H
 </pre>
 <script type="module">
   import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
@@ -45,7 +48,7 @@ shared engine expands geometries, schedules operations, manages random-number
 streams, and dispatches each operation to the selected backend. The backend
 owns the numerical representation and the algorithms needed to update it.
 
-The three backends serve different purposes:
+The four backends serve different purposes:
 
 - The [MPS Backend](@ref) is the default for general circuits at large system
   sizes, with controlled truncation through `cutoff` and `maxdim`, applied to area-law entangled states.
@@ -54,12 +57,17 @@ The three backends serve different purposes:
 - The [Clifford Backend](@ref) uses a stabilizer tableau to reach hundreds or
   thousands of qubits when the circuit contains only supported Clifford
   operations.
+- The [Gaussian Backend](@ref) uses a Majorana covariance matrix to simulate
+  free-fermion (Gaussian-preserving) circuits in polynomial time, exactly,
+  when the circuit contains only fermionic Gaussian unitaries and parity
+  measurements.
 
 Changing `backend` changes the representation, not the language used to
 describe the simulation. Shared operations such as `apply!`, `track!`,
 `record!`, and `simulate!` retain the same role. Backend-specific limitations
-remain explicit: for example, the Clifford backend rejects non-Clifford gates
-rather than silently approximating them.
+remain explicit: for example, the Clifford backend rejects non-Clifford gates,
+and the Gaussian backend rejects non-Gaussian gates, rather than silently
+approximating them.
 
 Implementation details belong on the individual backend pages. Developers
 adding or extending a backend should instead consult the

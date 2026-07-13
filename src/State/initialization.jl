@@ -175,6 +175,17 @@ struct RandomMPS <: AbstractInitialState
 end
 
 """
+    RandomGaussianState()
+
+Haar-random pure fermionic Gaussian state initialization. Only supported on
+the Gaussian backend (`backend=:gaussian`); no fields (mirrors
+`RandomStateVector`'s simplicity — randomness comes entirely from the
+`:state_init` RNG stream at `initialize!` time via `haar_orthogonal`).
+Requires RNGRegistry with :state_init stream attached to the SimulationState.
+"""
+struct RandomGaussianState <: AbstractInitialState end
+
+"""
     initialize!(state::SimulationState, init::ProductState)
 
 Initialize state with a product state based on specified initialization method.
@@ -248,4 +259,21 @@ function initialize!(state::SimulationState, init::RandomMPS)
     state.backend.mps = random_mps(rng, state.backend.sites; linkdims = init.bond_dim)
 
     return nothing
+end
+
+"""
+    initialize!(state::SimulationState, init::RandomGaussianState)
+
+Generic fallback: `RandomGaussianState` is only supported on the Gaussian
+backend (`backend=:gaussian`). A `GaussianBackend`-specific override
+(`initialize!(state::SimulationState{GaussianBackend}, init::RandomGaussianState)`)
+is more specific and will win dispatch on that backend; this method fires on
+MPS/state-vector/Clifford backends and reports an informative error.
+"""
+function initialize!(state::SimulationState, init::RandomGaussianState)
+    throw(ArgumentError(
+        "RandomGaussianState is only supported on backend=:gaussian. " *
+        "Received backend $(typeof(state.backend)). Use SimulationState(...; " *
+        "backend=:gaussian) or a different initial state spec."
+    ))
 end

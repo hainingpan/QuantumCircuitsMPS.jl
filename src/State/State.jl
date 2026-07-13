@@ -117,11 +117,15 @@ Parameters:
   Off by default to avoid any cost in the hot loop.
 - backend: `:mps` (default, builds an `MPSBackend` with ITensor site indices),
   `:statevector` (builds a `StateVectorBackend`; no site indices, identity
-  phy_ram/ram_phy mapping), or `:clifford` (builds a `CliffordBackend` for
+  phy_ram/ram_phy mapping), `:clifford` (builds a `CliffordBackend` for
   stabilizer-formalism simulation; qubit-only, identity phy_ram/ram_phy
-  mapping, tableau initialized later via `initialize!`).
+  mapping, tableau initialized later via `initialize!`), or `:gaussian`
+  (builds a `GaussianBackend` for free-fermion Gaussian-state simulation;
+  qubit-only (local_dim=2, one fermionic mode per site), identity
+  phy_ram/ram_phy mapping, Majorana covariance matrix initialized later via
+  `initialize!`).
 - pbc_fold_start: physical site the PBC zig-zag fold starts from (default `L÷4+1`).
-  Only meaningful for `backend=:mps` with `bc=:periodic`; ignored for `backend=:statevector`/`:clifford`.
+  Only meaningful for `backend=:mps` with `bc=:periodic`; ignored for `backend=:statevector`/`:clifford`/`:gaussian`.
 - engine: gate-application engine for `backend=:statevector` only — `:builtin`
   (default, Tier 1 reshape/permutedims engine, ground truth) or `:optimized`
   (Tier 2 hand-written stride-loop engine, numerically verified to match
@@ -189,8 +193,27 @@ function SimulationState(;
         phy_ram = collect(1:L)
         ram_phy = collect(1:L)
         backend_obj = CliffordBackend(nothing)
+    elseif backend == :gaussian
+        # Gaussian (free-fermion) formalism is qubit-only (one fermionic mode per site).
+        if local_dim != 2
+            throw(ArgumentError("Gaussian backend requires local_dim=2 (fermionic modes). Got site_type=$site_type, local_dim=$local_dim. Use backend=:mps or backend=:statevector for qudit systems."))
+        end
+        # No MPS bond-dimension folding concept for the Majorana covariance matrix: identity mapping.
+        phy_ram = collect(1:L)
+        ram_phy = collect(1:L)
+        if site_type == "Majorana"
+            # Majorana-chain granularity: each site IS one Majorana mode.
+            # A pure Gaussian state has an even number of Majoranas.
+            iseven(L) || throw(ArgumentError(
+                "site_type=\"Majorana\" requires an even number of sites (each site is ONE " *
+                "Majorana mode, and a pure Gaussian state needs an even number of Majoranas). " *
+                "Got L=$L. Use an even L, or site_type=\"Qubit\" for fermionic-mode granularity."))
+            backend_obj = GaussianBackend(majoranas_per_site = 1)
+        else
+            backend_obj = GaussianBackend()
+        end
     else
-        throw(ArgumentError("backend must be :mps, :statevector, or :clifford, got $backend"))
+        throw(ArgumentError("backend must be :mps, :statevector, :clifford, or :gaussian, got $backend"))
     end
 
     # Return state with backend's underlying state = nothing (deferred to initialize!)

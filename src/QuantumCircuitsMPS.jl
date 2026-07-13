@@ -36,6 +36,15 @@ include("StateVector/initialization.jl")
 # Backend, both already loaded above)
 include("Clifford/initialization.jl")
 
+# Gaussian numerical kernel (pure functions: contraction, purification,
+# Haar SO(2n) sampler — no SimulationState dependency; must come before any
+# other Gaussian/ files)
+include("Gaussian/kernel.jl")
+
+# Gaussian initialize! methods (ProductState occupation patterns +
+# RandomGaussianState Haar-random pure states; needs kernel.jl above)
+include("Gaussian/initialization.jl")
+
 # Gates
 include("Gates/Gates.jl")
 
@@ -66,6 +75,22 @@ include("StateVector/optimized.jl")
 # dispatch chain routes to _apply_single! once defined here).
 include("Clifford/Clifford.jl")
 
+# Gaussian gate-application engine: _apply_single! methods for
+# SimulationState{GaussianBackend} — GaussianHaar (Haar-SO(4) Majorana
+# rotation), PauliX (fermionic occupation flip), a BondParity dispatch
+# disambiguator, and the rejecting AbstractGate fallback. Comes AFTER
+# Gaussian/initialization.jl and Gaussian/kernel.jl (haar_orthogonal,
+# purify!) in the include chain, but must ALSO come after Gates (the gate
+# types appear in its method signatures) — hence placed here alongside the
+# other backends' gate-application engines, before Core/apply.jl.
+include("Gaussian/Gaussian.jl")
+
+# Gaussian measurement: born_probability (non-destructive covariance read)
+# + _measure_single_site! (parity-projection contraction) overrides for
+# SimulationState{GaussianBackend}. Measure(:Z)/Reset then flow through the
+# generic execute! protocol in Core/apply.jl unchanged.
+include("Gaussian/measurement.jl")
+
 # Core apply! (after State, Gates, Geometry)
 include("Core/apply.jl")
 
@@ -94,6 +119,23 @@ include("Clifford/observables.jl")
 include("Clifford/pauli_string.jl")
 include("Clifford/mutual_information.jl")
 
+# Gaussian observable implementations (backend-specific dispatch methods
+# added to already-exported names: EntanglementEntropy, Magnetization,
+# MutualInformation — the latter reusing the unexported subsystem_entropy
+# helper from entanglement.jl. TripartiteMutualInformation composes
+# MutualInformation generically and needs no Gaussian-specific method.)
+include("Gaussian/entanglement.jl")
+include("Gaussian/magnetization.jl")
+include("Gaussian/mutual_information.jl")
+
+# Gaussian observable rejections (backend-specific ArgumentError overrides for
+# observables with no fermionic-Gaussian (covariance-matrix) implementation:
+# StringOrder, DomainWall, PauliString, Correlator, MagnetizationFluctuations.
+# born_probability's Gaussian override lives in Gaussian/measurement.jl
+# (included earlier, before Core/apply.jl) — see src/Gaussian/observables.jl
+# header comment.)
+include("Gaussian/observables.jl")
+
 # API
 include("API/probabilistic.jl")
 
@@ -110,7 +152,8 @@ include("Plotting/Plotting.jl")
 
 # === PUBLIC API EXPORTS ===
 # State
-export SimulationState, initialize!, ProductState, RandomMPS, RandomStateVector
+export SimulationState, initialize!, ProductState, RandomMPS, RandomStateVector, RandomGaussianState
+export GaussianBackend  # payload struct for backend=:gaussian; exposed for `isa` checks
 # Event log (opt-in via SimulationState(...; log_events=true)).
 # Event TYPES (CircuitEvent, GateApplied, MeasurementOutcome) and log_event! are
 # internal — use qualified names (manifest KEEP+ADD tables list only the accessors).
@@ -128,6 +171,7 @@ export CNOT, PhaseGate, SWAP, RandomClifford  # Clifford backend gates (also usa
 export Measure, OnOutcome  # v0.1 feedback system (AbstractFeedback/CallbackFeedback internal — use qualified)
 export total_spin_projector, verify_spin_projectors
 export SpinSectorProjection, SpinSectorMeasurement
+export GaussianHaar, BondParity  # backend=:gaussian gate types (Gaussian-backend behavior added in a later task)
 # Geometry
 export AbstractGeometry, SingleSite, AdjacentPair, Bricklayer, AllSites
 export StaircaseLeft, StaircaseRight
@@ -154,6 +198,8 @@ export print_circuit
 # Visualization (provided by Luxor extension)
 # _plot_circuit_impl is defined in ext/QuantumCircuitsMPSLuxorExt.jl when Luxor is loaded
 function _plot_circuit_impl end
+_plot_circuit_impl(args...; kwargs...) = throw(ArgumentError(
+    "plot_circuit requires Luxor.jl — run `using Luxor` first (optional dependency that activates the plotting extension)."))
 
 """
     plot_circuit(circuit::Circuit; n_steps=1, gates_spacetime=0, filename=nothing)
@@ -165,8 +211,8 @@ using the `gates_spacetime` seed for stochastic-branch layout — matching
 
 Requires `using Luxor` to be loaded first (the implementation lives in the
 Luxor package extension, `ext/QuantumCircuitsMPSLuxorExt.jl`); calling this
-without Luxor loaded throws a `MethodError` from the un-implemented
-`_plot_circuit_impl`. When `filename` is `nothing`, the SVG is written to a
+without Luxor loaded throws an `ArgumentError` telling you to load Luxor.
+When `filename` is `nothing`, the SVG is written to a
 temporary file and its path returned; otherwise it is written to `filename`.
 
 See also [`print_circuit`](@ref) for a Luxor-free ASCII/Unicode terminal
