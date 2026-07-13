@@ -16,7 +16,7 @@ Random = "9a3f8284-a2c9-5f02-9a11-845980a1fd5c"
 QuantumCircuitsMPSLuxorExt = "Luxor"
 
 [compat]
-ITensorMPS = "0.3"
+ITensorMPS = "0.3, 0.4"
 ITensors = "0.9"
 LinearAlgebra = "1"
 Luxor = "4"
