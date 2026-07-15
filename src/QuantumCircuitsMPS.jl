@@ -152,7 +152,8 @@ include("Plotting/Plotting.jl")
 
 # === PUBLIC API EXPORTS ===
 # State
-export SimulationState, initialize!, ProductState, RandomMPS, RandomStateVector, RandomGaussianState
+export SimulationState, initialize!, ProductState, RandomMPS, RandomStateVector,
+       RandomGaussianState
 export GaussianBackend  # payload struct for backend=:gaussian; exposed for `isa` checks
 # Event log (opt-in via SimulationState(...; log_events=true)).
 # Event TYPES (CircuitEvent, GateApplied, MeasurementOutcome) and log_event! are
@@ -198,8 +199,10 @@ export print_circuit
 # Visualization (provided by Luxor extension)
 # _plot_circuit_impl is defined in ext/QuantumCircuitsMPSLuxorExt.jl when Luxor is loaded
 function _plot_circuit_impl end
-_plot_circuit_impl(args...; kwargs...) = throw(ArgumentError(
-    "plot_circuit requires Luxor.jl — run `using Luxor` first (optional dependency that activates the plotting extension)."))
+function _plot_circuit_impl(args...; kwargs...)
+    throw(ArgumentError(
+        "plot_circuit requires Luxor.jl — run `using Luxor` first (optional dependency that activates the plotting extension)."))
+end
 
 """
     plot_circuit(circuit::Circuit; n_steps=1, gates_spacetime=0, filename=nothing)
