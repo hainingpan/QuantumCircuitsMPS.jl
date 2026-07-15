@@ -30,23 +30,20 @@ const QCM_GOLD = QuantumCircuitsMPS
 
 # (a) P_contraction_2 output: '0110' occupation state, kraus([0.6,0.8,0.0]),
 #     ix=[3,4] 0-based (Julia 1-based ix=[4,5], straddling modes 2-3).
-const GOLDEN_CONTRACTION_0110 = [
-    0 1 0 -0 -0 0 0 0;
-    -1 0 0 -0 -0 0 0 0;
-    0 0 0 -0.80000000000000004 -0 -0.59999999999999998 0 0;
-    0 0 0.80000000000000004 0 -0.59999999999999998 0 0 0;
-    0 0 0 0.59999999999999998 0 -0.80000000000000004 0 0;
-    0 0 0.59999999999999998 -0 0.80000000000000004 0 0 0;
-    0 0 0 -0 -0 0 0 1;
-    0 0 0 -0 -0 0 -1 0
-]
+const GOLDEN_CONTRACTION_0110 = [0 1 0 -0 -0 0 0 0;
+                                 -1 0 0 -0 -0 0 0 0;
+                                 0 0 0 -0.80000000000000004 -0 -0.59999999999999998 0 0;
+                                 0 0 0.80000000000000004 0 -0.59999999999999998 0 0 0;
+                                 0 0 0 0.59999999999999998 0 -0.80000000000000004 0 0;
+                                 0 0 0.59999999999999998 -0 0.80000000000000004 0 0 0;
+                                 0 0 0 -0 -0 0 0 1;
+                                 0 0 0 -0 -0 0 -1 0]
 
 # (b) von_Neumann_entropy_m([0], Givens(π/3)-rotated L=2 vacuum), nats.
 #     Analytic: 2log(2) − 0.75log(3); Python |diff| vs analytic = 0.
 const GOLDEN_ENTROPY_GIVENS_PI3 = 0.56233514461880829
 
 @testset "Python golden values (generate_golden.py)" begin
-
     @testset "contraction on '0110' occupation state matches P_contraction_2" begin
         bits = [false, true, true, false]  # "0110"
         Γ = QCM_GOLD.occupation_covariance(bits)
@@ -61,8 +58,10 @@ const GOLDEN_ENTROPY_GIVENS_PI3 = 0.56233514461880829
     @testset "von Neumann entropy matches von_Neumann_entropy_m + analytic" begin
         θ = π / 3
         O = Matrix{Float64}(I, 4, 4)
-        O[2, 2] = cos(θ); O[2, 3] = -sin(θ)
-        O[3, 2] = sin(θ); O[3, 3] = cos(θ)
+        O[2, 2] = cos(θ);
+        O[2, 3] = -sin(θ)
+        O[3, 2] = sin(θ);
+        O[3, 3] = cos(θ)
         Γ = O * QCM_GOLD.vacuum_covariance(2) * transpose(O)
         Γ .= (Γ .- transpose(Γ)) ./ 2
         S = QCM_GOLD.subsystem_entropy(Γ, [1, 2])  # mode 1, nats

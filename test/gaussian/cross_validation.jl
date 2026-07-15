@@ -42,6 +42,7 @@ function _cv_partial_trace(ρ::AbstractMatrix, cut::Int, L::Int)
     dB = 2^(L - cut)
     ρA = zeros(ComplexF64, dA, dA)
     for a1 in 0:(dA - 1), a2 in 0:(dA - 1)
+
         acc = zero(ComplexF64)
         for b in 0:(dB - 1)
             acc += ρ[a1 * dB + b + 1, a2 * dB + b + 1]
