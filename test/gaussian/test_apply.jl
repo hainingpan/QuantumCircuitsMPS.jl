@@ -23,7 +23,8 @@ function make_vacuum_state(L::Int; bc::Symbol = :open, seed::Int = 1,
         gates_realization::Union{Int, Nothing} = nothing)
     state = SimulationState(L = L, bc = bc, backend = :gaussian,
         rng = RNGRegistry(gates_spacetime = seed,
-            gates_realization = gates_realization === nothing ? seed + 10 : gates_realization,
+            gates_realization = gates_realization === nothing ? seed + 10 :
+                                gates_realization,
             born_measurement = seed + 20, state_init = seed + 30))
     state.backend.corr = QuantumCircuitsMPS.vacuum_covariance(L)
     state.backend.scratch = zeros(2L, 2L)
@@ -31,7 +32,6 @@ function make_vacuum_state(L::Int; bc::Symbol = :open, seed::Int = 1,
 end
 
 @testset "Gaussian Gate Application (GaussianHaar, PauliX, fallback)" begin
-
     @testset "purity + antisymmetry after 100 GaussianHaar (L=8)" begin
         L = 8
         state = make_vacuum_state(L; seed = 1)
@@ -91,7 +91,7 @@ end
 
     @testset "$(nameof(typeof(gate))) rejected on backend=:gaussian" for gate in [
         Hadamard(), CNOT(), HaarRandom(), RandomClifford(), SWAP(),
-        PhaseGate(), PauliY(), PauliZ(), CZ(), Projection(0),
+        PhaseGate(), PauliY(), PauliZ(), CZ(), Projection(0)
     ]
         s = make_vacuum_state(4; seed = 5)
         sites = QuantumCircuitsMPS.support(gate) == 1 ? [1] : [1, 2]
@@ -105,5 +105,4 @@ end
         @test occursin("Gaussian", err.msg)
         @test occursin(string(nameof(typeof(gate))), err.msg)  # names the offender
     end
-
 end
