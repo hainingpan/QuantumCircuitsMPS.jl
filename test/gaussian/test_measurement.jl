@@ -22,7 +22,8 @@ function make_state(L::Int; bc::Symbol = :open, seed::Int = 1,
         gates_realization::Union{Int, Nothing} = nothing)
     state = SimulationState(L = L, bc = bc, backend = :gaussian,
         rng = RNGRegistry(gates_spacetime = seed,
-            gates_realization = gates_realization === nothing ? seed + 10 : gates_realization,
+            gates_realization = gates_realization === nothing ? seed + 10 :
+                                gates_realization,
             born_measurement = born_measurement === nothing ? seed + 20 : born_measurement,
             state_init = seed + 30))
     initialize!(state, ProductState(binary_int = 0))
