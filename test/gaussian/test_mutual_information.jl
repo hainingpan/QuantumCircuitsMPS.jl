@@ -26,11 +26,14 @@ const QCM = QuantumCircuitsMPS
 isdefined(@__MODULE__, :oracle_density_matrix) ||
     include(joinpath(@__DIR__, "oracle.jl"))
 
-_mi_rng(k) = RNGRegistry(gates_spacetime = k, gates_realization = k + 10,
-    born_measurement = k + 20, state_init = k + 30)
+function _mi_rng(k)
+    RNGRegistry(gates_spacetime = k, gates_realization = k + 10,
+        born_measurement = k + 20, state_init = k + 30)
+end
 
-_mi_gauss(L, k; bc = :open) =
+function _mi_gauss(L, k; bc = :open)
     SimulationState(L = L, bc = bc, backend = :gaussian, rng = _mi_rng(k))
+end
 
 """
 Givens rotation of angle θ on Majorana indices (p, p+1) by direct orthogonal
@@ -72,23 +75,25 @@ function _oracle_subset_entropy(Γ, keep::Vector{Int}, L::Int)
         idx
     end
     ρA = zeros(ComplexF64, 2^m, 2^m)
-    for a in 0:(2^m - 1), b in 0:(2^m - 1), c in 0:(2^nr - 1)
+    for a in 0:(2 ^ m - 1), b in 0:(2 ^ m - 1), c in 0:(2 ^ nr - 1)
         ρA[a + 1, b + 1] += ρ[asm(a, c) + 1, asm(b, c) + 1]
     end
     p = real.(eigvals(Hermitian(ρA)))
     return -sum(x <= 0 ? 0.0 : x * log(x) for x in p)
 end
 
-_oracle_mi(Γ, A, B, L) = _oracle_subset_entropy(Γ, A, L) +
-                         _oracle_subset_entropy(Γ, B, L) -
-                         _oracle_subset_entropy(Γ, sort(vcat(A, B)), L)
+function _oracle_mi(Γ, A, B, L)
+    _oracle_subset_entropy(Γ, A, L) +
+    _oracle_subset_entropy(Γ, B, L) -
+    _oracle_subset_entropy(Γ, sort(vcat(A, B)), L)
+end
 
 # Sorted Majorana indices of a physical-site collection (phy_ram-mapped).
-_mi_maj(state, sites) = sort!(vcat([[2r - 1, 2r] for r in
-    (state.phy_ram[s] for s in sites)]...))
+function _mi_maj(state, sites)
+    sort!(vcat([[2r - 1, 2r] for r in (state.phy_ram[s] for s in sites)]...))
+end
 
 @testset "Gaussian MutualInformation + TMI (T11)" begin
-
     @testset "product state: I(A:B) ≈ 0 for any disjoint A, B" begin
         L = 8
         for (k, bits) in enumerate(("00000000", "01011010", "11111111"))
