@@ -8,6 +8,16 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
 
 ## [Unreleased]
 
+## [0.5.1] - 2026-07-15
+
+### Changed
+
+- Applied JuliaFormatter v2.10.1 with `SciMLStyle` to the package entrypoints,
+  Gaussian backend implementation, and Gaussian test suite. This is a
+  formatting-only maintenance release with no runtime behavior changes.
+- Recorded the bulk formatting commits in `.git-blame-ignore-revs` so line
+  history remains useful across the mechanical rewrite.
+
 ## [0.5.0] - 2026-07-13
 
 This release adds a fourth simulation backend: a fermionic Gaussian

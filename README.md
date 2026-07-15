@@ -149,6 +149,7 @@ Acknowledgments for code patterns adapted from these projects: see [CONTRIBUTING
 
 | Version | Date | Highlight |
 |---|---|---|
+| [v0.5.1] | 2026-07-15 | SciMLStyle formatting maintenance release |
 | [v0.5.0] | 2026-07-13 | Fermionic Gaussian (free-fermion) backend |
 | [v0.4.0] | 2026-07-07 | API consistency audit, new observables, Documenter site, CI/quality gates |
 | [v0.3.0] | 2026-07-05 | Clifford (stabilizer-tableau) backend |
@@ -157,6 +158,7 @@ Acknowledgments for code patterns adapted from these projects: see [CONTRIBUTING
 
 See [CHANGELOG.md](CHANGELOG.md) for the full release history including patch releases and detailed notes.
 
+[v0.5.1]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.0...v0.5.1
 [v0.5.0]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.4.0...v0.5.0
 [v0.4.0]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.3.0...v0.4.0
 [v0.3.0]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.2.1...v0.3.0
