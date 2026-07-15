@@ -12,10 +12,14 @@ using LinearAlgebra
 
 # QA shorthand (see .sisyphus/notepads/gaussian-backend/learnings.md):
 # RNGRegistry has NO seed kwarg.
-_rng(k) = RNGRegistry(gates_spacetime = k, gates_realization = k + 10,
-    born_measurement = k + 20, state_init = k + 30)
+function _rng(k)
+    RNGRegistry(gates_spacetime = k, gates_realization = k + 10,
+        born_measurement = k + 20, state_init = k + 30)
+end
 
-_gaussian_state(L, k) = SimulationState(L = L, bc = :open, backend = :gaussian, rng = _rng(k))
+function _gaussian_state(L, k)
+    SimulationState(L = L, bc = :open, backend = :gaussian, rng = _rng(k))
+end
 
 @testset "Gaussian initialize!" begin
     @testset "vacuum ProductState(binary_int=0)" begin
@@ -59,6 +63,7 @@ _gaussian_state(L, k) = SimulationState(L = L, bc = :open, backend = :gaussian, 
 
         # Only the intra-mode blocks are nonzero
         for i in 1:L, j in 1:L
+
             if i != j
                 @test all(Γ[(2i - 1):(2i), (2j - 1):(2j)] .== 0.0)
             end

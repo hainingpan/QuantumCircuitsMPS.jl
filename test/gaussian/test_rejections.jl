@@ -28,7 +28,6 @@ function make_gaussian_state(L::Int; bc::Symbol = :open, seed::Int = 1)
 end
 
 @testset "Gaussian backend observable rejections (T12)" begin
-
     state = make_gaussian_state(6)
 
     @testset "StringOrder rejected" begin
@@ -113,7 +112,7 @@ end
         # runnable in isolation during Wave-3 parallel development.
         for (label, obs) in (
             ("EntanglementEntropy", EntanglementEntropy(cut = 1)),
-            ("Magnetization(:Z)", Magnetization(:Z)),
+            ("Magnetization(:Z)", Magnetization(:Z))
         )
             @testset "$label" begin
                 try
@@ -132,5 +131,4 @@ end
             end
         end
     end
-
 end

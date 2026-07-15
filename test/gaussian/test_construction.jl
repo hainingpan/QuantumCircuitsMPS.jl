@@ -10,7 +10,6 @@ using Test
 using QuantumCircuitsMPS
 
 @testset "Gaussian Backend Construction" begin
-
     @testset "Construction succeeds, correct backend type" begin
         @testset "L=$L" for L in [2, 4, 8]
             state = SimulationState(L = L, bc = :open, backend = :gaussian,
@@ -57,5 +56,4 @@ using QuantumCircuitsMPS
             rng = RNGRegistry(gates_spacetime = 1, gates_realization = 11,
                 born_measurement = 21, state_init = 31))
     end
-
 end
