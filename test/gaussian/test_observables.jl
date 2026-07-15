@@ -21,11 +21,14 @@ const QCM = QuantumCircuitsMPS
 # T5's exponential-cost exact oracle (test-only; L ≤ 5)
 include(joinpath(@__DIR__, "oracle.jl"))
 
-_rng(k) = RNGRegistry(gates_spacetime = k, gates_realization = k + 10,
-    born_measurement = k + 20, state_init = k + 30)
+function _rng(k)
+    RNGRegistry(gates_spacetime = k, gates_realization = k + 10,
+        born_measurement = k + 20, state_init = k + 30)
+end
 
-_gaussian_state(L, k; bc = :open) =
+function _gaussian_state(L, k; bc = :open)
     SimulationState(L = L, bc = bc, backend = :gaussian, rng = _rng(k))
+end
 
 """
 Apply a Givens rotation of angle θ on Majorana indices (p, p+1) to the
@@ -64,7 +67,6 @@ function _oracle_mode1_entropy(Γ)
 end
 
 @testset "Gaussian observables (T10)" begin
-
     @testset "vacuum: EE ≈ 0 at every cut" begin
         L = 8
         state = _gaussian_state(L, 1)

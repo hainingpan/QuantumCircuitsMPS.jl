@@ -1,0 +1,13 @@
+# Bulk formatting commits to ignore in git blame.
+# Use: git blame --ignore-revs-file .git-blame-ignore-revs (or set blame.ignoreRevsFile)
+# style: apply JuliaFormatter SciML style
+af3bf9a6d04003aed5d02c07a21101f4b266a3ab
+
+# style: apply JuliaFormatter v2.10.1 SciMLStyle to Gaussian source and tests
+77a24e0260d5ef1ba274e9303371e408b57bc761
+2f11bd474e1c518c5421b8eb9c00917207d37e3c
+1b374dff7457c89d6c38cd4b1271ef0d2eebcb79
+0ccade79b7b39ef496c089df5ef1c66965638a37
+043e878616cfe8ea457e8b0b77e50604787abf28
+b10944d079cdf77c3ffafecaf69f1537d2f2d3ab
+aed5adb5b7697002acd8f8460ec6c6f7a69d7a1a

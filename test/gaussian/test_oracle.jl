@@ -7,10 +7,10 @@ using Random
 include(joinpath(@__DIR__, "oracle.jl"))
 
 @testset "ED/Pfaffian oracle" begin
-
     @testset "_pfaffian: pf(A)^2 = det(A)" begin
         rng = MersenneTwister(20260711)
         for n in (2, 4, 6), trial in 1:5
+
             B = randn(rng, n, n)
             A = B - transpose(B)   # random antisymmetric
             pf = _pfaffian(A)
@@ -27,7 +27,8 @@ include(joinpath(@__DIR__, "oracle.jl"))
 
     @testset "majorana_matrices algebra (L=2,3)" begin
         for L in (2, 3), order in (:msb, :lsb)
-            γ = majorana_matrices(L; order=order)
+
+            γ = majorana_matrices(L; order = order)
             dim = 1 << L
             Id = Matrix{ComplexF64}(I, dim, dim)
             @test length(γ) == 2L
@@ -73,25 +74,25 @@ include(joinpath(@__DIR__, "oracle.jl"))
         # use asymmetric pattern instead
         bits2 = [true, false, false]  # msb ⇒ idx 4; lsb ⇒ idx 1
         Γ2 = oracle_occupation_covariance(bits2)
-        @test abs(oracle_density_matrix(Γ2; order=:msb)[5, 5] - 1) < 1e-12
-        @test abs(oracle_density_matrix(Γ2; order=:lsb)[2, 2] - 1) < 1e-12
+        @test abs(oracle_density_matrix(Γ2; order = :msb)[5, 5] - 1) < 1e-12
+        @test abs(oracle_density_matrix(Γ2; order = :lsb)[2, 2] - 1) < 1e-12
     end
 
     @testset "golden cross-check vs Python GTN.density_matrix (rotated Γ, L=2)" begin
         # Γ' = R Γ_vac Rᵀ, R = Givens(θ=0.7) on Majoranas 2,3 (1-based)
         th = 0.7
         R = Matrix{Float64}(I, 4, 4)
-        R[2, 2] = cos(th); R[2, 3] = -sin(th)
-        R[3, 2] = sin(th); R[3, 3] = cos(th)
+        R[2, 2] = cos(th);
+        R[2, 3] = -sin(th)
+        R[3, 2] = sin(th);
+        R[3, 3] = cos(th)
         Γ = R * oracle_vacuum_covariance(2) * transpose(R)
         ρ = oracle_density_matrix(Γ)
         # Python golden (density_matrix(G2, order="msb")):
-        ρ_py = ComplexF64[
-            0.8824210936422443 0 0 0.3221088436188455im;
-            0 0 0 0;
-            0 0 0 0;
-            -0.3221088436188455im 0 0 0.11757890635775575
-        ]
+        ρ_py = ComplexF64[0.8824210936422443 0 0 0.3221088436188455im;
+                          0 0 0 0;
+                          0 0 0 0;
+                          -0.3221088436188455im 0 0 0.11757890635775575]
         @test maximum(abs.(ρ - ρ_py)) < 1e-12
         @test abs(tr(ρ) - 1) < 1e-12
         @test minimum(real(eigvals(Hermitian(ρ)))) > -1e-12
@@ -104,8 +105,10 @@ include(joinpath(@__DIR__, "oracle.jl"))
         γ = majorana_matrices(2)
         th = 0.7
         R = Matrix{Float64}(I, 4, 4)
-        R[2, 2] = cos(th); R[2, 3] = -sin(th)
-        R[3, 2] = sin(th); R[3, 3] = cos(th)
+        R[2, 2] = cos(th);
+        R[2, 3] = -sin(th)
+        R[3, 2] = sin(th);
+        R[3, 3] = cos(th)
         ρ = oracle_density_matrix(R * oracle_vacuum_covariance(2) * transpose(R))
         P = (Matrix{ComplexF64}(I, 4, 4) + im * γ[1] * γ[2]) / 2
         ρc = P * ρ * P'

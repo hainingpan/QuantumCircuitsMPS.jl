@@ -13,12 +13,14 @@ using LinearAlgebra
 using Random: MersenneTwister
 const QC = QuantumCircuitsMPS
 
-_rng(k) = RNGRegistry(gates_spacetime = k, gates_realization = k + 10,
-                      born_measurement = k + 20, state_init = k + 30)
+function _rng(k)
+    RNGRegistry(gates_spacetime = k, gates_realization = k + 10,
+        born_measurement = k + 20, state_init = k + 30)
+end
 
 function _majorana_state(L; bc = :open, seed = 1, binary_int = 0)
     state = SimulationState(L = L, bc = bc, backend = :gaussian,
-                            site_type = "Majorana", rng = _rng(seed))
+        site_type = "Majorana", rng = _rng(seed))
     initialize!(state, ProductState(binary_int = binary_int))
     return state
 end
@@ -27,7 +29,7 @@ end
     # even L accepted; majoranas_per_site set from site_type
     for L in (2, 4, 16)
         s = SimulationState(L = L, bc = :open, backend = :gaussian,
-                            site_type = "Majorana", rng = _rng(1))
+            site_type = "Majorana", rng = _rng(1))
         @test s.backend isa GaussianBackend
         @test s.backend.majoranas_per_site == 1
     end
@@ -59,7 +61,7 @@ end
     @test maximum(abs.(Γ * Γ + I)) == 0.0
     # bit pattern has length L÷2: bit k flips the sign of pair (2k-1, 2k)
     s2 = SimulationState(L = 4, bc = :open, backend = :gaussian,
-                         site_type = "Majorana", rng = _rng(2))
+        site_type = "Majorana", rng = _rng(2))
     initialize!(s2, ProductState(bitstring = "10"))
     Γ2 = s2.backend.corr
     @test Γ2[1, 2] == -1.0   # bit 1 → flipped pair
@@ -67,14 +69,14 @@ end
 
     # RandomGaussianState: Γ is L×L, pure, antisymmetric, seed-reproducible
     sA = SimulationState(L = 6, bc = :open, backend = :gaussian,
-                         site_type = "Majorana", rng = _rng(7))
+        site_type = "Majorana", rng = _rng(7))
     initialize!(sA, RandomGaussianState())
     ΓA = sA.backend.corr
     @test size(ΓA) == (6, 6)
     @test maximum(abs.(ΓA + transpose(ΓA))) == 0.0
     @test maximum(abs.(ΓA * ΓA + I)) < 1e-12
     sB = SimulationState(L = 6, bc = :open, backend = :gaussian,
-                         site_type = "Majorana", rng = _rng(7))
+        site_type = "Majorana", rng = _rng(7))
     initialize!(sB, RandomGaussianState())
     @test sB.backend.corr == ΓA  # bitwise
 end
@@ -97,7 +99,7 @@ end
     seed = 11
 
     sM = SimulationState(L = 2L, bc = :open, backend = :gaussian,
-                         site_type = "Majorana", rng = _rng(seed))
+        site_type = "Majorana", rng = _rng(seed))
     initialize!(sM, RandomGaussianState())
     sF = SimulationState(L = L, bc = :open, backend = :gaussian, rng = _rng(seed))
     initialize!(sF, RandomGaussianState())
@@ -116,7 +118,7 @@ end
     # (same matrix), pinning the site→Majorana index mapping.
     seed = 21
     sM = SimulationState(L = 8, bc = :open, backend = :gaussian,
-                         site_type = "Majorana", rng = _rng(seed))
+        site_type = "Majorana", rng = _rng(seed))
     initialize!(sM, RandomGaussianState())
     Γ0 = copy(sM.backend.corr)
 
@@ -148,7 +150,7 @@ end
     L = 16
     function run(seed)
         s = SimulationState(L = L, bc = :periodic, backend = :gaussian,
-                            site_type = "Majorana", rng = _rng(seed))
+            site_type = "Majorana", rng = _rng(seed))
         initialize!(s, ProductState(binary_int = 0))
         for t in 1:25
             apply!(s, GaussianHaar(), Bricklayer(:odd))
@@ -169,7 +171,7 @@ end
 @testset "PBC wrap bond (L,1) on Majorana chain → Majorana indices [L,1]" begin
     L = 8
     s = SimulationState(L = L, bc = :periodic, backend = :gaussian,
-                        site_type = "Majorana", rng = _rng(5))
+        site_type = "Majorana", rng = _rng(5))
     initialize!(s, RandomGaussianState())
     apply!(s, BondParity(), AdjacentPair(L))  # wrap bond (L,1)
     Γ = s.backend.corr
@@ -186,10 +188,17 @@ end
     @test_throws ArgumentError born_probability(s, 2, 0)
     # messages are informative
     for (f, needle) in ((() -> apply!(s, Measure(:Z), SingleSite(2)), "BondParity"),
-                        (() -> apply!(s, PauliX(), SingleSite(2)), "single-Majorana"),
-                        (() -> Magnetization(:Z)(s), "Majorana"),
-                        (() -> born_probability(s, 2, 0), "BondParity"))
-        err = try; f(); nothing; catch e; e; end
+        (() -> apply!(s, PauliX(), SingleSite(2)), "single-Majorana"),
+        (() -> Magnetization(:Z)(s), "Majorana"),
+        (() -> born_probability(s, 2, 0), "BondParity"))
+        err = try
+            ;
+            f();
+            nothing;
+        catch e
+            ;
+            e;
+        end
         @test err isa ArgumentError
         @test occursin(needle, err.msg)
     end
@@ -222,10 +231,10 @@ end
     #   Ups = g.kraus((0, cos(0.7), sin(0.7)))          # class-DIII unitary branch
     #   P_contraction_2(g.C_m, Ups, ix=[1,2], ix_bar=[0,3])   # 0-based legs
     # → output covariance matrix (float64, printed to 17 significant digits):
-    golden = [0.0                 0.7648421872844885  0.644217687237691  0.0;
-              -0.7648421872844885 0.0                 0.0               -0.644217687237691;
-              -0.644217687237691  0.0                 0.0                0.7648421872844885;
-              0.0                 0.644217687237691  -0.7648421872844885 0.0]
+    golden = [0.0 0.7648421872844885 0.644217687237691 0.0;
+              -0.7648421872844885 0.0 0.0 -0.644217687237691;
+              -0.644217687237691 0.0 0.0 0.7648421872844885;
+              0.0 0.644217687237691 -0.7648421872844885 0.0]
     # EMPIRICALLY DERIVED convention (do not assume): the contraction of
     # kraus((0, cos φ, sin φ)) on Majorana pair (a, b) equals the direct
     # SO(2) conjugation Γ ← RΓRᵀ with R = [[cos φ, −sin φ], [sin φ, cos φ]]

@@ -13,9 +13,9 @@ using QuantumCircuitsMPS
 const QCM = QuantumCircuitsMPS
 
 @testset "Gaussian kernel" begin
-
     @testset "haar_orthogonal: orthogonal, det=+1" begin
         for n in [2, 4, 8, 16], seed in [0, 1, 42, 12345]
+
             Q = QCM.haar_orthogonal(MersenneTwister(seed), n)
             @test maximum(abs.(Q' * Q - I)) < 1e-12
             @test abs(det(Q) - 1.0) < 1e-12
@@ -50,7 +50,9 @@ const QCM = QuantumCircuitsMPS
     end
 
     @testset "gaussian_contraction! with unitary kraus preserves purity" begin
-        for (i, j) in [(1, 2), (2, 3), (5, 6)], n in [(0.6, 0.8, 0.0), (0.0, 0.0, 1.0), (1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3))]
+        for (i, j) in [(1, 2), (2, 3), (5, 6)],
+            n in [(0.6, 0.8, 0.0), (0.0, 0.0, 1.0), (1 / sqrt(3), 1 / sqrt(3), 1 / sqrt(3))]
+
             Γ = QCM.vacuum_covariance(4)
             Υ = QCM._kraus(n)
             QCM.gaussian_contraction!(Γ, Υ, [i, j])
@@ -126,5 +128,4 @@ const QCM = QuantumCircuitsMPS
         @test err isa ArgumentError
         @test occursin("vanishing state", err.msg)
     end
-
 end

@@ -30,7 +30,7 @@ using LinearAlgebra
 # -----------------------------------------------------------------------------
 # Pfaffian via O(n³) skew-symmetric row/column reduction (port of GTN.py:1490)
 # -----------------------------------------------------------------------------
-function _pfaffian(A::AbstractMatrix; tol::Real=1e-12)
+function _pfaffian(A::AbstractMatrix; tol::Real = 1e-12)
     M = Matrix{ComplexF64}(A)
     n = size(M, 1)
     size(M, 2) == n || throw(ArgumentError("A must be square"))
@@ -90,9 +90,10 @@ end
 # Reusable helper for independent many-body evolution (e.g. parity projectors
 # P_s = (I + s·im·γ̂_a*γ̂_b)/2 applied to ρ).
 # -----------------------------------------------------------------------------
-function majorana_matrices(L::Int; order::Symbol=:msb)
+function majorana_matrices(L::Int; order::Symbol = :msb)
     order in (:msb, :lsb) || throw(ArgumentError("order must be :msb or :lsb"))
-    1 <= L <= 5 || throw(ArgumentError("majorana_matrices: require 1 ≤ L ≤ 5 (exponential cost), got L=$L"))
+    1 <= L <= 5 ||
+        throw(ArgumentError("majorana_matrices: require 1 ≤ L ≤ 5 (exponential cost), got L=$L"))
     dim = 1 << L
     gammas = Vector{Matrix{ComplexF64}}(undef, 2L)
     for j in 0:(L - 1)  # 0-based mode index (Julia site j+1)
@@ -123,7 +124,7 @@ end
 # (port of GTN.py density_matrix, GTN.py:1432-1476):
 #   ρ = 2^{-L} Σ_{S ⊆ {1..2L}, |S| even} (−i)^{|S|/2} pf(Γ_S) ∏_{i∈S, ascending} γ̂_i
 # -----------------------------------------------------------------------------
-function oracle_density_matrix(Γ::AbstractMatrix; tol::Real=1e-12, order::Symbol=:msb)
+function oracle_density_matrix(Γ::AbstractMatrix; tol::Real = 1e-12, order::Symbol = :msb)
     order in (:msb, :lsb) || throw(ArgumentError("order must be :msb or :lsb"))
     n_majorana = size(Γ, 1)
     size(Γ, 2) == n_majorana || throw(ArgumentError("Γ must be a square matrix"))
@@ -131,7 +132,7 @@ function oracle_density_matrix(Γ::AbstractMatrix; tol::Real=1e-12, order::Symbo
     L = n_majorana ÷ 2
     @assert L <= 5 "oracle_density_matrix: L=$L > 5 refused (exponential cost)"
     dim = 1 << L
-    γ = majorana_matrices(L; order=order)
+    γ = majorana_matrices(L; order = order)
     ρ = zeros(ComplexF64, dim, dim)
     # enumerate subsets of {1..2L} via bitmasks; even-size subsets only
     for mask in 0:((1 << n_majorana) - 1)
@@ -142,7 +143,7 @@ function oracle_density_matrix(Γ::AbstractMatrix; tol::Real=1e-12, order::Symbo
         end
         idx = [i for i in 1:n_majorana if (mask >> (i - 1)) & 1 == 1]  # ascending
         sz = length(idx)
-        coeff = ((-im)^(sz ÷ 2)) * _pfaffian(Γ[idx, idx]; tol=tol)
+        coeff = ((-im)^(sz ÷ 2)) * _pfaffian(Γ[idx, idx]; tol = tol)
         abs(coeff) < tol && continue
         # product γ̂_{i1} γ̂_{i2} … γ̂_{ik}, i1 < i2 < … < ik (left to right)
         G = γ[idx[1]]
@@ -187,7 +188,7 @@ end
 Reference projector |n₁…n_L⟩⟨n₁…n_L| for an occupation pattern.
 order=:msb (default): site 1 is the most significant bit of the basis index.
 """
-function oracle_basis_projector(bits::AbstractVector{Bool}; order::Symbol=:msb)
+function oracle_basis_projector(bits::AbstractVector{Bool}; order::Symbol = :msb)
     order in (:msb, :lsb) || throw(ArgumentError("order must be :msb or :lsb"))
     L = length(bits)
     dim = 1 << L

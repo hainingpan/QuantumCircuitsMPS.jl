@@ -11,7 +11,6 @@ using Test
 using QuantumCircuitsMPS
 
 @testset "Gaussian Gate Types (GaussianHaar, BondParity)" begin
-
     @testset "support()" begin
         @test QuantumCircuitsMPS.support(GaussianHaar()) == 2
         @test QuantumCircuitsMPS.support(BondParity()) == 2
@@ -31,9 +30,9 @@ using QuantumCircuitsMPS
     # `gaussian_haar.jl`/`bond_parity.jl`. `:mps` has no such catch-all (the
     # generic `Core/apply.jl` fallback IS its implementation), so no
     # ambiguity there, but it's still tested for completeness.
-    @testset "$(gate_name) rejected on backend=:$(backend)" for
-            (gate_name, gate) in [("GaussianHaar", GaussianHaar()), ("BondParity", BondParity())],
-            backend in [:mps, :statevector, :clifford]
+    @testset "$(gate_name) rejected on backend=:$(backend)" for (gate_name, gate) in [
+            ("GaussianHaar", GaussianHaar()), ("BondParity", BondParity())],
+        backend in [:mps, :statevector, :clifford]
 
         state = SimulationState(L = 4, bc = :open, backend = backend,
             rng = RNGRegistry(gates_spacetime = 1, gates_realization = 11,
@@ -49,5 +48,4 @@ using QuantumCircuitsMPS
         @test err isa ArgumentError
         @test occursin("gaussian", err.msg)
     end
-
 end

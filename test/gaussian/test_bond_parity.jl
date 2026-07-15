@@ -7,12 +7,14 @@ using QuantumCircuitsMPS
 using LinearAlgebra
 const QC = QuantumCircuitsMPS
 
-_rng(k) = RNGRegistry(gates_spacetime = k, gates_realization = k + 10,
-                      born_measurement = k + 20, state_init = k + 30)
+function _rng(k)
+    RNGRegistry(gates_spacetime = k, gates_realization = k + 10,
+        born_measurement = k + 20, state_init = k + 30)
+end
 
 function _gaussian_state(L; bc = :open, seed = 1, log_events = false)
     state = SimulationState(L = L, bc = bc, backend = :gaussian,
-                            rng = _rng(seed), log_events = log_events)
+        rng = _rng(seed), log_events = log_events)
     initialize!(state, ProductState(binary_int = 0))
     return state
 end

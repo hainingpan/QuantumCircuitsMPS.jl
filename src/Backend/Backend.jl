@@ -96,10 +96,11 @@ the `SimulationState` constructor, `src/State/State.jl`):
   the site→Majorana index mapping (`site_majoranas`) changes.
 """
 mutable struct GaussianBackend <: AbstractBackend
-    corr::Union{Matrix{Float64},Nothing}     # N×N Majorana covariance matrix Γ (antisymmetric), N = L·majoranas_per_site
-    scratch::Union{Matrix{Float64},Nothing}  # preallocated scratch buffer (same size)
+    corr::Union{Matrix{Float64}, Nothing}     # N×N Majorana covariance matrix Γ (antisymmetric), N = L·majoranas_per_site
+    scratch::Union{Matrix{Float64}, Nothing}  # preallocated scratch buffer (same size)
     purify_tol::Float64                      # re-purification trigger threshold (default 1e-10)
     majoranas_per_site::Int                  # 2 = fermionic mode per site (default), 1 = Majorana chain
 end
-GaussianBackend(; purify_tol=1e-10, majoranas_per_site=2) =
+function GaussianBackend(; purify_tol = 1e-10, majoranas_per_site = 2)
     GaussianBackend(nothing, nothing, purify_tol, majoranas_per_site)
+end

@@ -145,12 +145,33 @@ See [API Reference](https://hainingpan.github.io/QuantumCircuitsMPS.jl/api/) for
 Acknowledgments for code patterns adapted from these projects: see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ---
+## Changelog
+
+| Version | Date | Highlight |
+|---|---|---|
+| [v0.5.1] | 2026-07-15 | SciMLStyle formatting maintenance release |
+| [v0.5.0] | 2026-07-13 | Fermionic Gaussian (free-fermion) backend |
+| [v0.4.0] | 2026-07-07 | API consistency audit, new observables, Documenter site, CI/quality gates |
+| [v0.3.0] | 2026-07-05 | Clifford (stabilizer-tableau) backend |
+| [v0.2.0] | 2026-07-05 | Exact state-vector backend |
+| [v0.1.0] | 2026-07-04 | MPS quantum circuit simulation core (initial API) |
+
+See [CHANGELOG.md](CHANGELOG.md) for the full release history including patch releases and detailed notes.
+
+[v0.5.1]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.0...v0.5.1
+[v0.5.0]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.4.0...v0.5.0
+[v0.4.0]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.3.0...v0.4.0
+[v0.3.0]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.2.1...v0.3.0
+[v0.2.0]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.1.1...v0.2.0
+[v0.1.0]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.0.7...v0.1.0
+
+---
 ## Known Limitations
 
 - **1D circuits only**: the entire geometry vocabulary (`Bricklayer`, `AllSites`, `SingleSite`, ...), boundary conditions (`:open`/`:periodic`), and all three backends assume a one-dimensional chain of sites. Higher-dimensional (2D+) circuit geometries are a planned future direction — see [ROADMAP.md](ROADMAP.md).
 - **RNG stream name hardcoded**: the stochastic engine always draws from `:gates_spacetime`. Independently-named streams per probabilistic operation are deferred until a concrete research use case requires it.
 
-See [ROADMAP.md](ROADMAP.md) for planned features and [CHANGELOG.md](CHANGELOG.md) for what changed in v0.4.0.
+See [ROADMAP.md](ROADMAP.md) for planned features and [CHANGELOG.md](CHANGELOG.md) for the full release history.
 
 ---
 ## License and Contributing
