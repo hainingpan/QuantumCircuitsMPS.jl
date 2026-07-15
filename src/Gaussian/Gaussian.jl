@@ -68,7 +68,7 @@ function _apply_single!(state::SimulationState{GaussianBackend}, gate::GaussianH
     # Granularity-aware Majorana index resolution (fermionic: 4 indices →
     # SO(4); Majorana chain: 2 indices → SO(2)).
     ix = vcat(collect.((site_majoranas(state, phy_sites[1]),
-                        site_majoranas(state, phy_sites[2])))...)
+        site_majoranas(state, phy_sites[2])))...)
 
     rng = get_rng(state.rng_registry, :gates_realization)
     O = haar_orthogonal(rng, length(ix))

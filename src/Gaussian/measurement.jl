@@ -206,7 +206,9 @@ function execute!(state::SimulationState{GaussianBackend}, gate::BondParity, phy
     gaussian_contraction!(Γ, parity_projection_upsilon(s), ix;
         scratch = state.backend.scratch, purify_tol = state.backend.purify_tol)
     if state.event_log !== nothing
-        log_event!(state, MeasurementOutcome(state.event_step, state.event_op_idx, [lo, hi], outcome))
+        log_event!(state, MeasurementOutcome(
+            state.event_step, state.event_op_idx, [
+                lo, hi], outcome))
     end
     return nothing
 end
