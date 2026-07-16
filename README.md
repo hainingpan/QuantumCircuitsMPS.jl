@@ -10,22 +10,8 @@
 > ⚠️ Under active development — APIs may change. [Report issues](https://github.com/hainingpan/QuantumCircuitsMPS.jl/issues).
 
 ---
-## What is QuantumCircuitsMPS.jl?
 
-**"PyTorch for Quantum Circuits"** — a pure Julia library for simulating **one-dimensional (1D)** quantum circuits with four interchangeable backends: Matrix Product States (MPS, via ITensors.jl, `L=100+`), an exact dense state vector (`L≲25`, for cross-validation), a stabilizer tableau (Clifford-only gates, `L=100-1000+`), and a fermionic Gaussian (free-fermion Majorana-covariance-matrix) backend for Gaussian-preserving circuits, exact and polynomial-time. It's purpose-built for researchers studying Measurement-Induced (MIPT) and Control-Induced (CIPT) Phase Transitions in monitored quantum circuits, where feedback, measurements, and unitary dynamics compete to create distinct entanglement phases.
-
-Physicists write `apply!(state, HaarRandom(), Bricklayer(:odd))` and never see ITensor index objects, SVD calls, or tensor contractions — the package manages the gap between physics intent (Gates + Geometry) and low-level backend details. Independent, named RNG streams (`:gates_spacetime`, `:gates_realization`, `:born_measurement`, `:state_init`) make every trajectory reproducible from its seeds — on a backend *and across backends*: the same seeds produce the same measurement record on MPS, state vector, and Clifford alike (every measurement consumes exactly one Born draw, deterministic or not).
-
----
-## Comparison with Existing Julia Quantum Libraries
-
-| Feature | ITensors.jl | PastaQ.jl | Yao.jl | **This Package** |
-|---|---|---|---|---|
-| **Primary focus** | Tensor networks | Tomography & benchmarking | Variational algorithms | **MIPT/CIPT dynamics** |
-| **Backend** | MPS/MPO | MPS/MPO | State vector | **MPS + state vector + Clifford tableau + Gaussian (free-fermion)** |
-| **MIPT/CIPT support** | Build from scratch | Manual logic | State-vector limited | **First-class** |
-| **Scalability** | N=100+ | N=100+ | ~30 qubits | **N=100+ (N=1000+ Clifford-only; Gaussian polynomial, `O(L³)`/gate)** |
-| **API level** | Tensor-level | Circuit + Tomography | Block-level | **Physics-level** |
+**"PyTorch for Quantum Circuits"** — a pure Julia library for simulating **one-dimensional (1D)** quantum circuits with four interchangeable backends: Matrix Product States (MPS, via ITensors.jl, `L=100+`), an exact dense state vector (`L≲25`, for cross-validation), a stabilizer tableau (Clifford-only gates, `L=100-1000+`), and a fermionic Gaussian (free-fermion) backend for Gaussian-preserving circuits. It's purpose-built for researchers studying Measurement-Induced (MIPT) and Control-Induced (CIPT) Phase Transitions in monitored quantum circuits: physicists write `apply!(state, HaarRandom(), Bricklayer(:odd))` without touching ITensor internals, and independent, named RNG streams (`:gates_spacetime`, `:gates_realization`, `:born_measurement`, `:state_init`) make every trajectory reproducible from its seeds, on a backend and across backends alike.
 
 ---
 ## Installation
@@ -37,18 +23,8 @@ using Pkg
 Pkg.add(url="https://github.com/hainingpan/QuantumCircuitsMPS.jl")
 ```
 
-**Local development**: `cd /path/to/QuantumCircuitsMPS.jl && julia --project=.`, then:
-
-```julia
-using Pkg
-Pkg.instantiate()
-using QuantumCircuitsMPS
-```
-
-**Dependencies**: ITensors.jl, ITensorMPS.jl, QuantumClifford.jl (required); Luxor.jl (optional, circuit visualization). Julia 1.12+. For interactive development, `Pkg.add("Revise")` globally and add `using Revise` before `using QuantumCircuitsMPS`.
-
 ---
-## Quick Start: MIPT Example
+## Quick Example
 
 ```julia
 using QuantumCircuitsMPS
@@ -77,51 +53,15 @@ entropies = state.observables[:entropy]
 println("Final entropy: $(entropies[end])")
 ```
 
-Haar gates entangle, measurements disentangle: below `p_c` the system is volume-law, above it, area-law. Full walkthroughs (CIPT, AKLT, feedback, all 3 backends) live in the [Tutorials](https://hainingpan.github.io/QuantumCircuitsMPS.jl/tutorials/) docs page and the notebooks in [`examples/`](examples/).
+Haar gates entangle, measurements disentangle: below `p_c` the system is volume-law, above it, area-law. See [`examples/`](examples/) for further worked notebooks.
 
 ---
-## Core Concepts
+## Documentation
 
-`SimulationState` holds the quantum state (any backend) plus RNG streams and tracked observables. Circuits are built from **Gates** (`HaarRandom`, `Measure`, `PauliX`, ...) applied over **Geometry** (`Bricklayer(:odd)`, `AllSites()`, `SingleSite(i)`, ...), and every probabilistic choice — from a single measurement to a multi-outcome control protocol — goes through ONE unified categorical draw from the `:gates_spacetime` stream (`apply_with_prob!`). Geometries are either **broadcast** (many independent elements, e.g. `Bricklayer`) or **set** (one region, e.g. `Sites(1:4)`); `record!` markers inside a `Circuit` do-block control when tracked observables snapshot.
+Full documentation, Design Philosophy, all four backends (MPS, state vector, Clifford, Gaussian), Tutorials, the complete API Reference, and Known Limitations, lives on the docs site:
 
-See [Design Philosophy](https://hainingpan.github.io/QuantumCircuitsMPS.jl/design/) for the layered-abstraction diagram, the unified stochastic rule, and broadcast-vs-set geometry semantics.
-
-Beyond qubits, `SimulationState(...; site_type="S=k/2")` supports arbitrary spin-`S` chains (any half-integer or integer `S` up to 10) — initialization, `Sz`/`S±` operators, and generalized total-spin projectors work on the MPS and state-vector backends; see [API Reference](https://hainingpan.github.io/QuantumCircuitsMPS.jl/api/#Arbitrary-Spin-S-Support).
-
----
-## Backends
-
-`apply!`, `track!`, `record!`, `simulate!` work identically on all four backends — only the `SimulationState(...; backend=...)` constructor call changes.
-
-- **MPS** (default, `backend=:mps`): tensor-network state via ITensors.jl, bond-dimension-limited (`maxdim`), scales to `L=100+` for generic circuits. [MPS Backend →](https://hainingpan.github.io/QuantumCircuitsMPS.jl/backends/mps/)
-- **State vector** (`backend=:statevector`): exact, dense `Vector{ComplexF64}`, zero truncation error, the reference every correctness check is validated against. [State Vector Backend →](https://hainingpan.github.io/QuantumCircuitsMPS.jl/backends/statevector/)
-- **Clifford** (`backend=:clifford`): stabilizer tableau via QuantumClifford.jl, polynomial scaling, Clifford-group gates only. [Clifford Backend →](https://hainingpan.github.io/QuantumCircuitsMPS.jl/backends/clifford/)
-- **Gaussian** (`backend=:gaussian`): fermionic Gaussian state via a dense Majorana covariance matrix, polynomial scaling, exact for Gaussian-preserving gates (`GaussianHaar`, `PauliX`, parity measurements) only — includes a Majorana-chain site granularity for the class-DIII monitored-Majorana-chain circuit family. [Gaussian Backend →](https://hainingpan.github.io/QuantumCircuitsMPS.jl/backends/gaussian/)
-
-| Backend | Memory scaling | Practical qubit/mode range |
-|---|---|---|
-| State vector | `2^L` (exponential) | `L ≲ 25-27` |
-| MPS | Bond-dimension dependent (`maxdim`) | `L = 100+` |
-| **Clifford** | `O(L²)` (polynomial) | **`L = 100-1000+`** |
-| **Gaussian** | `O(L²)` (polynomial) | **`L = 100+`** (dense `O(L³)` per gate/measurement) |
-
----
-## Key Functions
-
-| Function | Purpose |
-|---|---|
-| `apply!(state, gate, geometry)` | Apply a gate to specified sites |
-| `apply_with_prob!(c_or_state; outcomes)` | Unified per-element categorical gate application |
-| `simulate!(circuit, state; n_steps, record_when)` | Run a circuit `n_steps` times |
-| `track!(state, name => observable)` | Register an observable for recording |
-| `EntanglementEntropy(; cut)` / `Magnetization(:Z)` | Entropy / magnetization observables |
-| `PauliString(1=>:X, 3=>:Z)` | Multi-site Pauli-string expectation ⟨∏Pₖ⟩ (all 3 backends) |
-| `MutualInformation(A, B)` | I(A:B) between two regions (all 3 backends) |
-| `Correlator(i=>:P, j=>:P)` / `EntropyProfile()` | Connected correlator / entropy at every cut |
-| `TripartiteMutualInformation(A, B, C)` | I₃, tripartite mutual information (MIPT order parameter) |
-| `MagnetizationFluctuations(region)` | Var(M) over a region |
-
-See [API Reference](https://hainingpan.github.io/QuantumCircuitsMPS.jl/api/) for the full list, and [Custom Observables](https://hainingpan.github.io/QuantumCircuitsMPS.jl/custom_observables/) for writing your own (`track!` accepts any `f(state)` callable).
+- **[stable](https://hainingpan.github.io/QuantumCircuitsMPS.jl/stable/)** — the latest tagged release
+- **[dev](https://hainingpan.github.io/QuantumCircuitsMPS.jl/dev/)** — the `dev` branch, may include unreleased changes
 
 ---
 ## Citation
@@ -134,6 +74,14 @@ See [API Reference](https://hainingpan.github.io/QuantumCircuitsMPS.jl/api/) for
   year = {2026}
 }
 ```
+
+---
+## License and Contributing
+
+Licensed under the [BSD 3-Clause License](LICENSE).
+
+- **Bug reports**: [GitHub Issues](https://github.com/hainingpan/QuantumCircuitsMPS.jl/issues)
+- **Contributing**: see [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ---
 ## Related Projects
@@ -149,34 +97,17 @@ Acknowledgments for code patterns adapted from these projects: see [CONTRIBUTING
 
 | Version | Date | Highlight |
 |---|---|---|
-| [v0.5.1] | 2026-07-15 | SciMLStyle formatting maintenance release |
 | [v0.5.0] | 2026-07-13 | Fermionic Gaussian (free-fermion) backend |
 | [v0.4.0] | 2026-07-07 | API consistency audit, new observables, Documenter site, CI/quality gates |
 | [v0.3.0] | 2026-07-05 | Clifford (stabilizer-tableau) backend |
 | [v0.2.0] | 2026-07-05 | Exact state-vector backend |
 | [v0.1.0] | 2026-07-04 | MPS quantum circuit simulation core (initial API) |
 
-See [CHANGELOG.md](CHANGELOG.md) for the full release history including patch releases and detailed notes.
+See [CHANGELOG.md](CHANGELOG.md) for the full release history including patch releases and detailed notes, and [ROADMAP.md](ROADMAP.md) for planned features.
 
-[v0.5.1]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.0...v0.5.1
 [v0.5.0]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.4.0...v0.5.0
 [v0.4.0]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.3.0...v0.4.0
 [v0.3.0]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.2.1...v0.3.0
 [v0.2.0]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.1.1...v0.2.0
 [v0.1.0]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.0.7...v0.1.0
-
----
-## Known Limitations
-
-- **1D circuits only**: the entire geometry vocabulary (`Bricklayer`, `AllSites`, `SingleSite`, ...), boundary conditions (`:open`/`:periodic`), and all three backends assume a one-dimensional chain of sites. Higher-dimensional (2D+) circuit geometries are a planned future direction — see [ROADMAP.md](ROADMAP.md).
-- **RNG stream name hardcoded**: the stochastic engine always draws from `:gates_spacetime`. Independently-named streams per probabilistic operation are deferred until a concrete research use case requires it.
-
-See [ROADMAP.md](ROADMAP.md) for planned features and [CHANGELOG.md](CHANGELOG.md) for the full release history.
-
----
-## License and Contributing
-
-Licensed under the [BSD 3-Clause License](LICENSE).
-
-- **Bug reports**: [GitHub Issues](https://github.com/hainingpan/QuantumCircuitsMPS.jl/issues)
-- **Contributing**: see [CONTRIBUTING.md](CONTRIBUTING.md)
+</content>
