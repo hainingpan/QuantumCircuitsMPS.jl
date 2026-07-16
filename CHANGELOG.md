@@ -8,6 +8,19 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
 
 ## [Unreleased]
 
+## [0.5.2] - 2026-07-15
+
+### Changed
+
+- Reorganized the Documenter site into an ITensors.jl-style layout: the
+  landing page is now a full Introduction (installation, quick example,
+  citation, known limitations), the API reference is split into
+  per-topic pages under a "Documentation" nav group, and the changelog
+  is part of the site navigation.
+- Slimmed `README.md` down to badges, pitch, installation, a quick
+  example, and citation — the docs site is now the single source of
+  truth for everything else.
+
 ## [0.5.1] - 2026-07-15
 
 ### Changed
@@ -337,7 +350,8 @@ documentation.
 
 Initial clean release, with CIPT and MIPT example notebooks.
 
-[Unreleased]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.2...HEAD
+[0.5.2]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.3.0...v0.4.0
