@@ -12,6 +12,18 @@ using QuantumCircuitsMPS
 
 bib = CitationBibliography(joinpath(@__DIR__, "src", "refs.bib"); style=:numeric)
 
+# Build-time copy: CHANGELOG.md is the single source of truth.
+# docs/src/changelog.md is auto-generated and .gitignored.
+# Post-copy fixup: rewrite relative repo links (e.g. ROADMAP.md) to absolute
+# GitHub URLs so Documenter's strict cross-reference checker doesn't fail.
+let changelog_dst = joinpath(@__DIR__, "src", "changelog.md")
+    cp(joinpath(@__DIR__, "..", "CHANGELOG.md"), changelog_dst; force=true)
+    txt = read(changelog_dst, String)
+    txt = replace(txt,
+        "(ROADMAP.md)" => "(https://github.com/hainingpan/QuantumCircuitsMPS.jl/blob/dev/ROADMAP.md)")
+    write(changelog_dst, txt)
+end
+
 makedocs(;
     modules=[QuantumCircuitsMPS],
     plugins=[bib],
@@ -33,7 +45,7 @@ makedocs(;
         size_threshold_warn=220 * 1024,
     ),
     pages=[
-        "Home" => "index.md",
+        "Introduction" => "index.md",
         "Design Philosophy" => "design.md",
         "Backends" => [
             "backends/mps.md",
@@ -41,14 +53,26 @@ makedocs(;
             "backends/clifford.md",
             "backends/gaussian.md",
         ],
-        "Tutorials" => "tutorials.md",
-        "Custom Observables" => "custom_observables.md",
-        "API Reference" => "api.md",
-        "Private / Internal API" => "internals.md",
+        "Examples" => [
+            "Tutorials" => "tutorials.md",
+            "Custom Observables" => "custom_observables.md",
+        ],
+        "Documentation" => [
+            "API Reference" => "api/index.md",
+            "States and Backends" => "api/state.md",
+            "Gates" => "api/gates.md",
+            "Geometry" => "api/geometry.md",
+            "Observables" => "api/observables.md",
+            "Circuit" => "api/circuit.md",
+            "Random Number Generation" => "api/rng.md",
+            "Private / Internal API" => "internals.md",
+        ],
         "Developer Docs" => [
             "devdocs/backend_interface.md",
         ],
+        "Changelog" => "changelog.md",
     ],
+    pagesonly=true,
     # T30 (v0.4.0): docstring coverage is complete (every exported symbol
     # documented, every unexported docstring reachable via internals.md's
     # `@autodocs Public=false` block) — missing_docs is now a HARD ERROR.
