@@ -18,6 +18,8 @@ permissions:
 jobs:
   test:
     name: Julia ${{ matrix.version }} - ${{ matrix.os }} - ${{ github.event_name }}
+    # Only run on the canonical repo, not mirror forks (e.g. Pixley org)
+    if: github.repository == 'hainingpan/QuantumCircuitsMPS.jl'
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false

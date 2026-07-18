@@ -11,6 +11,8 @@ permissions:
 
 jobs:
   CompatHelper:
+    # Only run on the canonical repo, not mirror forks (e.g. Pixley org)
+    if: github.repository == 'hainingpan/QuantumCircuitsMPS.jl'
     runs-on: ubuntu-latest
     steps:
       - name: Check if Julia is already available in the PATH
