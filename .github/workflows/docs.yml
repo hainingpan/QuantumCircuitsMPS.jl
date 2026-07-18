@@ -18,6 +18,8 @@ permissions:
 
 jobs:
   build:
+    # Only run on the canonical repo, not mirror forks (e.g. Pixley org)
+    if: github.repository == 'hainingpan/QuantumCircuitsMPS.jl'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
