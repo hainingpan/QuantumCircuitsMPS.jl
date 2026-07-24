@@ -25,7 +25,7 @@ hundreds or thousands (see [Clifford Backend](@ref)).
 ```julia
 using QuantumCircuitsMPS
 
-state = SimulationState(L=12, bc=:periodic, maxdim=64,
+state = SimulationState(L=12, bc=:periodic, backend=:mps, maxdim=64, cutoff=1e-10,
     rng=RNGRegistry(gates_spacetime=42, gates_realization=1, born_measurement=2))
 initialize!(state, ProductState(binary_int=0))
 track!(state, :entropy => EntanglementEntropy(; cut=6))
@@ -36,7 +36,7 @@ record!(state)
 println("Entropy: $(state.observables[:entropy][end])")
 ```
 
-`backend=:mps` is the default and can be omitted from `SimulationState(...)`.
+`backend=:mps` is shown explicitly above but is the default and can be omitted.
 `cutoff` (SVD truncation threshold, default `1e-10`) and `maxdim` (maximum
 bond dimension, default `100`) are MPS-only keywords — they are silently
 ignored on the other two backends for cross-backend API consistency (see the
