@@ -56,6 +56,7 @@ makedocs(;
         "Examples" => [
             "Tutorials" => "tutorials.md",
             "Custom Observables" => "custom_observables.md",
+            "Custom Gates" => "custom_gates.md",
         ],
         "Documentation" => [
             "API Reference" => "api/index.md",

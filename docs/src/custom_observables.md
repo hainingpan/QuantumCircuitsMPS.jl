@@ -18,6 +18,8 @@ state.observables[:edge]                                  # 50 recorded values
 There is no plugin framework and no registration macro — the contract below
 IS the extension mechanism.
 
+The same philosophy applies to gates — see [Custom Gates](@ref).
+
 ## The callable contract
 
 A tracked callable `f` is invoked as `f(state)` at every record point (an

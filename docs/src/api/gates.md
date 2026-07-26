@@ -8,6 +8,8 @@ Unitary and non-unitary (measurement/projection) single- and two-site
 operations, plus the spin-sector projector/measurement machinery for AKLT-
 style protocols.
 
+To define your own gate type, see [Custom Gates](@ref).
+
 ```@docs
 AbstractGate
 PauliX
