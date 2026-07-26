@@ -1,6 +1,6 @@
 # Tutorials
 
-Four Jupyter notebooks in [`examples/`](https://github.com/hainingpan/QuantumCircuitsMPS.jl/tree/dev/examples) walk through full research workflows end-to-end, re-executed top-to-bottom against the v0.4.0 API:
+Five Jupyter notebooks in [`examples/`](https://github.com/hainingpan/QuantumCircuitsMPS.jl/tree/dev/examples) walk through full research workflows end-to-end:
 
 | Notebook | Topic |
 |---|---|
@@ -8,8 +8,9 @@ Four Jupyter notebooks in [`examples/`](https://github.com/hainingpan/QuantumCir
 | [`cipt_example.ipynb`](https://github.com/hainingpan/QuantumCircuitsMPS.jl/blob/dev/examples/cipt_example.ipynb) | Control-Induced Phase Transition: staircase Reset/Haar competition, writes `cipt_Mz_data.csv` |
 | [`cipt_fss.ipynb`](https://github.com/hainingpan/QuantumCircuitsMPS.jl/blob/dev/examples/cipt_fss.ipynb) | Finite-size scaling analysis of the CIPT transition (Python notebook — pandas + `fss`, consumes the CSV from `cipt_example.ipynb`) |
 | [`AKLT_forcedmeas.ipynb`](https://github.com/hainingpan/QuantumCircuitsMPS.jl/blob/dev/examples/AKLT_forcedmeas.ipynb) | AKLT ground-state preparation via forced spin-sector projection, including NNN support |
+| [`gaussian_example.ipynb`](https://github.com/hainingpan/QuantumCircuitsMPS.jl/blob/dev/examples/gaussian_example.ipynb) | Class-DIII monitored Majorana chain on the Gaussian backend (`site_type="Majorana"`): shift-averaged antipodal mutual information vs. measurement probability `p` |
 
-The three quick-start snippets below are the condensed, standalone versions of the Julia notebooks (`mipt_example`, `cipt_example`, `AKLT_forcedmeas`) — enough to run end-to-end in a REPL without opening Jupyter. See the [State Vector Backend](@ref) and [Clifford Backend](@ref) pages for the equivalent snippets on those two backends.
+The four quick-start snippets below are the condensed, standalone versions of the Julia notebooks (`mipt_example`, `cipt_example`, `AKLT_forcedmeas`, `gaussian_example`) — enough to run end-to-end in a REPL without opening Jupyter. See the [State Vector Backend](@ref) and [Clifford Backend](@ref) pages for the equivalent snippets on those two backends.
 
 ## MIPT Example: Measurement-Induced Phase Transition
 
@@ -138,9 +139,61 @@ println("|String Order|: $(abs(state.observables[:string_order][end]))")
 
 **Physics**: The AKLT (Affleck-Kennedy-Lieb-Tasaki) state is a paradigmatic example of symmetry-protected topological order. By projecting out the S=2 quintet sector from adjacent spin-1 pairs, the protocol converges to the AKLT ground state characterized by string order parameter |O| ≈ 4/9. See [Arbitrary Spin-S Support](@ref) for running the same protocol at higher spin.
 
+## Gaussian Example: Class-DIII Monitored Majorana Chain
+
+```julia
+using QuantumCircuitsMPS
+using Statistics
+
+# System parameters
+L = 32                  # Number of MAJORANA sites (site i IS the Majorana operator γᵢ)
+p = 0.5                 # Measurement probability (self-dual point)
+t = L                   # Time steps (one step = two staggered half-layers)
+
+# Gaussian backend at Majorana-site granularity: Γ is L×L, one Majorana per site
+state = SimulationState(L=L, bc=:periodic, backend=:gaussian, site_type="Majorana",
+    rng=RNGRegistry(gates_spacetime=1, born_measurement=2, gates_realization=3, state_init=4))
+
+# Staggered class-DIII circuit: odd links measure with probability p,
+# even links (including the PBC wrap (γ_L, γ_1)) with probability 1 - p
+circuit = Circuit(L=L, bc=:periodic) do c
+    # Half-layer 1: odd links (γ1γ2), (γ3γ4), ...
+    apply_with_prob!(c; outcomes=[
+        (probability=p,     gate=BondParity(),   geometry=Bricklayer(:odd)),
+        (probability=1 - p, gate=GaussianHaar(), geometry=Bricklayer(:odd))
+    ])
+    # Half-layer 2: even links (γ2γ3), ..., (γ_L γ_1)
+    apply_with_prob!(c; outcomes=[
+        (probability=1 - p, gate=BondParity(),   geometry=Bricklayer(:even)),
+        (probability=p,     gate=GaussianHaar(), geometry=Bricklayer(:even))
+    ])
+end
+
+initialize!(state, RandomGaussianState())
+
+# Shift-averaged antipodal-quarter mutual information (nats): A = sites 1..L/4,
+# B = sites L/2+1..3L/4, averaged over all L/2 cyclic shifts of the pair (regions wrap)
+function antipodal_mi(state; L=state.L)
+    A0, B0 = collect(1:(L ÷ 4)), collect((L ÷ 2 + 1):(3L ÷ 4))
+    return mean(MutualInformation(mod1.(A0 .+ shift, L), mod1.(B0 .+ shift, L))(state)
+                for shift in 0:(L ÷ 2 - 1))
+end
+
+track!(state, :mi => antipodal_mi)
+
+# record_when=:final_only evaluates the tracked MI once, at the final time
+simulate!(circuit, state; n_steps=t, record_when=:final_only)
+
+println("Antipodal MI at p=$(p): $(state.observables[:mi][end])")
+
+# See examples/gaussian_example.ipynb for the full tutorial
+```
+
+**Physics**: Each time step staggers two competing operations across the ring — on odd links, `BondParity()` parity measurements of `iγᵢγᵢ₊₁` fire with probability `p` while `GaussianHaar()` rotations `exp(θγᵢγᵢ₊₁)` fire with probability `1 - p`; on even links the two probabilities are swapped. As `p → 0` the even links are measurement-dominated and as `p → 1` the odd links are, so in both limits the chain dimerizes into an area-law phase whose antipodal mutual information vanishes. Near the self-dual point `p = 0.5` neither sublattice wins, the circuit is critical, and the antipodal MI peaks. This single-trajectory, fixed-seed snippet illustrates behavior consistent with Fig. 1b of [pan2025topological](@cite). See the [Gaussian Backend](@ref) page for the covariance-matrix formalism and `site_type="Majorana"` details, and `examples/gaussian_example.ipynb` for the full averaged sweep over `p`.
+
 ## Feedback & Custom Gates
 
-Measurement feedback, arbitrary unitaries, and correlated layers are all first-class:
+Measurement feedback, arbitrary unitaries, and correlated layers are all first-class. To define a brand-new gate *type* of your own, see [Custom Gates](@ref).
 
 ```julia
 using QuantumCircuitsMPS
@@ -188,3 +241,10 @@ println("ProductGate layer applied: entropy = $(state3.observables[:entropy][end
 - [Custom Observables](@ref) — the `track!`/callable-struct contract for writing your own trackers, with worked examples
 - [Design Philosophy](@ref) — the Unified Stochastic Rule and Broadcast-vs-Set geometry vocabulary used throughout these examples
 - [API Reference](@ref) — full listing of every gate, geometry, and observable
+- [Custom Gates](@ref) — subtype `AbstractGate` to write your own gate types, with worked examples
+
+## References
+
+```@bibliography
+Pages = [@__FILE__]
+```
