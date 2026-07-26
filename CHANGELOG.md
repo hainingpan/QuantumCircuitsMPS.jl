@@ -8,6 +8,8 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
 
 ## [Unreleased]
 
+## [0.5.3] - 2026-07-26
+
 ### Added
 
 - Region-based entanglement entropy on the StateVector, Clifford, and
@@ -26,6 +28,23 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
   `ln(2)/2` per unpaired zero mode on odd-sized Majorana-chain regions.
   `TripartiteMutualInformation` and `EntropyProfile` gain the same support
   by composition.
+- Documentation: new **Custom Gates** page (`docs/src/custom_gates.md`)
+  documenting the `AbstractGate` extension contract — `support`,
+  `build_operator` (MPS), `gate_matrix` (state vector), the opt-in
+  `needs_normalization` / `is_measurement` traits, and the `execute!` full
+  override — with three worked examples (a custom unitary running unchanged
+  on both dense backends, a projective gate opting into renormalization, and
+  an `execute!` override that composes stock gates), a per-backend support
+  table recording that the Clifford and Gaussian backends are closed
+  whitelists while the two dense backends resolve any conforming subtype,
+  and the verbatim rejection error. Registered in the site navigation under
+  "Examples" and cross-linked from Custom Observables, the Gates API page,
+  and Tutorials.
+- Documentation: Gaussian class-DIII monitored Majorana-chain tutorial in
+  Tutorials — a standalone snippet running the staggered `BondParity()` /
+  `GaussianHaar()` circuit at `site_type="Majorana"` on a periodic ring and
+  tracking shift-averaged antipodal-quarter mutual information — plus
+  `examples/gaussian_example.ipynb` added to the notebook table.
 
 ### Changed
 
@@ -51,6 +70,21 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
   `ArgumentError`; `cut::Int` bipartition remains the only MPS interface.
 - Existing `cut::Int` bipartition behavior is unchanged and fully
   backward-compatible on all four backends.
+
+### Fixed
+
+- MPS `born_probability` was double-normalized: `ITensorMPS.expect` already
+  divides by `⟨ψ|ψ⟩` internally, so the additional `/ inner(ψ, ψ)` inflated
+  every probability by `1/‖ψ‖²` whenever the state was not normalized — which
+  is the case right after a truncating unitary layer, since those are not
+  renormalized. Reported values could therefore exceed 1, and the inflated
+  probabilities fed the cumulative-probability outcome sampler. Sampled
+  trajectories on normalized states (`‖ψ‖² = 1`, where the extra division was
+  a no-op) are unaffected, but MPS Born probabilities and any `Measure`
+  sampling in an actively truncating regime now differ numerically from
+  earlier versions. The projector is also evaluated only at the requested
+  site instead of at all `L` sites, removing a separate `O(L)` `inner`
+  contraction from the measurement hot path.
 
 ## [0.5.2] - 2026-07-15
 
@@ -394,7 +428,8 @@ documentation.
 
 Initial clean release, with CIPT and MIPT example notebooks.
 
-[Unreleased]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.2...HEAD
+[Unreleased]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.3...HEAD
+[0.5.3]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.0...v0.5.1
 [0.5.0]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.4.0...v0.5.0

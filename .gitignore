@@ -10,7 +10,10 @@ docs/src/changelog.md
 
 # OpenCode session artifacts
 .sisyphus/
+.omo
 .opencode/
+.opencode_obs/
+.playwright-mcp
 
 # IDE
 .vscode/
