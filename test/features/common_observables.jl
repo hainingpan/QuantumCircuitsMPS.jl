@@ -233,3 +233,67 @@ end
         @test_throws ArgumentError vm(_co_state(:statevector, 4))  # site 8 > L=4
     end
 end
+
+# ======================================================================
+# Real-valued `renyi_index` on the two COMPOSED observables:
+#   - TripartiteMutualInformation forwards it to three MutualInformation
+#     constructions (validated there, not locally)
+#   - EntropyProfile validates it locally, mirroring `_ee_check_common`,
+#     because it reconstructs an EntanglementEntropy per cut
+# ======================================================================
+@testset "TMI / EntropyProfile renyi_index: real-valued contract" begin
+    rejected = (0, 0.0, -1, -0.5, Inf, NaN, true, false,
+        BigFloat("1e400"), BigFloat("1e-400"))
+
+    @testset "TripartiteMutualInformation rejection matrix" begin
+        for bad in rejected
+            # Raised by the forwarded MutualInformation constructions, so the
+            # exception type (not the message owner) is what is pinned here.
+            @test_throws ArgumentError TripartiteMutualInformation(1:2, 3:4, 5:6;
+                renyi_index = bad)
+        end
+        tmi = TripartiteMutualInformation(1:2, 3:4, 5:6; renyi_index = 1.5)
+        @test tmi.mi_ab.renyi_index == 1.5
+        @test tmi.mi_ab.renyi_index isa Float64
+        @test tmi.mi_ac.renyi_index == 1.5
+        @test tmi.mi_abc.renyi_index == 1.5
+        @test TripartiteMutualInformation(1:2, 3:4, 5:6;
+            renyi_index = 0.5).mi_ab.renyi_index == 0.5
+    end
+
+    @testset "EntropyProfile rejection matrix + normalized field" begin
+        for bad in rejected
+            @test_throws ArgumentError EntropyProfile(renyi_index = bad)
+        end
+        ep = EntropyProfile(renyi_index = 1.5)
+        @test ep.renyi_index == 1.5
+        @test ep.renyi_index isa Float64
+        @test EntropyProfile(renyi_index = 0.5).renyi_index == 0.5
+        ep_int = EntropyProfile(renyi_index = 2)
+        @test ep_int.renyi_index == 2
+        @test ep_int.renyi_index isa Float64
+        @test EntropyProfile(renyi_index = 2048).renyi_index == 2048.0
+    end
+end
+
+@testset "EntropyProfile Rényi passthrough: GHZ = log(2) at every index" begin
+    # GHZ has a flat two-level spectrum at every cut, so the profile is
+    # index-INDEPENDENT. Mirrors the existing renyi_index=2 anchor above and
+    # extends it to a non-integer index and to the two extreme indices that
+    # break naive implementations (2048 underflows direct powers; floatmax
+    # overflows an un-scaled logsumexp).
+    for backend in (:mps, :statevector, :clifford)
+        tol = backend === :mps ? 1e-8 : 1e-12
+        ghz = _co_ghz(backend, 6)
+        for n in (1.5, 2048, floatmax(Float64))
+            prof = EntropyProfile(renyi_index = n)(ghz)
+            @test all(isfinite, prof)
+            @test all(abs.(prof .- log(2)) .< tol)
+        end
+        # Widened von Neumann shunt: exactly the n = 1 profile
+        prof1 = EntropyProfile(renyi_index = 1)(ghz)
+        for n in (prevfloat(1.0), nextfloat(1.0), 1.0 - 1e-8, 1.0 + 1e-8)
+            @test EntropyProfile(renyi_index = n)(ghz) == prof1
+        end
+    end
+end

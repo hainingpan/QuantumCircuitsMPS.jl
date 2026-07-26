@@ -38,3 +38,40 @@ function (ee::EntanglementEntropy)(state::SimulationState{CliffordBackend})
 
     return k * log(2) / log(ee.base)
 end
+
+# === Region form: (ee::EntanglementEntropy{Vector{Int}})(::SimulationState{CliffordBackend}) ===
+#
+# Entanglement entropy of an ARBITRARY region of physical sites `ee.cut` (already
+# sorted and duplicate-free by the constructor) for a stabilizer state.
+# (Deliberately a comment, not a docstring: for callable structs Julia keys docs
+# on the argument tuple WITHOUT the functor's own type, so a second docstring here
+# would shadow the bipartition method's docs above. The user-facing documentation
+# of both `cut` forms lives on the `EntanglementEntropy` type in
+# src/Observables/entanglement.jl.)
+#
+# `QuantumClifford.entanglement_entropy(tableau, subsystem, Val(:rref))` — the same
+# GF(2) rank routine the bipartition method above uses — natively accepts
+# non-contiguous subsystems, so a region needs no new rank code: the prefix
+# `collect(1:ee.cut)` is simply replaced by the mapped region. Non-contiguous and
+# PBC-wrapped regions (e.g. `[L, 1]`) are therefore supported directly; region
+# sites are PHYSICAL sites, mapped to tableau indices through `state.phy_ram`
+# exactly as `src/Clifford/mutual_information.jl` does (the mapping is the identity
+# on this backend, but the indirection is kept for consistency).
+#
+# Units and options match the bipartition method exactly: the returned rank quantity
+# is in BITS and is converted with `k * log(2) / log(ee.base)`, and
+# `ee.renyi_index`/`ee.threshold` need no handling because the stabilizer
+# entanglement spectrum is flat (every Rényi-n entropy coincides with the von
+# Neumann one).
+#
+# As above, `entanglement_entropy` mutates its input's internal row representation,
+# so it is always handed a `copy(...)` of `state.backend.tableau`.
+function (ee::EntanglementEntropy{Vector{Int}})(state::SimulationState{CliffordBackend})
+    _ee_validate_region(ee.cut, state.L)
+
+    tableau_copy = copy(state.backend.tableau)
+    subsystem = sort!([state.phy_ram[s] for s in ee.cut])
+    k = QuantumClifford.entanglement_entropy(tableau_copy, subsystem, Val(:rref))
+
+    return k * log(2) / log(ee.base)
+end

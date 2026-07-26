@@ -53,11 +53,24 @@ evaluated inline inside your own callable:
 |---|---|
 | `born_probability(state, site, outcome)` | Born probability ``P(\text{outcome})`` at a physical site |
 | `PauliString(i => :Z, j => :Z, ...)(state)` | ``\langle \prod_k P_k \rangle`` for any single-qubit Pauli product |
-| `EntanglementEntropy(cut = k, renyi_index = n)(state)` | Rényi-``n`` / von Neumann entropy across a cut |
+| `EntanglementEntropy(cut = k, renyi_index = n)(state)` | Rényi-``n`` / von Neumann entropy (real `renyi_index`, all backends including Gaussian) across a bipartition cut, or of an arbitrary physical-site region (state vector/Clifford/Gaussian only) |
 | `MutualInformation` (new in v0.4.0) | mutual information ``I(A\!:\!B)`` between two regions |
 | `Magnetization(:Z)(state)` | ``\tfrac{1}{L}\sum_i \langle Z_i \rangle`` |
 | `StringOrder(i, j; order)(state)` | spin-1 string order parameter |
 | `measurements(state)`, `events(state)` | typed event log (requires `SimulationState(...; log_events = true)`) |
+
+`EntanglementEntropy` dispatches on the *type* of `cut`: an `Int` gives the
+historical bipartition entropy at that cut (unchanged, all four backends),
+while a range or vector of site indices gives the entropy of that arbitrary
+physical-site region's reduced density matrix — supported on the
+state-vector, Clifford, and Gaussian backends only (MPS throws an
+`ArgumentError`, since its entropy comes from a single bond SVD with no
+native representation for an arbitrary subset):
+
+```julia
+EntanglementEntropy(cut = 4)(state)     # bipartition {1,...,4} | {5,...,L}, all backends
+EntanglementEntropy(cut = 3:6)(state)   # region {3,4,5,6}, state-vector/Clifford/Gaussian only
+```
 
 The three worked examples below go from a one-line closure to a fully
 dispatched struct observable.

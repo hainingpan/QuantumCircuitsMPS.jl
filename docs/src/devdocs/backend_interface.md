@@ -258,7 +258,8 @@ Observables are callable structs (see `AbstractObservable`): the generic call
 
 | Observable | MPS | StateVector | Clifford | Gaussian |
 |---|---|---|---|---|
-| `EntanglementEntropy` | ✓ generic (`src/Observables/entanglement.jl`) | ✓ (`src/StateVector/entanglement.jl`) | ✓ GF(2)-rank formula (`src/Clifford/entanglement.jl`) | ✓ von Neumann only, covariance-matrix formula (`src/Gaussian/entanglement.jl`); `renyi_index != 1` → `ArgumentError` |
+| `EntanglementEntropy` (bipartition, `cut::Int`) | ✓ generic (`src/Observables/entanglement.jl`) | ✓ (`src/StateVector/entanglement.jl`) | ✓ GF(2)-rank formula (`src/Clifford/entanglement.jl`) | ✓ real `renyi_index`, covariance-matrix Rényi-`n` formula (`src/Gaussian/entanglement.jl`) |
+| `EntanglementEntropy` (region, `cut::Vector{Int}`) | ✗ `ArgumentError` (`src/Observables/entanglement.jl`) | ✓ (`src/StateVector/entanglement.jl`) | ✓ (`src/Clifford/entanglement.jl`) | ✓ real `renyi_index` (`src/Gaussian/entanglement.jl`) |
 | `Magnetization` | ✓ `:X`/`:Y`/`:Z` via `expect` | `:Z` only; `:X`/`:Y` → `ArgumentError` (`src/StateVector/magnetization.jl`) | `:Z` only; `:X`/`:Y` → `ArgumentError` (`src/Clifford/magnetization.jl`) | `:Z` only (fermionic-mode granularity); `:X`/`:Y` → `ArgumentError`; rejected outright on the Majorana-chain granularity (`src/Gaussian/magnetization.jl`) |
 | `BornProbability` | ✓ | ✓ | ✓ (one generic callable in `src/Observables/born.jl`; backend dispatch happens inside, via `born_probability`) | ✓ (same dispatch path; rejected on the Majorana chain via `born_probability`'s own guard) |
 | `StringOrder` | ✓ generic (`src/Observables/string_order.jl`) | ✓ (`src/StateVector/string_order.jl`) | ✗ `ArgumentError` rejection (`src/Clifford/observables.jl`) | ✗ `ArgumentError` rejection (`src/Gaussian/observables.jl`) |
@@ -278,9 +279,29 @@ conceivable future work, see [ROADMAP.md](https://github.com/hainingpan/QuantumC
 See the [Gaussian Backend](@ref) page for the full support/rejection tables,
 including the fermionic-mode-vs-Majorana-chain granularity split.
 
-Method-count fingerprint (what `methods()` reports on an instance): 4 for
-`EntanglementEntropy` (MPS + StateVector + Clifford + Gaussian), 4 for
-`Magnetization`, 4 for `StringOrder`, 6 for `DomainWall` (generic + Clifford
+**`EntanglementEntropy` is parametric** — `EntanglementEntropy{C}` with
+`C === Int` (bipartition, all backends) or `C === Vector{Int}` (region,
+StateVector/Clifford/Gaussian only) — genuine multiple dispatch on the type
+of `cut`, not a runtime branch. The existing bipartition methods stay
+declared on the bare `EntanglementEntropy` UnionAll (unchanged since
+v0.4.0); the region methods are declared specifically on
+`EntanglementEntropy{Vector{Int}}`, which is strictly more specific in
+*both* arguments than the bare-UnionAll bipartition methods, so there is no
+dispatch ambiguity between the two `cut` parametrizations.
+
+This means the method-count fingerprint (what `methods()` reports on an
+instance) now differs by which `cut` was passed: **4** for
+`EntanglementEntropy(cut=1)` (`EntanglementEntropy{Int}`: MPS generic +
+StateVector + Clifford + Gaussian bipartition methods — unchanged), but
+**5** for `EntanglementEntropy(cut=[1,2])` (`EntanglementEntropy{Vector{Int}}`:
+the three region methods on StateVector/Clifford/Gaussian plus MPS's
+dedicated `ArgumentError`-throwing rejection method, all four typed
+`EntanglementEntropy{Vector{Int}}`, *plus* the bare
+`(ee::EntanglementEntropy)(state)` MPS-generic fallback — which remains a
+technically-applicable method under any parametrization but is never
+actually reached for a region `cut`, since every backend already has a
+strictly more specific region method). Other observables are unaffected:
+4 for `Magnetization`, 4 for `StringOrder`, 6 for `DomainWall` (generic + Clifford
 + Gaussian, ×2 each from the optional `i1` argument), 1 for
 `BornProbability`; plus 2 methods of the `domain_wall` function.
 
@@ -358,7 +379,8 @@ length(methods(QCM._measure_single_site!)) # == 3   (generic MPS/SV + Clifford +
 length(methods(QCM.initialize!))           # == 8   (2 MPS generic + 1 RandomGaussianState generic-reject + 2 SV + 1 Clifford + 2 Gaussian)
 length(methods(QCM.born_probability))      # == 4   (MPS + SV + Clifford + Gaussian)
 
-length(methods(EntanglementEntropy(cut = 1)))  # == 4
+length(methods(EntanglementEntropy(cut = 1)))       # == 4  (bipartition: MPS generic + SV + Clifford + Gaussian)
+length(methods(EntanglementEntropy(cut = [1, 2])))  # == 5  (region: SV + Clifford + Gaussian + MPS-reject, plus the bare MPS-generic fallback)
 length(methods(Magnetization(:Z)))             # == 4
 length(methods(StringOrder(1, 5)))             # == 4
 length(methods(DomainWall(order = 1)))         # == 6

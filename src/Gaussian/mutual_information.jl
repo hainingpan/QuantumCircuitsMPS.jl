@@ -47,18 +47,22 @@ subsets: regions like `[7, 8, 1, 2]` at L=8 (a PBC-wrapped antipodal block)
 are valid here even though the MPS/state-vector/Clifford paths reject them —
 the reduced state of ANY mode subset is just an index selection of Γ.
 
-Only von Neumann entropy is available (`renyi_index != 1` throws an
-`ArgumentError`, exactly like the Gaussian `EntanglementEntropy`);
-`mi.threshold` is not used (exact zeros are handled by `_xlogx`, no
-singular-value floor needed).
+Any real `renyi_index` is supported (normalized to `Float64` at construction;
+the normalized value must be finite and `> 0`), exactly like the Gaussian
+`EntanglementEntropy`: the Rényi-MI is the composition
+Iₙ = Sₙ(A) + Sₙ(B) − Sₙ(A∪B) of three covariance-spectrum entropies. As on
+every other backend, Iₙ for n ≠ 1 is NOT a proper mutual information — it is
+not guaranteed non-negative on mixed regions and need not be monotone in `n`;
+it is a commonly used diagnostic, documented rather than forbidden.
+
+`mi.threshold` is not used because every branch is floor-free: `_xlogx` gives
+the exact `0·log 0 = 0` limit at n = 1, and for n ≠ 1 each eigenvalue's
+log-domain term `ln(λⁿ + (1−λ)ⁿ)` lies between `min(0, (1−n)·ln 2)` and
+`max(0, (1−n)·ln 2)` (the min/max form keeps the bound correct in BOTH regimes
+n > 1 and 0 < n < 1), hence finite for every accepted `n`.
 """
 function (mi::MutualInformation)(state::SimulationState{GaussianBackend})
     _mi_validate_bounds(mi, state)
-    mi.renyi_index == 1 || throw(ArgumentError(
-        "MutualInformation on the Gaussian backend only supports von Neumann entropy " *
-        "(renyi_index=1), got renyi_index=$(mi.renyi_index). Rényi entropies are not " *
-        "implemented for the covariance-matrix representation — use backend=:mps or " *
-        "backend=:statevector for Rényi-n."))
     Γ = state.backend.corr
     Γ === nothing && throw(ArgumentError(
         "Gaussian state is not initialized — call initialize!(state, ...) before computing observables."))
@@ -67,8 +71,8 @@ function (mi::MutualInformation)(state::SimulationState{GaussianBackend})
     idxB = _gaussian_region_majoranas(state, mi.regionB)
     idxAB = sort!(vcat(idxA, idxB))
 
-    SA = subsystem_entropy(Γ, idxA)
-    SB = subsystem_entropy(Γ, idxB)
-    SAB = subsystem_entropy(Γ, idxAB)
+    SA = subsystem_entropy(Γ, idxA; renyi_index = mi.renyi_index)
+    SB = subsystem_entropy(Γ, idxB; renyi_index = mi.renyi_index)
+    SAB = subsystem_entropy(Γ, idxAB; renyi_index = mi.renyi_index)
     return (SA + SB - SAB) / log(mi.base)
 end

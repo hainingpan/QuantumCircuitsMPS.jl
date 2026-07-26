@@ -8,6 +8,50 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
 
 ## [Unreleased]
 
+### Added
+
+- Region-based entanglement entropy on the StateVector, Clifford, and
+  Gaussian backends: `EntanglementEntropy(cut=c1:c2)` (contiguous range) or
+  `EntanglementEntropy(cut=[s1, s2, ...])` (arbitrary `Vector{Int}`) computes
+  the entropy of the reduced density matrix of any set of physical sites,
+  including non-contiguous and periodic-boundary-wrapped regions (e.g.
+  `cut=[L-1, L, 1, 2]`). `renyi_index`, `threshold`, and `base` behave
+  identically to the existing `cut::Int` bipartition path on each backend
+  (Gaussian computes real-`renyi_index` Rényi-n entropy for both `cut::Int`
+  and region paths, from the same covariance-spectrum formula).
+- Gaussian Rényi-n entanglement entropy (bipartition `cut::Int` and region
+  `cut::Vector{Int}`) and Rényi mutual information, computed from the
+  covariance-matrix eigenvalue spectrum: `S_n = 1/(1−n) · Σ_k
+  ln[((1+λ_k)/2)^n + ((1−λ_k)/2)^n]` over the paired spectrum, plus
+  `ln(2)/2` per unpaired zero mode on odd-sized Majorana-chain regions.
+  `TripartiteMutualInformation` and `EntropyProfile` gain the same support
+  by composition.
+
+### Changed
+
+- `renyi_index` accepts any `Real` on all entropy observables
+  (`EntanglementEntropy`, `MutualInformation`, `TripartiteMutualInformation`,
+  `EntropyProfile`), normalized to `Float64` with the normalized value
+  required finite and `> 0` (was integer `>= 1`). `n = 0` (Hartley) and
+  `Bool` remain rejected; each observable's docstring documents the small-n
+  numerical caveat.
+- General-`n` entropy kernels now evaluate in the log domain for numerical
+  stability at extreme `n` (e.g. `n = 2048` or `n = floatmax(Float64)`); the
+  `n = 1` von Neumann code path is unchanged bit-for-bit.
+- `EntanglementEntropy` is now a parametric type,
+  `EntanglementEntropy{C<:Union{Int,Vector{Int}}}`, dispatched on whether
+  `cut` is an `Int` (bipartition) or a `Vector{Int}` (region). Existing code
+  using `EntanglementEntropy(cut=...)` or annotating fields as
+  `::EntanglementEntropy` is unaffected — `EntanglementEntropy` remains a
+  valid UnionAll annotation — but code that wants a concrete-parameter
+  annotation for the bipartition-only case can now write
+  `::EntanglementEntropy{Int}`.
+- The MPS backend does not support region-based entropy:
+  `EntanglementEntropy(cut=[...])` on an MPS state throws an informative
+  `ArgumentError`; `cut::Int` bipartition remains the only MPS interface.
+- Existing `cut::Int` bipartition behavior is unchanged and fully
+  backward-compatible on all four backends.
+
 ## [0.5.2] - 2026-07-15
 
 ### Changed

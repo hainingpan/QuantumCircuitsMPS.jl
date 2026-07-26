@@ -248,3 +248,258 @@ end
         end
     end
 end
+
+# ======================================================================
+# AUDIT (T6, region extension): EntanglementEntropy with a SITE REGION
+# (`cut::Vector{Int}` / `cut::UnitRange`) on the three non-MPS backends.
+#
+# What is asserted here, and why it is the right analytic check:
+#   - Region sites are PHYSICAL sites on every non-MPS backend (identity
+#     phy_ram; see testset (f) above, which pins non-MPS `cut::Int` as a
+#     PHYSICAL-site prefix under both OBC and PBC). A region is therefore
+#     unambiguous under PBC, including wrapped regions like [L, 1] — in
+#     contrast with the MPS RAM-bond `cut` caveat documented above.
+#   - Cross-backend agreement is checked on an ALL-CLIFFORD circuit
+#     (`_audit_ee_scramble!`), the only circuit both the dense state vector
+#     and the stabilizer tableau can represent exactly. Any region-mapping
+#     or spectrum bug in either backend breaks the equality.
+#   - Gaussian: the audit suite has NO state-vector↔Gaussian cross-check
+#     precedent (Gaussian-preserving circuits are not directly comparable to
+#     the qubit backends' gate set here), so no new cross-backend machinery
+#     is invented. Gaussian is validated INTERNALLY instead, via the two
+#     properties that would break under a wrong region→Majorana mapping:
+#     prefix equivalence (cut=k ≡ cut=1:k) and complement symmetry on a
+#     pure state.
+#   - MPS + region is pinned to throw `ArgumentError` — a permanent
+#     regression pin so the MPS backend never silently starts accepting
+#     regions (its bond-SVD `cut` has no region generalization).
+# ======================================================================
+@testset "AUDIT T6: region entanglement entropy (non-MPS backends)" begin
+    region_backends = (:statevector, :clifford)
+
+    # Same all-Clifford circuit on SV and Clifford, OBC and PBC.
+    function _audit_region_pair(L::Int, bc::Symbol)
+        states = Dict(b => _audit_ee_state(b; L = L, bc = bc) for b in region_backends)
+        for st in values(states)
+            initialize!(st, ProductState(binary_int = 0))
+            _audit_ee_scramble!(st, L)
+        end
+        return states
+    end
+
+    # ------------------------------------------------------------------
+    # (g) Cross-backend agreement SV ↔ Clifford on region entropies
+    # ------------------------------------------------------------------
+    @testset "(g) SV ≈ Clifford region entropy [bc=$bc]" for bc in (:open, :periodic)
+        L = 6
+        states = _audit_region_pair(L, bc)
+        regions = Any[1:2,          # prefix (contiguous)
+            2:3,                    # interior (contiguous)
+            [1, 3],                 # non-contiguous
+            [1, 3, 5],              # sparse non-contiguous
+            [L, 1],                 # PBC-wrapped (well defined on both backends)
+            [L - 1, L, 1, 2]]       # wider wrapped block
+        for region in regions
+            r = collect(region)
+            S_sv = EntanglementEntropy(cut = r, base = 2)(states[:statevector])
+            S_cl = EntanglementEntropy(cut = r, base = 2)(states[:clifford])
+            @test S_cl ≈ S_sv atol=1e-10
+            # base conversion agrees too (guards a log-base slip in one backend)
+            @test EntanglementEntropy(cut = r, base = ℯ)(states[:clifford]) ≈
+                  EntanglementEntropy(cut = r, base = ℯ)(states[:statevector]) atol=1e-10
+            # stabilizer state ⇒ integer number of bits
+            @test S_sv ≈ round(S_sv) atol=1e-10
+        end
+        # NON-VACUITY: the compared numbers are genuinely entangled, not two zeros.
+        # A broken implementation returning 0 everywhere would pass the equalities
+        # above but fails here.
+        @test EntanglementEntropy(cut = [1, 3], base = 2)(states[:statevector]) > 0.5
+        @test EntanglementEntropy(cut = [1, 3], base = 2)(states[:clifford]) > 0.5
+        @test EntanglementEntropy(cut = [L, 1], base = 2)(states[:statevector]) > 0.5
+    end
+
+    # ------------------------------------------------------------------
+    # (g) Prefix equivalence: cut=k (bipartition) ≡ cut=1:k (region)
+    #     on ALL three non-MPS backends, OBC and PBC.
+    # ------------------------------------------------------------------
+    @testset "(g) prefix equivalence cut=k ≡ cut=1:k [$b, bc=$bc]" for b in region_backends,
+        bc in (:open, :periodic)
+
+        L = 6
+        st = _audit_ee_state(b; L = L, bc = bc)
+        initialize!(st, ProductState(binary_int = 0))
+        _audit_ee_scramble!(st, L)
+        for k in 1:(L - 1)
+            @test EntanglementEntropy(cut = 1:k, base = 2)(st) ≈
+                  EntanglementEntropy(cut = k, base = 2)(st) atol=1e-10
+            @test EntanglementEntropy(cut = collect(1:k), base = ℯ)(st) ≈
+                  EntanglementEntropy(cut = k, base = ℯ)(st) atol=1e-10
+        end
+        @test EntanglementEntropy(cut = 1:(L ÷ 2), base = 2)(st) > 0.5   # non-vacuous
+    end
+
+    @testset "(g) Gaussian prefix equivalence + complement symmetry [bc=$bc]" for bc in (:open, :periodic)
+        L = 8
+        st = _audit_ee_state(:gaussian; L = L, bc = bc)
+        initialize!(st, ProductState(binary_int = 0))
+        for _ in 1:10   # Gaussian-preserving entangler; global state stays PURE
+            apply!(st, GaussianHaar(), Bricklayer(:odd))
+            apply!(st, GaussianHaar(), Bricklayer(:even))
+        end
+        for k in 1:(L - 1)
+            @test EntanglementEntropy(cut = 1:k, base = 2)(st) ≈
+                  EntanglementEntropy(cut = k, base = 2)(st) atol=1e-10
+        end
+        # Complement symmetry S(A) = S(Ā) — the strongest available internal
+        # check of the region → Majorana-index mapping.
+        for A in ([1, 3], [2], 3:5, [1, 4, 7], [L, 1])
+            Av = collect(A)
+            @test EntanglementEntropy(cut = Av, base = 2)(st) ≈
+                  EntanglementEntropy(cut = setdiff(1:L, Av), base = 2)(st) atol=1e-10
+        end
+        @test EntanglementEntropy(cut = [1, 3], base = 2)(st) > 0.5       # non-vacuous
+        @test EntanglementEntropy(cut = 1:(L ÷ 2), base = 2)(st) > 0.5
+    end
+
+    # ------------------------------------------------------------------
+    # (g) Complement symmetry on Haar-evolved (non-stabilizer) SV states.
+    #     Fixed RNG seeds via _audit_ee_state ⇒ fully reproducible.
+    # ------------------------------------------------------------------
+    @testset "(g) SV Haar complement symmetry S(A) = S(Ā) [bc=$bc]" for bc in (:open, :periodic)
+        L = 6
+        st = _audit_ee_state(:statevector; L = L, bc = bc)
+        initialize!(st, ProductState(binary_int = 0))
+        for _ in 1:4
+            apply!(st, HaarRandom(), Bricklayer(:odd))
+            apply!(st, HaarRandom(), Bricklayer(:even))
+        end
+        for A in ([1, 3], [2], 3:4, [1, 4, 5], [L, 1], [2, 3, 5])
+            Av = collect(A)
+            SA = EntanglementEntropy(cut = Av, base = 2)(st)
+            SB = EntanglementEntropy(cut = setdiff(1:L, Av), base = 2)(st)
+            @test SA ≈ SB atol=1e-10
+            # Rényi-2 obeys the same purity-based symmetry
+            @test EntanglementEntropy(cut = Av, renyi_index = 2, base = 2)(st) ≈
+                  EntanglementEntropy(cut = setdiff(1:L, Av), renyi_index = 2,
+                base = 2)(st) atol=1e-10
+        end
+        # NON-VACUITY: a Haar-evolved state is generically volume-law entangled,
+        # so these are not trivially-equal zeros.
+        @test EntanglementEntropy(cut = [1, 3], base = 2)(st) > 0.5
+    end
+
+    # ------------------------------------------------------------------
+    # (g) Rényi on a region: Bell pair, single-site region.
+    #     Flat 2-level spectrum p = {1/2, 1/2} ⇒ Sₙ = log_b(2) for EVERY n.
+    # ------------------------------------------------------------------
+    @testset "(g) Bell single-site region: Rényi-n = 1 bit ∀n [$b]" for b in region_backends
+        st = _audit_ee_state(b; L = 4)
+        initialize!(st, ProductState(binary_int = 0))
+        apply!(st, Hadamard(), SingleSite(1))
+        apply!(st, CNOT(), Sites([1, 2]))
+        apply!(st, Hadamard(), SingleSite(3))
+        apply!(st, CNOT(), Sites([3, 4]))
+        for n in (1, 2, 3)
+            @test EntanglementEntropy(cut = [1], renyi_index = n, base = 2)(st) ≈
+                  1.0 atol=1e-10
+            @test EntanglementEntropy(cut = [2], renyi_index = n, base = 2)(st) ≈
+                  1.0 atol=1e-10
+            @test EntanglementEntropy(cut = [1], renyi_index = n, base = ℯ)(st) ≈
+                  log(2) atol=1e-10
+            # non-contiguous region splitting BOTH pairs ⇒ 2 bits
+            @test EntanglementEntropy(cut = [1, 3], renyi_index = n, base = 2)(st) ≈
+                  2.0 atol=1e-10
+            # a whole pure sub-block ⇒ 0
+            @test abs(EntanglementEntropy(cut = [1, 2], renyi_index = n,
+                base = 2)(st)) < 1e-10
+        end
+    end
+
+    # ------------------------------------------------------------------
+    # (g) MPS rejection pin: the MPS backend must NEVER accept a region.
+    # ------------------------------------------------------------------
+    @testset "(g) MPS + region → ArgumentError (permanent pin)" begin
+        for bc in (:open, :periodic)
+            st = _audit_ee_state(:mps; L = 6, bc = bc)
+            initialize!(st, ProductState(binary_int = 0))
+            _audit_ee_scramble!(st, 6)
+            @test_throws ArgumentError EntanglementEntropy(cut = [1, 2])(st)
+            @test_throws ArgumentError EntanglementEntropy(cut = 2:3)(st)
+            @test_throws ArgumentError EntanglementEntropy(cut = [6, 1])(st)
+            @test_throws ArgumentError EntanglementEntropy(cut = [1, 3],
+                renyi_index = 2)(st)
+            # the Int path on the SAME state is unaffected
+            @test EntanglementEntropy(cut = 3, base = 2)(st) isa Float64
+        end
+    end
+end
+
+# ======================================================================
+# AUDIT (T4 follow-up): Gaussian Rényi-n entanglement entropy.
+#
+# What was reviewed:
+#   - src/Gaussian/entanglement.jl (subsystem_entropy): the general-n branches
+#     evaluate Sₙ = Σ ln(λⁿ + (1−λ)ⁿ)/(1−n)/2 over the occupation eigenvalues
+#     λ = (1 − ξ)/2 of spec(iΓ_A), in a scale-before-overflow log domain with
+#     the (1−n) division applied PER TERM. VERIFIED against the invariants
+#     below; the pins here are the audit-level (cross-checked, backend-generic)
+#     subset of the dedicated suite in test/gaussian/test_observables.jl.
+#
+# Two properties are pinned, chosen because each fails under a DIFFERENT
+# plausible implementation error:
+#   - prefix equivalence at n = 2 (cut=k ≡ cut=1:k) — fails if the region →
+#     Majorana index mapping is not shared by both EE paths, or if only one of
+#     the two paths forwards `renyi_index`.
+#   - Majorana-chain odd-cut flat pin = ln(2)/2 for every n INCLUDING n = 2048
+#     — fails (Inf/NaN) under a direct-power implementation, and fails
+#     (DimensionMismatch or a wrong value) if odd-dimensional Γ_A is special-
+#     cased instead of being handled by the per-eigenvalue sum.
+# ======================================================================
+@testset "AUDIT T6: (h) gaussian renyi" begin
+    @testset "(h) Gaussian prefix equivalence at n=2 [bc=$bc]" for bc in (:open, :periodic)
+        L = 8
+        st = _audit_ee_state(:gaussian; L = L, bc = bc)
+        initialize!(st, ProductState(binary_int = 0))
+        for _ in 1:10   # Gaussian-preserving entangler; global state stays PURE
+            apply!(st, GaussianHaar(), Bricklayer(:odd))
+            apply!(st, GaussianHaar(), Bricklayer(:even))
+        end
+        for k in 1:(L - 1)
+            @test EntanglementEntropy(cut = 1:k, renyi_index = 2, base = 2)(st) ≈
+                  EntanglementEntropy(cut = k, renyi_index = 2, base = 2)(st) atol=1e-10
+        end
+        # Rényi-2 obeys complement symmetry on a pure state, exactly like S₁
+        for A in ([1, 3], [2], 3:5, [L, 1])
+            Av = collect(A)
+            @test EntanglementEntropy(cut = Av, renyi_index = 2, base = 2)(st) ≈
+                  EntanglementEntropy(cut = setdiff(1:L, Av), renyi_index = 2,
+                base = 2)(st) atol=1e-10
+        end
+        # NON-VACUITY + strict Rényi ordering S₁ > S₂ (non-flat spectrum), which
+        # a silent von-Neumann fallback would violate.
+        @test EntanglementEntropy(cut = L ÷ 2, renyi_index = 2, base = 2)(st) > 0.5
+        @test EntanglementEntropy(cut = L ÷ 2, renyi_index = 1, base = 2)(st) >
+              EntanglementEntropy(cut = L ÷ 2, renyi_index = 2, base = 2)(st) + 1e-6
+    end
+
+    @testset "(h) Majorana-chain odd cut: Sₙ = ln(2)/2 ∀n incl. n=2048" begin
+        L = 8
+        st = SimulationState(L = L, bc = :open, backend = :gaussian,
+            site_type = "Majorana",
+            rng = RNGRegistry(gates_spacetime = 11, gates_realization = 12,
+                born_measurement = 13))
+        initialize!(st, ProductState(binary_int = 0))
+        for n in (0.5, 1, 2, 5, 2048, floatmax(Float64))
+            S = EntanglementEntropy(cut = 1, renyi_index = n, base = ℯ)(st)
+            @test isfinite(S)
+            @test S ≈ log(2) / 2 atol=1e-12
+            @test EntanglementEntropy(cut = 1, renyi_index = n, base = 2)(st) ≈
+                  0.5 atol=1e-12
+        end
+        # a WHOLE dimer (sites 1,2) is pure ⇒ zero at every n
+        for n in (0.5, 2, 2048)
+            @test abs(EntanglementEntropy(cut = [1, 2], renyi_index = n,
+                base = ℯ)(st)) < 1e-12
+        end
+    end
+end

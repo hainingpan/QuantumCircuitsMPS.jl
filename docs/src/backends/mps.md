@@ -62,3 +62,14 @@ folded MPS, not the physical bipartition `{1..k}` (only `cut = L÷2` is
 fold-aligned). See the [Backend Interface Contract](@ref)'s PBC section and
 `EntropyProfile`'s docstring for the full detail; cross-backend entropy
 comparisons under PBC should use `cut = L÷2` or `bc=:open`.
+
+**Regions are not supported on MPS.** `EntanglementEntropy` also accepts a
+region form of `cut` — a range (`c1:c2`) or a vector of sites (`[s1, s2,
+...]`) — on the state-vector, Clifford, and Gaussian backends (see their
+respective pages). On MPS, any non-`Int` `cut` throws an `ArgumentError`:
+MPS entanglement entropy is read off the SVD of a single bond adjacent to
+the orthogonality center, which has no native representation for an
+arbitrary site subset. The single `cut::Int` bipartition remains the
+*only* MPS interface for entanglement entropy; switch to
+`backend=:statevector`, `:clifford`, or `:gaussian` for region-based
+entropy measurements.

@@ -1,6 +1,6 @@
 # === Mutual-Information Observable ===
 #
-# I(A:B) = S(A) + S(B) - S(A∪B) for two CONTIGUOUS, DISJOINT site regions.
+# I(A:B) = S(A) + S(B) - S(A∪B) for two DISJOINT site regions.
 #
 # Backend implementations:
 #   - MPS (this file): reduced density matrices of arbitrary site subsets via
@@ -13,6 +13,13 @@
 #   - Clifford (src/Clifford/mutual_information.jl): stabilizer subsystem
 #     entropies for arbitrary site subsets via QuantumClifford's GF(2)
 #     rank routine (poly-time).
+#   - Gaussian (src/Gaussian/mutual_information.jl): three covariance-submatrix
+#     eigendecompositions, O((|A|+|B|)³).
+#
+# CONTIGUITY is required on the MPS, state-vector and Clifford paths only
+# (enforced at evaluation time by `_validate_mutual_information`); the
+# Gaussian path reduces to a mode subset by plain fancy indexing of Γ, so it
+# accepts ARBITRARY subsets — non-contiguous and PBC-wrapped alike.
 #
 # Region semantics are PHYSICAL sites on every backend (mapped through
 # `phy_ram` internally where needed), so — unlike `EntanglementEntropy`'s
@@ -40,9 +47,12 @@ non-contiguous and PBC-wrapped regions such as `[7, 8, 1, 2]` at L=8.
 
 # Arguments
 - `regionA`, `regionB`: the two site regions (contiguous, disjoint)
-- `renyi_index::Int=1`: entropy index used for all three terms
+- `renyi_index::Real=1`: entropy index used for all three terms. Accepts any
+  `Real`, normalized to `Float64` at construction; the normalized value must
+  be finite and `> 0` (so a finite `BigFloat("1e400")` — which normalizes to
+  `Inf` — is rejected, as is `Bool`).
   - `renyi_index=1`: von Neumann entropies (default)
-  - `renyi_index=n≥2`: Rényi-n entropies. NOTE: the Rényi "mutual
+  - `renyi_index=n`, real n ≠ 1: Rényi-n entropies. NOTE: the Rényi "mutual
     information" Iₙ = Sₙ(A)+Sₙ(B)−Sₙ(A∪B) is NOT guaranteed non-negative
     for n≠1 — it is a commonly used diagnostic, not a proper mutual
     information. Documented, not forbidden.
@@ -61,7 +71,9 @@ non-contiguous and PBC-wrapped regions such as `[7, 8, 1, 2]` at L=8.
 - Clifford: poly-time GF(2)-rank stabilizer entropies; every Rényi index
   gives the same value (flat entanglement spectrum).
 - Gaussian: three covariance-submatrix eigendecompositions,
-  O((|A|+|B|)³) — arbitrary site subsets, von Neumann only.
+  O((|A|+|B|)³) — arbitrary site subsets; any real `renyi_index` (normalized
+  to `Float64` at construction, normalized value finite and `> 0`) is
+  supported, computed from the covariance spectrum.
 
 # Properties (analytic anchors)
 - Product state: I = 0
@@ -80,11 +92,11 @@ track!(state, :I => MutualInformation(1, 4))
 struct MutualInformation <: AbstractObservable
     regionA::Vector{Int}
     regionB::Vector{Int}
-    renyi_index::Int
+    renyi_index::Float64
     threshold::Float64
     base::Float64
 
-    function MutualInformation(regionA, regionB; renyi_index::Int = 1,
+    function MutualInformation(regionA, regionB; renyi_index::Real = 1,
             threshold::Float64 = 1e-16, base::Real = ℯ)
         A = _mi_region_vector(regionA, "regionA")
         B = _mi_region_vector(regionB, "regionB")
@@ -92,11 +104,28 @@ struct MutualInformation <: AbstractObservable
             throw(ArgumentError(
                 "MutualInformation regions must be disjoint; regionA=$A and regionB=$B " *
                 "overlap at sites $(intersect(A, B))"))
-        renyi_index >= 1 ||
-            throw(ArgumentError("MutualInformation renyi_index must be >= 1"))
+        # NORMALIZE THEN VALIDATE, matching `_ee_check_common`: Bool first
+        # (Float64(true) == 1.0 would otherwise pass as von Neumann), then
+        # Float64 conversion, then the finite-and-positive test ON THE
+        # CONVERTED value — so BigFloat("1e400") -> Inf and
+        # BigFloat("1e-400") -> 0.0 are both rejected rather than stored.
+        renyi_index isa Bool &&
+            throw(ArgumentError("MutualInformation renyi_index must be a number, not Bool"))
+        local n64::Float64
+        try
+            n64 = Float64(renyi_index)
+        catch err
+            throw(ArgumentError(
+                "MutualInformation renyi_index must be convertible to Float64; got " *
+                "$(typeof(renyi_index)) value $renyi_index ($(sprint(showerror, err)))"))
+        end
+        isfinite(n64) && n64 > 0 ||
+            throw(ArgumentError(
+                "MutualInformation renyi_index must normalize to a finite Float64 > 0; " *
+                "got $renyi_index, which normalizes to $n64"))
         threshold > 0 || throw(ArgumentError("MutualInformation threshold must be > 0"))
         base > 0 || throw(ArgumentError("MutualInformation base must be > 0"))
-        new(A, B, renyi_index, threshold, Float64(base))
+        new(A, B, n64, threshold, Float64(base))
     end
 end
 
@@ -190,19 +219,38 @@ end
 
 Entropy from a Schmidt/RDM probability spectrum `p` (need not be normalized;
 tiny negative eigenvalues from numerical RDMs are clamped at `threshold^2`).
-Mirrors `_von_neumann_entropy`'s formula cases exactly: n=1 gives von
-Neumann −Σ p·log_b(p); n≥2 gives Rényi log_b(Σ pⁿ)/(1−n).
+
+`n = 1` gives the von Neumann entropy −Σ q·log_b(q); a general real `n ≠ 1`
+(a normalized `Float64`) gives the Rényi entropy log_b(Σ qⁿ)/(1−n) via a
+LOG-DOMAIN evaluation. This is a deliberately separate copy of the same
+three-branch structure used by `_von_neumann_entropy`
+(src/Observables/entanglement.jl) and the state-vector bipartition kernel
+(src/StateVector/entanglement.jl) — the bodies are independent, only the
+branch thresholds `_RENYI_SHUNT` / `_RENYI_NEAR1` are shared, so every kernel
+switches branches at the same place.
 """
-function _mi_entropy_from_probs(p::Vector{Float64}, n::Int, base::Float64,
+function _mi_entropy_from_probs(p::Vector{Float64}, n::Real, base::Float64,
         threshold::Float64)
     q = max.(p, threshold^2)
     q ./= sum(q)
     log_fn = x -> log(x) / log(base)
-    if n == 1
+    δ = n - 1
+    if abs(δ) <= _RENYI_SHUNT
         return -sum(q .* log_fn.(q))
-    else
-        return log_fn(sum(q .^ n)) / (1 - n)
     end
+    isempty(q) && return 0.0
+    if abs(δ) <= _RENYI_NEAR1
+        # Cancellation-safe near-1 Rényi: Σ qⁿ = Σ q·q^δ = 1 + t with
+        # t = Σ q·(q^δ − 1), so Sₙ = −log1p(t)/δ.
+        t = sum(q .* expm1.(δ .* log.(q)))
+        return -log1p(t) / δ / log(base)
+    end
+    # General real n: scale-before-overflow, normalization-aware log domain
+    # (see `_von_neumann_entropy` for the full derivation and the list of
+    # forms this replaces). `_renyi_scaled_tails` is the shared pure tail-sum
+    # utility used ONLY by the general-n branches (never by an n = 1 path).
+    t_n, s = _renyi_scaled_tails(log.(q), n)
+    return (log1p(t_n) / (1 - n) - (n / (1 - n)) * log1p(s)) / log(base)
 end
 
 # Combined-region size beyond which the MPS two-block RDM is rejected:

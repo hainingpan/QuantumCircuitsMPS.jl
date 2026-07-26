@@ -672,4 +672,128 @@ end
             @test state.observables[:mz][end] ≈ 1.0 atol=1e-12
         end
     end
+
+    # ═══════════════════════════════════════════════════════════════════════
+    # 13. EntanglementEntropy — arbitrary site regions (cut::Vector{Int})
+    # ═══════════════════════════════════════════════════════════════════════
+    # Region sites are PHYSICAL sites (identity `phy_ram` on this backend, under
+    # BOTH :open and :periodic), so a region means the same bipartition
+    # {region} vs {rest} that the Int prefix cut does — see the PBC testset
+    # below and test/audit/entanglement.jl testset (f).
+    @testset "EntanglementEntropy (site region)" begin
+        @testset "scrambled L=6: prefix equivalence + complement symmetry" begin
+            L = 6
+            s = _cliff_state(L)
+            # Deterministic all-Clifford scrambling layer (same shape as the one
+            # in test/audit/entanglement.jl) → a generic, non-product state.
+            apply!(s, Hadamard(), AllSites())
+            for i in 1:2:(L - 1)
+                apply!(s, CNOT(), Sites([i, i + 1]))
+            end
+            for i in 2:2:(L - 1)
+                apply!(s, CZ(), Sites([i, i + 1]))
+            end
+            apply!(s, Hadamard(), SingleSite(1))
+            for i in 1:2:(L - 1)
+                apply!(s, CNOT(), Sites([i + 1, i]))
+            end
+
+            # Prefix equivalence: cut=k and cut=1:k are the SAME bipartition.
+            # Both paths return k_bits * log(2) / log(base) with an identical
+            # integer rank, so equality is exact (not just approximate).
+            for k in 1:(L - 1)
+                @test EntanglementEntropy(cut = 1:k)(s) == EntanglementEntropy(cut = k)(s)
+                @test EntanglementEntropy(cut = collect(1:k))(s) ==
+                      EntanglementEntropy(cut = k)(s)
+            end
+            # Non-vacuous: the scrambled state really is entangled somewhere.
+            @test any(EntanglementEntropy(cut = k)(s) > 0.5 for k in 1:(L - 1))
+
+            # Complement symmetry S(A) = S(Ā) for a PURE state, contiguous and not.
+            for A in ([1], [1, 2], [1, 3], [2, 5], [1, 4, 6], [2, 3, 4, 5])
+                Abar = setdiff(1:L, A)
+                @test EntanglementEntropy(cut = A)(s) == EntanglementEntropy(cut = Abar)(s)
+            end
+            @test EntanglementEntropy(cut = [2, 5])(s) > 0.5   # not a pair of zeros
+        end
+
+        @testset "GHZ(4): every nonempty proper region → 1.0 bit" begin
+            s = _cliff_state(4)
+            apply!(s, Hadamard(), SingleSite(1))
+            for i in 1:3
+                apply!(s, CNOT(), AdjacentPair(i))
+            end
+
+            # All 14 nonempty proper subsets of {1,2,3,4}
+            for mask in 1:(2 ^ 4 - 2)
+                region = [i for i in 1:4 if (mask >> (i - 1)) & 1 == 1]
+                @test EntanglementEntropy(cut = region)(s) ≈ 1.0 atol=1e-12
+            end
+
+            # Named cases called out explicitly
+            @test EntanglementEntropy(cut = [1, 3])(s) ≈ 1.0 atol=1e-12   # non-contiguous
+            @test EntanglementEntropy(cut = [2])(s) ≈ 1.0 atol=1e-12      # single interior site
+            @test EntanglementEntropy(cut = [1, 2, 3])(s) ≈ 1.0 atol=1e-12
+
+            # base conversion identical to the bipartition path
+            @test EntanglementEntropy(cut = [1, 3], base = exp(1))(s) ≈ log(2) atol=1e-12
+            # flat stabilizer spectrum → every Rényi index agrees (as for cut::Int)
+            for n in [1, 2, 3, 5]
+                @test EntanglementEntropy(cut = [1, 3], renyi_index = n)(s) ≈ 1.0 atol=1e-12
+            end
+            # prefix equivalence on GHZ too
+            @test EntanglementEntropy(cut = 1:2)(s) == EntanglementEntropy(cut = 2)(s)
+        end
+
+        @testset "two Bell pairs (1,2),(3,4) at L=4" begin
+            s = _cliff_state(4)
+            apply!(s, Hadamard(), SingleSite(1))
+            apply!(s, CNOT(), Sites([1, 2]))
+            apply!(s, Hadamard(), SingleSite(3))
+            apply!(s, CNOT(), Sites([3, 4]))
+
+            @test EntanglementEntropy(cut = [1, 3])(s) ≈ 2.0 atol=1e-12  # splits both pairs
+            @test EntanglementEntropy(cut = [2, 4])(s) ≈ 2.0 atol=1e-12
+            @test abs(EntanglementEntropy(cut = [1, 2])(s)) < 1e-12      # whole first pair
+            @test abs(EntanglementEntropy(cut = 3:4)(s)) < 1e-12         # whole second pair
+            @test EntanglementEntropy(cut = [1])(s) ≈ 1.0 atol=1e-12
+            @test EntanglementEntropy(cut = [1, 2, 3])(s) ≈ 1.0 atol=1e-12
+
+            # The tableau is copied, never consumed: repeated calls are stable and
+            # the Int path still sees an unmutated state afterwards.
+            @test EntanglementEntropy(cut = [1, 3])(s) ≈ 2.0 atol=1e-12
+            @test EntanglementEntropy(cut = 2)(s) == EntanglementEntropy(cut = 1:2)(s)
+        end
+
+        @testset "PBC (L=6): wrapped region [L,1] equals its complement" begin
+            L = 6
+            s = _cliff_state(L; bc = :periodic)
+            # Bell pairs on (1,2) and (5,6): the wrapped region {6,1} splits BOTH
+            # pairs → S = 2 bits, so this is not a comparison of two zeros.
+            apply!(s, Hadamard(), SingleSite(1))
+            apply!(s, CNOT(), Sites([1, 2]))
+            apply!(s, Hadamard(), SingleSite(5))
+            apply!(s, CNOT(), Sites([5, 6]))
+
+            S_wrapped = EntanglementEntropy(cut = [L, 1])(s)
+            S_complement = EntanglementEntropy(cut = [2, 3, 4, 5])(s)
+            @test S_wrapped ≈ 2.0 atol=1e-12
+            @test S_wrapped ≈ S_complement atol=1e-12
+            # input order is irrelevant — the constructor sorts the region
+            @test EntanglementEntropy(cut = [1, L])(s) == S_wrapped
+            # physical-site semantics under PBC match the Int prefix cut
+            @test EntanglementEntropy(cut = 1:2)(s) == EntanglementEntropy(cut = 2)(s)
+        end
+
+        @testset "call-time region validation throws ArgumentError" begin
+            L = 4
+            s = _cliff_state(L)
+            # out of range
+            @test_throws ArgumentError EntanglementEntropy(cut = [L + 1])(s)
+            @test_throws ArgumentError EntanglementEntropy(cut = [1, L + 1])(s)
+            # full system is not a proper subset
+            @test_throws ArgumentError EntanglementEntropy(cut = collect(1:L))(s)
+            @test_throws ArgumentError EntanglementEntropy(cut = 1:L)(s)
+        end
+    end
 end  # top-level @testset

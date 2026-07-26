@@ -66,7 +66,7 @@ ArgumentError: Clifford backend only supports Clifford gates (PauliX, PauliY, Pa
 
 ## Entanglement Spectrum
 
-Stabilizer states have an exactly flat entanglement spectrum: for any bipartition, every nonzero Schmidt coefficient has the same magnitude. As a direct consequence, every Rényi-n entropy, including the von Neumann limit, is identical for a stabilizer state, so the `renyi_index` keyword on `EntanglementEntropy` is automatically satisfied for any value:
+Stabilizer states have an exactly flat entanglement spectrum: for any bipartition, every nonzero Schmidt coefficient has the same magnitude. As a direct consequence, every Rényi-n entropy, including the von Neumann limit, is identical for a stabilizer state, so the `renyi_index` keyword on `EntanglementEntropy` — which accepts any real value, not just integers — returns the same value regardless of `n` on a flat spectrum:
 
 ```julia
 using QuantumCircuitsMPS
@@ -88,6 +88,35 @@ renyi_index=2 -> S = 1.0
 renyi_index=3 -> S = 1.0
 renyi_index=5 -> S = 1.0
 ```
+
+## Region Entanglement Entropy
+
+Like the state-vector backend, `EntanglementEntropy` accepts an arbitrary
+physical-site region on the Clifford backend — `cut=c1:c2` or
+`cut=[s1, s2, ...]`, including non-contiguous and PBC-wrapped selections —
+computed via `QuantumClifford.entanglement_entropy`'s stabilizer-rank formula
+on the chosen subsystem:
+
+```julia
+using QuantumCircuitsMPS
+
+state = SimulationState(L=4, bc=:open, backend=:clifford,
+    rng=RNGRegistry(gates_spacetime=1, gates_realization=2, born_measurement=3))
+initialize!(state, ProductState(binary_int=0))
+apply!(state, Hadamard(), SingleSite(1))
+apply!(state, CNOT(), Sites([1,2]))
+apply!(state, CNOT(), Sites([2,3]))
+apply!(state, CNOT(), Sites([3,4]))  # GHZ state
+
+EntanglementEntropy(cut=[1, 3])(state)   # 1.0 -- non-contiguous region of a GHZ state
+```
+
+Region sites are always **physical** sites, well-defined under both open and
+periodic boundary conditions, including PBC-wrapped regions like `[L, 1]`.
+As on the state-vector backend, the region path is more expensive than the
+bipartition path: it runs the stabilizer-tableau rank formula on an
+arbitrary subsystem rather than the prefix bipartition the `cut::Int` path
+is specialized for.
 
 ## Cross-Backend RNG Reproducibility (Redundant Draw)
 

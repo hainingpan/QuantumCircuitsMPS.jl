@@ -53,3 +53,31 @@ state = SimulationState(L=20, bc=:open, backend=:statevector, engine=:optimized,
 ```
 
 Use `:builtin` when auditability matters most (e.g. debugging an observable formula); reach for `:optimized` once you're pushing `L` toward the upper end of the state-vector backend's practical range and want faster gate application.
+
+## Region Entanglement Entropy
+
+Beyond the bipartition form (`cut::Int`), `EntanglementEntropy` also accepts an arbitrary set of physical sites on the state-vector backend — `cut=c1:c2` for a contiguous range, or `cut=[s1, s2, ...]` for a non-contiguous or PBC-wrapped selection — and returns the entropy of that region's reduced density matrix:
+
+```julia
+using QuantumCircuitsMPS
+
+L = 6
+state = SimulationState(L=L, bc=:open, backend=:statevector,
+    rng=RNGRegistry(gates_spacetime=1, gates_realization=2, born_measurement=3))
+initialize!(state, ProductState(binary_int=0))
+apply!(state, HaarRandom(2), AdjacentPair(1))
+apply!(state, HaarRandom(2), AdjacentPair(4))
+
+EntanglementEntropy(cut=1:3)(state)      # region {1, 2, 3}
+EntanglementEntropy(cut=[1, 3, 5])(state) # non-contiguous region
+```
+
+Region sites are always **physical** sites, so the region path is
+well-defined under both open and periodic boundary conditions, including
+PBC-wrapped regions like `[L, 1]`. This is a deliberate contrast with
+`EntanglementEntropy(cut=k)` on the MPS backend, whose `cut` addresses a RAM
+bond of the folded PBC chain rather than a physical bipartition (see the
+[MPS Backend](@ref)'s PBC caveat) — the state-vector, Clifford, and Gaussian
+region path has no such caveat. The region path is more expensive than the
+bipartition path: it computes an arbitrary-subset reduced density matrix
+rather than reusing the cheap prefix reshape the `cut::Int` path relies on.

@@ -3,7 +3,9 @@
 # I₃(A:B:C) = I(A:B) + I(A:C) − I(A:BC) — the standard Gullans–Huse MIPT
 # convention, composed from three MutualInformation evaluations, so it
 # inherits MutualInformation's per-backend dispatch (MPS, state vector,
-# Clifford) and its region constraints/size guards.
+# Clifford, Gaussian) and its region constraints/size guards. There is no
+# TMI-specific backend code: any backend that implements MutualInformation
+# — the fermionic Gaussian backend included — gets I₃ by composition.
 
 """
     TripartiteMutualInformation(A, B, C; renyi_index=1, threshold=1e-16, base=ℯ)
@@ -30,14 +32,23 @@ global correlations give I₃ > 0: GHZ(L=8) with A=1:2, B=3:4, C=5:6
 # Arguments
 - `A`, `B`, `C`: the three site regions (contiguous, pairwise disjoint,
   B and C adjacent)
-- `renyi_index::Int=1`, `threshold::Float64=1e-16`, `base::Real=ℯ`:
-  forwarded to all three `MutualInformation` terms (see its docstring;
-  Rényi-n I₃ for n≥2 is a diagnostic, not a proper mutual information)
+- `renyi_index::Real=1`, `threshold::Float64=1e-16`, `base::Real=ℯ`:
+  forwarded UNVALIDATED to all three `MutualInformation` terms, which perform
+  the normalize-then-validate check (any `Real`, normalized to `Float64`, and
+  the normalized value must be finite and > 0; `Bool` rejected). See
+  `MutualInformation`'s docstring; Rényi-n I₃ for real n ≠ 1 is a diagnostic,
+  not a proper mutual information.
 
 # Backend cost
 Inherits `MutualInformation`: on the MPS backend the largest term I(A:BC)
 requires d^(|A|+|B|+|C|) ≤ 256 (e.g. ≤ 8 qubits combined); state vector is
-exact dense (L ≲ 20); Clifford is poly-time.
+exact dense (L ≲ 20); Clifford is poly-time; Gaussian is three
+covariance-submatrix eigendecompositions per term, O((|A|+|B|+|C|)³).
+
+Under `bc = :periodic` every backend reads the three regions as PHYSICAL
+sites (inherited from `MutualInformation`), so I₃ is cross-backend
+unambiguous — unlike `EntanglementEntropy`'s MPS `cut`, which is a RAM bond
+index of the folded MPS.
 
 # Examples
 ```julia
@@ -51,7 +62,12 @@ struct TripartiteMutualInformation <: AbstractObservable
     mi_ac::MutualInformation
     mi_abc::MutualInformation
 
-    function TripartiteMutualInformation(A, B, C; renyi_index::Int = 1,
+    # `renyi_index` is FORWARDED, not validated here: the three
+    # `MutualInformation` constructions below run the shared
+    # normalize-then-validate check (Bool reject, Float64 conversion, finite
+    # and > 0), so a bad index still raises an `ArgumentError` at TMI
+    # construction — just with `MutualInformation`'s message.
+    function TripartiteMutualInformation(A, B, C; renyi_index::Real = 1,
             threshold::Float64 = 1e-16, base::Real = ℯ)
         rA = _mi_contiguous_region(A, "region A")
         rB = _mi_contiguous_region(B, "region B")

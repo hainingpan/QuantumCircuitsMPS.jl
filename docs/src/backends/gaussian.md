@@ -108,10 +108,10 @@ MutualInformation([1], [2])(mstate)          # ≈ log(2) ≈ 0.6931
 
 | Observable | Fermionic-mode | Majorana chain | Notes |
 |---|---|---|---|
-| `EntanglementEntropy` | ✓ von Neumann only | ✓ | `renyi_index != 1` → `ArgumentError` (never silently falls back) |
+| `EntanglementEntropy` | ✓ real `renyi_index` (normalized to `Float64`, finite, `> 0`) | ✓ | Rényi-`n` entropy computed from the covariance eigenvalue spectrum |
 | `Magnetization` | ✓ `:Z` only | ✗ `ArgumentError` | `:X`/`:Y` → `ArgumentError` on both granularities |
 | `BornProbability` | ✓ | ✗ (via `born_probability` rejection) | non-destructive single-mode read |
-| `MutualInformation` | ✓, incl. wrapped/non-contiguous regions | ✓, incl. wrapped/non-contiguous regions | von Neumann only; the only backend that accepts non-contiguous/PBC-wrapped region pairs |
+| `MutualInformation` | ✓, incl. wrapped/non-contiguous regions | ✓, incl. wrapped/non-contiguous regions | the only backend that accepts non-contiguous/PBC-wrapped region pairs |
 | `TripartiteMutualInformation` | ✓ (composes `MutualInformation`) | ✓ | no Gaussian-specific code — composition "just works" |
 | `EntropyProfile` | ✓ (composes `EntanglementEntropy`) | ✓ | no Gaussian-specific code |
 | `StringOrder` | ✗ `ArgumentError` | ✗ `ArgumentError` | spin-1 Sz-string MPO formula, no fermionic-Gaussian analog |
@@ -133,6 +133,38 @@ StringOrder(1, 4)(state)
 ```
 ArgumentError: StringOrder is not supported on the Gaussian backend: its formula requires spin-1 Sz-expectation-string MPO/MPS contractions, which have no native fermionic-Gaussian (covariance-matrix) representation. Please use backend=:mps or backend=:statevector for StringOrder.
 ```
+
+## Region Entanglement Entropy
+
+Like the state-vector and Clifford backends, `EntanglementEntropy` accepts
+an arbitrary physical-site region on the Gaussian backend — `cut=c1:c2` or
+`cut=[s1, s2, ...]`, including non-contiguous and PBC-wrapped selections —
+by mapping the region to its Majorana indices and reusing the same
+covariance-matrix `subsystem_entropy` formula the bipartition path uses:
+
+```julia
+using QuantumCircuitsMPS
+
+state = SimulationState(L=6, bc=:periodic, backend=:gaussian,
+    rng=RNGRegistry(gates_spacetime=1, gates_realization=2, born_measurement=3, state_init=4))
+initialize!(state, ProductState(binary_int=0))
+apply!(state, GaussianHaar(), Bricklayer(:odd))
+apply!(state, GaussianHaar(), Bricklayer(:even))
+
+EntanglementEntropy(cut=[6, 1])(state)   # PBC-wrapped region {6, 1}
+```
+
+As with the bipartition form, the region path supports real `renyi_index`
+(normalized to `Float64`, finite and `> 0`): both paths compute
+`S_n = 1/(1−n) · Σ_k ln[((1+λ_k)/2)^n + ((1−λ_k)/2)^n]` over the paired
+eigenvalues `λ_k` of the region's covariance matrix, with an extra `ln(2)/2`
+contribution per unpaired zero mode on odd-sized Majorana-chain regions
+(`n = 1` recovers the existing von Neumann formula bit-for-bit). Region
+sites are always **physical** sites, well-defined under both open and
+periodic boundary conditions (including wrapped regions like `[L, 1]`), and
+the region path is more expensive than the bipartition path: it builds an
+arbitrary Majorana-index submatrix rather than reusing the contiguous
+prefix structure of `cut::Int`.
 
 ## Example: Reproducing the Class-DIII Phase Diagram
 

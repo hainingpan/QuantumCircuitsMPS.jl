@@ -13,6 +13,8 @@
 #   - straddling entangled pair: I = 2·log(2), cross-checked against T5's
 #     exact density-matrix oracle at L=4
 #   - TMI == S_A+S_B+S_C−S_AB−S_AC−S_BC+S_ABC from subsystem entropies
+#   - Rényi-MI: real renyi_index composes the three Gaussian Sₙ terms (flat
+#     Majorana dimer pin + genuine n-dependence on a Haar state + TMI smoke)
 
 using Test
 using QuantumCircuitsMPS
@@ -256,16 +258,6 @@ end
         state = _mi_gauss(4, 50)
         initialize!(state, ProductState(binary_int = 0))
 
-        # renyi_index != 1 → ArgumentError naming the Gaussian backend
-        err = try
-            MutualInformation(1, 3; renyi_index = 2)(state)
-            nothing
-        catch e
-            e
-        end
-        @test err isa ArgumentError
-        @test occursin("renyi_index", err.msg) && occursin("Gaussian", err.msg)
-
         # out-of-range region at evaluation time
         @test_throws ArgumentError MutualInformation(1, 6)(state)
 
@@ -278,5 +270,56 @@ end
         @test_throws ArgumentError MutualInformation([1, 1], [3])
         @test_throws ArgumentError MutualInformation(Int[], [2])
         @test_throws ArgumentError MutualInformation(0:1, 3:4)
+    end
+end
+
+# === Rényi-n MutualInformation / TMI (T4) ====================================
+# The Gaussian MI path forwards `mi.renyi_index` into the three
+# `subsystem_entropy` calls (src/Gaussian/mutual_information.jl), so Iₙ is the
+# composition Sₙ(A) + Sₙ(B) − Sₙ(A∪B). NOTE: Iₙ for n ≠ 1 is NOT a proper
+# mutual information — it need not be monotone in n nor non-negative on mixed
+# regions — so only FLAT-state analytic values, finiteness and genuine
+# n-dependence are asserted here (deliberately no monotonicity assertion).
+
+@testset "Gaussian Rényi-n MutualInformation + TMI (T4)" begin
+    @testset "dimerized Majorana chain: I(1:2) = log(2) ∀n (flat)" begin
+        # site_type="Majorana" vacuum is ⊕[[0,1],[-1,0]]: sites 1 and 2 form a
+        # pure dimer, so S({1}) = S({2}) = log(2)/2 (odd 1×1 Γ_A, unpaired
+        # ξ = 0 mode) and S({1,2}) = 0 for EVERY n ⇒ Iₙ = log(2) exactly.
+        mj = SimulationState(L = 8, bc = :open, backend = :gaussian,
+            site_type = "Majorana", rng = _mi_rng(70))
+        initialize!(mj, ProductState(binary_int = 0))
+        for n in (0.5, 1, 2, 3)
+            @test MutualInformation([1], [2]; renyi_index = n)(mj) ≈ log(2) atol=1e-12
+            @test MutualInformation([1], [2]; renyi_index = n, base = 2)(mj) ≈
+                  1.0 atol=1e-12
+        end
+    end
+
+    @testset "Haar fermionic state: Iₙ is genuinely n-dependent and finite" begin
+        L = 6
+        state = _mi_gauss(L, 62)
+        initialize!(state, ProductState(binary_int = 0))
+        for _ in 1:10
+            apply!(state, GaussianHaar(), Bricklayer(:odd))
+            apply!(state, GaussianHaar(), Bricklayer(:even))
+        end
+        I1 = MutualInformation(1, 3; renyi_index = 1)(state)
+        I2 = MutualInformation(1, 3; renyi_index = 2)(state)
+        @test isfinite(I1)
+        @test isfinite(I2)
+        @test abs(I2 - I1) > 1e-6      # a wiring bug would return I1 for both
+        # extreme indices stay finite (log-domain kernel)
+        for n in (0.5, 2048, floatmax(Float64))
+            @test isfinite(MutualInformation(1, 3; renyi_index = n)(state))
+        end
+        # TMI smoke: composition-only, no Gaussian-specific TMI method
+        I3 = TripartiteMutualInformation(1, 2, 3; renyi_index = 2)(state)
+        @test I3 isa Float64
+        @test isfinite(I3)
+        # manual composition through subsystem_entropy agrees
+        Γ = state.backend.corr
+        Sn(sites) = QCM.subsystem_entropy(Γ, _mi_maj(state, sites); renyi_index = 2)
+        @test I2 ≈ Sn([1]) + Sn([3]) - Sn([1, 3]) atol=1e-10
     end
 end

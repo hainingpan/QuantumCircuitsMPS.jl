@@ -177,3 +177,58 @@ end
         @test "MutualInformation" in list_observables()
     end
 end
+
+# ======================================================================
+# Real-valued `renyi_index` on MutualInformation: normalize-then-validate
+# contract + Rényi passthrough into `_mi_entropy_from_probs`.
+# ======================================================================
+@testset "MutualInformation renyi_index: real-valued contract" begin
+    # Same rejection set as EntanglementEntropy / EntropyProfile: `true` is a
+    # `Real` whose Float64 normalization is 1.0 (would silently mean von
+    # Neumann), and the two BigFloats are finite reals > 0 that normalize to
+    # `Inf` / `0.0` — hence the contract is on the NORMALIZED value.
+    for bad in (0, 0.0, -1, -0.5, Inf, NaN, true, false,
+        BigFloat("1e400"), BigFloat("1e-400"))
+        @test_throws ArgumentError MutualInformation(1, 2; renyi_index = bad)
+    end
+
+    mi = MutualInformation(1, 2; renyi_index = 1.5)
+    @test mi.renyi_index == 1.5
+    @test mi.renyi_index isa Float64
+    @test MutualInformation(1, 2; renyi_index = 0.5).renyi_index == 0.5
+    # Int input is normalized, not stored as an Int
+    mi2 = MutualInformation(1, 2; renyi_index = 2)
+    @test mi2.renyi_index == 2
+    @test mi2.renyi_index isa Float64
+    @test MutualInformation(1, 2;
+        renyi_index = floatmax(Float64)).renyi_index == floatmax(Float64)
+end
+
+@testset "MutualInformation Rényi passthrough (Bell pair)" begin
+    # Bell pair, A = {1}, B = {2}: both single-site spectra are flat {1/2,1/2}
+    # and the joint spectrum is pure, so I_n = 2·log(2) for EVERY index. This
+    # exercises `_mi_entropy_from_probs`'s scaled log-domain form (n = 0.5,
+    # 1.5, floatmax) AND its widened von Neumann shunt (n = 1 ± 1e-8).
+    for backend in (:mps, :statevector)
+        st = backend === :mps ?
+             SimulationState(L = 2, bc = :open, maxdim = 64,
+            rng = RNGRegistry(gates_spacetime = 5, gates_realization = 6,
+                born_measurement = 7)) :
+             SimulationState(L = 2, bc = :open, backend = backend,
+            rng = RNGRegistry(gates_spacetime = 5, gates_realization = 6,
+                born_measurement = 7))
+        initialize!(st, ProductState(binary_int = 0))
+        apply!(st, Hadamard(), SingleSite(1))
+        apply!(st, CNOT(), Sites([1, 2]))
+        for n in (0.5, 1.5, floatmax(Float64), 1.0 - 1e-8, 1.0 + 1e-8)
+            I = MutualInformation(1, 2; renyi_index = n)(st)
+            @test isfinite(I)
+            @test isapprox(I, 2 * log(2); atol = 1e-10)
+        end
+        # The shunt values must be EXACTLY the von Neumann value
+        I1 = MutualInformation(1, 2; renyi_index = 1)(st)
+        for n in (prevfloat(1.0), nextfloat(1.0), 1.0 - 1e-8, 1.0 + 1e-8)
+            @test MutualInformation(1, 2; renyi_index = n)(st) == I1
+        end
+    end
+end
