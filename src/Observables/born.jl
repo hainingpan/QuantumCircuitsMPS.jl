@@ -22,8 +22,21 @@ end
 """
     born_probability(state::SimulationState{MPSBackend}, physical_site::Int, outcome::Int) -> Float64
 
-Compute Born probability P(outcome | state) at a physical site.
-Converts physical site to RAM index for MPS access.
+Compute the Born probability `P(outcome | state)` at a physical site:
+
+```
+P(k) = ⟨ψ|Pₖ|ψ⟩ / ⟨ψ|ψ⟩ ,   Pₖ = |k⟩⟨k| .
+```
+
+`physical_site` is converted to its RAM index via `state.phy_ram` (handles the
+`:periodic` fold). `ProjK` is defined for `"Qubit"` by ITensors and for the spin
+site types by `src/Core/spin_sites.jl`.
+
+Non-mutating (neither the tensors nor the orthogonality limits are touched), and
+correctly normalized even when `‖ψ‖² ≠ 1` — e.g. after a truncated unitary layer,
+which is not renormalized. Evaluates only the requested site, but still pays the
+gauge walk to it, so this is a local query rather than an `O(1)` one. Throws on a
+zero-norm MPS.
 
 This is the MPS-backend implementation. `SimulationState{StateVectorBackend}`
 and `SimulationState{CliffordBackend}` have their own, more specific
@@ -33,18 +46,8 @@ gets a clear `MethodError` here instead of silently crashing on a
 backend-specific field (`state.backend.mps`) that doesn't exist.
 """
 function born_probability(state::SimulationState{MPSBackend}, physical_site::Int, outcome::Int)
-    # Convert physical site to RAM index
     ram_idx = state.phy_ram[physical_site]
-
-    # Use ITensorMPS expect() with the per-level projector operator
-    # ProjK = |k⟩⟨k| (defined for Qubit by ITensors; for spin site types by
-    # src/Core/spin_sites.jl). For outcome ∈ (0, 1) this is the historical
-    # "Proj0"/"Proj1" string exactly.
-    proj_op = "Proj$(outcome)"
-
-    # expect() returns Vector for all sites, index by RAM position
-    # Divide by ⟨ψ|ψ⟩ to handle slight norm drift; for normalized MPS this is a no-op.
-    mps_norm_sq = real(inner(state.backend.mps, state.backend.mps))
-    all_probs = expect(state.backend.mps, proj_op)
-    return real(all_probs[ram_idx]) / mps_norm_sq
+    # An Int `sites` makes expect() return a scalar; it already divides by
+    # ⟨ψ|ψ⟩, so no extra norm division here. `real`: Pₖ is Hermitian.
+    return real(expect(state.backend.mps, "Proj$(outcome)"; sites = ram_idx))
 end

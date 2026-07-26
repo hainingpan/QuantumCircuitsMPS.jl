@@ -2,7 +2,7 @@
 #
 # Executable audit of the measurement core, reviewed against:
 #   src/Core/apply.jl        (_measure_single_site!, execute! for Measure/Reset)
-#   src/Observables/born.jl  (MPS born_probability via expect + norm division)
+#   src/Observables/born.jl  (MPS born_probability via site-local expect)
 #   src/StateVector/measurement.jl (digit-sum born_probability)
 #   src/Clifford/measurement.jl    (projectZ!-based override)
 #   src/Gates/feedback.jl    (Measure, OnOutcome, CallbackFeedback, sentinel guard)
@@ -10,8 +10,9 @@
 #
 # What is verified here (audit conclusions encoded as permanent tests):
 #  (a) Born normalization: Σ_o P(site,o) = 1 on all 3 backends (1e-14 exact
-#      backends; MPS with active truncation still ~1e-15 because
-#      born_probability divides by ⟨ψ|ψ⟩).
+#      backends; MPS with active truncation still ~1e-15 because `expect`
+#      divides by ⟨ψ|ψ⟩ internally — exactly once, see
+#      test/born_probability_local.jl).
 #  (b) |+⟩ measured in Z: P(0)=P(1)=1/2 exactly; the sampled outcome is drawn
 #      from the :born_measurement stream via `rand(rng) < p0 ? 0 : 1` — pinned
 #      by predicting the outcome from a twin MersenneTwister on every backend.
