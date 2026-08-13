@@ -1,9 +1,9 @@
-"""
+@doc raw"""
     Magnetization(axis::Symbol)
 
 Average single-site expectation value along `axis`.
 
-Computes Mₐ = (1/L) Σᵢ ⟨axis_i⟩ where axis ∈ {:X, :Y, :Z}.
+Computes ``M_a = \frac{1}{L}\sum_i\langle \mathrm{axis}_i\rangle`` where ``\mathrm{axis} \in \{X, Y, Z\}``.
 
 # Example
 ```julia

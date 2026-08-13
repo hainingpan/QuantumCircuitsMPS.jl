@@ -1,10 +1,10 @@
-"""
+@doc raw"""
     domain_wall(state::SimulationState{StateVectorBackend}, i1::Int, order::Int) -> Float64
 
 State-vector implementation of the `domain_wall` function (mirrors the
 formula of the existing MPS `domain_wall` in `src/Observables/domain_wall.jl`
 exactly: cyclic scan from `i1`, weight `(L-j+1)^order`, term j is
-⟨ψ| (∏_{k<j} P0_k) P1_j |ψ⟩ over the cyclic site list).
+``\langle\psi\rvert\left(\prod_{k<j}P0_k\right)P1_j\lvert\psi\rangle`` over the cyclic site list).
 
 Implementation: a single O(d^L) pass instead of L independent O(d^L) scans
 (one per term j). The L projector-product conditions are mutually exclusive

@@ -5,10 +5,10 @@
 # born_probability(state, site, outcome) — Julia's dispatch automatically
 # routes to this method for SV states.
 
-"""
+@doc raw"""
     born_probability(state::SimulationState{StateVectorBackend}, physical_site::Int, outcome::Int) -> Float64
 
-Compute Born probability P(outcome | ψ) at `physical_site` for the state-vector backend.
+Compute Born probability ``P(\text{outcome} \mid \psi)`` at `physical_site` for the state-vector backend.
 
 For a state vector `ψ` of length `d^L`, sums `|ψ_n|²` over all basis integers `n`
 (0-indexed, 0 to `d^L - 1`) whose base-`d` digit at position `physical_site` equals

@@ -28,10 +28,10 @@
 
 using LinearAlgebra: Hermitian, eigvals
 
-"""
+@doc raw"""
     MutualInformation(regionA, regionB; renyi_index=1, threshold=1e-16, base=ℯ)
 
-Mutual information I(A:B) = S(A) + S(B) - S(A∪B) between two site regions.
+Mutual information ``I(A\!:\!B) = S(A) + S(B) - S(A\cup B)`` between two site regions.
 
 Each region is a non-empty, duplicate-free collection of physical sites (a
 `UnitRange` like `2:4`, a single `Int`, or a `Vector{Int}`; stored sorted),
@@ -52,34 +52,34 @@ non-contiguous and PBC-wrapped regions such as `[7, 8, 1, 2]` at L=8.
   be finite and `> 0` (so a finite `BigFloat("1e400")` — which normalizes to
   `Inf` — is rejected, as is `Bool`).
   - `renyi_index=1`: von Neumann entropies (default)
-  - `renyi_index=n`, real n ≠ 1: Rényi-n entropies. NOTE: the Rényi "mutual
-    information" Iₙ = Sₙ(A)+Sₙ(B)−Sₙ(A∪B) is NOT guaranteed non-negative
-    for n≠1 — it is a commonly used diagnostic, not a proper mutual
+  - `renyi_index=n`, real ``n \neq 1``: Rényi-n entropies. NOTE: the Rényi "mutual
+    information" ``I_n = S_n(A)+S_n(B)-S_n(A\cup B)`` is NOT guaranteed non-negative
+    for ``n \neq 1`` — it is a commonly used diagnostic, not a proper mutual
     information. Documented, not forbidden.
 - `threshold::Float64=1e-16`: singular-value floor (probabilities are clamped
   at `threshold^2` before taking logs), mirroring `EntanglementEntropy`
 - `base::Real=ℯ`: logarithm base (default natural log, so a Bell pair gives
-  I = 2·log(2) ≈ 1.386; use `base=2` for bits)
+  ``I = 2\log(2) \approx 1.386``; use `base=2` for bits)
 
 # Backend cost
-- MPS: S(A∪B) for disjoint A, B requires a two-block reduced density matrix,
-  contracted with cost/memory ~ χ²·d^(|A|+|B|) (χ = bond dimension). A size
-  guard throws an informative `ArgumentError` when d^(|A|+|B|) > 256
+- MPS: ``S(A\cup B)`` for disjoint A, B requires a two-block reduced density matrix,
+  contracted with cost/memory ``\sim \chi^2 d^{|A|+|B|}`` (``\chi`` = bond dimension). A size
+  guard throws an informative `ArgumentError` when ``d^{|A|+|B|} > 256``
   (e.g. more than 8 qubits combined).
 - StateVector: exact dense partial trace — practical for L ≲ 20 only
   (memory/time scale as d^L).
 - Clifford: poly-time GF(2)-rank stabilizer entropies; every Rényi index
   gives the same value (flat entanglement spectrum).
 - Gaussian: three covariance-submatrix eigendecompositions,
-  O((|A|+|B|)³) — arbitrary site subsets; any real `renyi_index` (normalized
+  ``O((|A|+|B|)^3)`` — arbitrary site subsets; any real `renyi_index` (normalized
   to `Float64` at construction, normalized value finite and `> 0`) is
   supported, computed from the covariance spectrum.
 
 # Properties (analytic anchors)
 - Product state: I = 0
-- Pure global state with B = complement(A): I = 2·S(A)
-- Bell pair, A = {1}, B = {2}: I = 2·log(2)
-- GHZ(4), A = {1}, B = {4}: I = log(2)
+- Pure global state with ``B = \mathrm{complement}(A)``: ``I = 2S(A)``
+- Bell pair, ``A = \{1\}``, ``B = \{2\}``: ``I = 2\log(2)``
+- GHZ(4), ``A = \{1\}``, ``B = \{4\}``: ``I = \log(2)``
 
 # Examples
 ```julia
@@ -214,14 +214,14 @@ function _validate_mutual_information(mi::MutualInformation, state)
     return nothing
 end
 
-"""
+@doc raw"""
     _mi_entropy_from_probs(p, n, base, threshold) -> Float64
 
 Entropy from a Schmidt/RDM probability spectrum `p` (need not be normalized;
 tiny negative eigenvalues from numerical RDMs are clamped at `threshold^2`).
 
-`n = 1` gives the von Neumann entropy −Σ q·log_b(q); a general real `n ≠ 1`
-(a normalized `Float64`) gives the Rényi entropy log_b(Σ qⁿ)/(1−n) via a
+``n=1`` gives the von Neumann entropy ``-\sum q\log_b(q)``; a general real ``n \neq 1``
+(a normalized `Float64`) gives the Rényi entropy ``\log_b(\sum q^n)/(1-n)`` via a
 LOG-DOMAIN evaluation. This is a deliberately separate copy of the same
 three-branch structure used by `_von_neumann_entropy`
 (src/Observables/entanglement.jl) and the state-vector bipartition kernel

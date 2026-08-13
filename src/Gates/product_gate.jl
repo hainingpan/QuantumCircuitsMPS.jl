@@ -69,7 +69,7 @@ gate-agnostic).
 
 # Event log
 With `log_events=true`, each element application is logged as a `GateApplied`
-with the INNER gate's label (element_idx = position within the product); the
+with the INNER gate's label (`element_idx` = position within the product); the
 engine additionally logs one wrapper `GateApplied` with this gate's label
 (`"∏" * gate_label(inner)`, e.g. `"∏Haar"`).
 

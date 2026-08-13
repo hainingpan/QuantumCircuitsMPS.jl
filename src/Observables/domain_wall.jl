@@ -1,17 +1,19 @@
-"""
+@doc raw"""
     DomainWall(; order::Int, i1_fn::Union{Function, Nothing}=nothing)
 
 Domain wall observable for CT model.
 Only supports xj=Set([0]) case (first "1" in bit string).
 
 The domain wall computes:
-  DW = Σ_j (L-j+1)^order * P(first "1" at position j starting from i1)
+  ```math
+DW = \sum_j (L-j+1)^{\text{order}} \, P(\text{first } 1 \text{ at position } j \text{ starting from } i_1)
+```
 
 where position j is measured cyclically starting from i1.
 
 Parameters:
-- order: The order of the domain wall (≥ 1)
-- i1_fn: Optional function that returns the sampling site i1 when called
+- order: The order of the domain wall (``\geq 1``)
+- `i1_fn`: Optional function that returns the sampling site i1 when called
          If provided, record! can be called without i1 parameter
 """
 struct DomainWall <: AbstractObservable
@@ -43,7 +45,7 @@ end
     domain_wall(state::SimulationState, i1::Int, order::Int) -> Float64
 
 Compute domain wall observable at sampling site i1 with given order.
-Ports CT.jl's dw_FM algorithm for xj=Set([0]) case.
+Ports CT.jl's `dw_FM` algorithm for xj=Set([0]) case.
 
 The domain wall measures where the first "1" appears in the bit string
 when scanning cyclically from position i1.
@@ -81,12 +83,12 @@ function domain_wall(state, i1::Int, order::Int)
     return dw_value
 end
 
-"""
+@doc raw"""
     compute_projector_product_expectation(state, sites_zero::Vector{Int}, site_one::Int) -> Float64
 
-Compute ⟨ψ| (∏_k P0_k) P1 |ψ⟩ where P0 projects to |0⟩ and P1 projects to |1⟩.
-sites_zero: physical sites that should be "0"
-site_one: physical site that should be "1"
+Compute ``\langle\psi| \big(\textstyle\prod_k P_{0,k}\big) P_1 |\psi\rangle`` where ``P_0`` projects to ``|0\rangle`` and ``P_1`` projects to ``|1\rangle``.
+`sites_zero`: physical sites that should be "0"
+`site_one`: physical site that should be "1"
 
 This uses MPO construction for the projector product.
 """

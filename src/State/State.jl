@@ -16,25 +16,25 @@ Fields:
   transparently (read and write) to `state.backend.<name>` via
   `getproperty`/`setproperty!` (see
   `Base.getproperty(::SimulationState{MPSBackend}, ::Symbol)`).
-- phy_ram: physical site -> RAM index mapping
-- ram_phy: RAM index -> physical site mapping
+- `phy_ram`: physical site -> RAM index mapping
+- `ram_phy`: RAM index -> physical site mapping
 - L: system size
 - bc: boundary condition (:open or :periodic)
-- site_type: site index type ("Qubit", "S=1", "Qudit")
-- local_dim: local Hilbert space dimension (default 2 for qubits)
-- rng_registry: RNG streams for reproducibility
+- `site_type`: site index type ("Qubit", "S=1", "Qudit")
+- `local_dim`: local Hilbert space dimension (default 2 for qubits)
+- `rng_registry`: RNG streams for reproducibility
 - observables: tracked observable values
-- observable_specs: observable specifications
-- event_log: typed event log (Nothing unless constructed with log_events=true)
-- event_step/event_op_idx/event_element_idx: current engine execution context
+- `observable_specs`: observable specifications
+- `event_log`: typed event log (Nothing unless constructed with `log_events=true`)
+- `event_step`/`event_op_idx`/`event_element_idx`: current engine execution context
   (set by simulate! before each execute! call; 0 outside a circuit engine run).
   Used to thread real indices into events emitted from deep call sites
-  (e.g. MeasurementOutcome from _measure_single_site!).
+  (e.g. MeasurementOutcome from `_measure_single_site!`).
 
-Supported site_type values:
-- "Qubit": spin-1/2 (local_dim=2, default)
-- "S=1": spin-1 (local_dim=3)
-- "Qudit": arbitrary dimension (requires local_dim parameter)
+Supported `site_type` values:
+- "Qubit": spin-1/2 (`local_dim=2`, default)
+- "S=1": spin-1 (`local_dim=3`)
+- "Qudit": arbitrary dimension (requires `local_dim` parameter)
 """
 mutable struct SimulationState{B <: AbstractBackend}
     backend::B
@@ -108,23 +108,23 @@ Create a new simulation state. MPS/statevector is created later via initialize!(
 Parameters:
 - L: system size (number of sites on the 1D chain)
 - bc: boundary condition (:open or :periodic)
-- site_type: site index type ("Qubit", "S=1", "Qudit")
-- local_dim: local Hilbert space dimension (default 2)
+- `site_type`: site index type ("Qubit", "S=1", "Qudit")
+- `local_dim`: local Hilbert space dimension (default 2)
 - cutoff: SVD truncation cutoff (only meaningful for `backend=:mps`; ignored for `backend=:statevector`/`:clifford`)
 - maxdim: maximum bond dimension (only meaningful for `backend=:mps`; ignored for `backend=:statevector`/`:clifford`)
 - rng: RNGRegistry for reproducible randomness
-- log_events: enable the typed event log (default false; see `events`, `measurements`).
+- `log_events`: enable the typed event log (default false; see `events`, `measurements`).
   Off by default to avoid any cost in the hot loop.
 - backend: `:mps` (default, builds an `MPSBackend` with ITensor site indices),
   `:statevector` (builds a `StateVectorBackend`; no site indices, identity
-  phy_ram/ram_phy mapping), `:clifford` (builds a `CliffordBackend` for
-  stabilizer-formalism simulation; qubit-only, identity phy_ram/ram_phy
+  `phy_ram`/`ram_phy` mapping), `:clifford` (builds a `CliffordBackend` for
+  stabilizer-formalism simulation; qubit-only, identity `phy_ram`/`ram_phy`
   mapping, tableau initialized later via `initialize!`), or `:gaussian`
   (builds a `GaussianBackend` for free-fermion Gaussian-state simulation;
-  qubit-only (local_dim=2, one fermionic mode per site), identity
-  phy_ram/ram_phy mapping, Majorana covariance matrix initialized later via
+  qubit-only (`local_dim=2`, one fermionic mode per site), identity
+  `phy_ram`/`ram_phy` mapping, Majorana covariance matrix initialized later via
   `initialize!`).
-- pbc_fold_start: physical site the PBC zig-zag fold starts from (default `L÷4+1`).
+- `pbc_fold_start`: physical site the PBC zig-zag fold starts from (default `L÷4+1`).
   Only meaningful for `backend=:mps` with `bc=:periodic`; ignored for `backend=:statevector`/`:clifford`/`:gaussian`.
 - engine: gate-application engine for `backend=:statevector` only — `:builtin`
   (default, Tier 1 reshape/permutedims engine, ground truth) or `:optimized`
@@ -133,7 +133,7 @@ Parameters:
   (but ignored) when `backend=:mps` or `backend=:clifford`, for API
   consistency across backends.
 
-For "Qudit" site type, local_dim specifies the dimension (e.g., local_dim=4 for d=4).
+For "Qudit" site type, `local_dim` specifies the dimension (e.g., `local_dim=4` for d=4).
 """
 function SimulationState(;
         L::Int,

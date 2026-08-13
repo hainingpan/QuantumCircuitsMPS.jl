@@ -48,10 +48,10 @@ backends (`local_dim = 2S+1`). The Clifford backend remains qubit-only.
 **The `"Z<m>"` label convention.** Basis states are indexed by two
 equivalent coordinates:
 
-- a **level index** `k = 0, 1, …, 2S` (0-based, descending magnetic
+- a **level index** ``k = 0, 1, \ldots, 2S`` (0-based, descending magnetic
   quantum number), and
-- the **magnetic quantum number** `m = S - k` (so level 0 = `m = +S`,
-  level `2S` = `m = -S`).
+- the **magnetic quantum number** ``m = S - k`` (so level 0 = ``m = +S``,
+  level `2S` = ``m = -S``).
 
 `ProductState` initial-state labels and `Projection`/measurement outcomes
 use the level index `k` (matching the qubit `"Proj0"`/`"Proj1"` convention
@@ -59,7 +59,7 @@ and the state-vector digit convention); `initialize!`'s `spin_state` keyword
 and ITensors `state(...)` calls use the `"Z<m>"` string form, where `<m>` is
 written as a plain integer for integer spins (`"Z1"`, `"Z0"`, `"Z-1"`) and as
 a `<numerator>/2` fraction for half-integer spins (`"Z3/2"`, `"Z-1/2"`).
-`"Up"`/`"Dn"` alias the two extremal levels (`m = +S` / `m = -S`) at every
+`"Up"`/`"Dn"` alias the two extremal levels (``m = +S`` / ``m = -S``) at every
 spin. Per-level projector operators follow the same level-index naming:
 `"Proj0"`, …, `"Proj$(2S)"`.
 
@@ -81,7 +81,7 @@ Magnetization(:Z)(state)
 `total_spin_projector(S; s=1)` and `SpinSectorProjection`/
 `SpinSectorMeasurement` generalize the AKLT forced-measurement machinery to
 arbitrary spin-`s` pairs (`s=1` keeps its original hardcoded S=0/1/2
-projector polynomials for bitwise regression stability; `s≠1` uses the
+projector polynomials for bitwise regression stability; ``s \neq 1`` uses the
 Lagrange/Casimir eigenvalue-product formula) — see
 [AKLT Example: Forced Measurement Protocol](@ref) in the tutorials for the
 spin-1 case and the `Gates` section above for the full signatures.

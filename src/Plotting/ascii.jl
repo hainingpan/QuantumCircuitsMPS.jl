@@ -6,10 +6,10 @@
 Build operation groups for ASCII rendering by iterating `circuit.operations` directly,
 showing ALL outcomes of stochastic operations unconditionally (circuit template).
 
-For deterministic ops: one group per apply! call (same as expand_circuit_grouped).
+For deterministic ops: one group per apply! call (same as `expand_circuit_grouped`).
 For stochastic ops: one group per outcome (ALL outcomes shown, no random selection).
 
-Returns the same steps → groups → ops structure as expand_circuit_grouped.
+Returns the same steps → groups → ops structure as `expand_circuit_grouped`.
 """
 function build_template_groups_ascii(circuit; n_steps::Int = 1)
     result = Vector{Vector{Vector{ExpandedOp}}}()

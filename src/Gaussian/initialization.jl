@@ -4,7 +4,7 @@
 # `state.backend.corr` and preallocates the same-size `state.backend.scratch`
 # buffer used by the gate-application kernel (src/Gaussian/kernel.jl).
 
-"""
+@doc raw"""
     initialize!(state::SimulationState{GaussianBackend}, init::ProductState)
 
 Initialize a Gaussian-backend `SimulationState` with a computational-basis
@@ -18,7 +18,7 @@ only (`local_dim=2`, enforced at construction time in `src/State/State.jl`),
 while `spin_state` is an S=1/qudit-oriented field.
 
 Site 1 = MSB (most significant bit) — identical convention to the other
-backends. Bit `1` at site `i` means mode `i` is OCCUPIED (⟨cᵢ†cᵢ⟩ = 1,
+backends. Bit `1` at site `i` means mode `i` is OCCUPIED (``\langle c_i^\dagger c_i\rangle = 1``,
 covariance block `Γ[2i−1,2i] = −1`); bit `0` means unoccupied
 (`Γ[2i−1,2i] = +1`). Since `ram_phy`/`phy_ram` are the IDENTITY for the
 Gaussian backend, no physical-to-RAM reordering is applied — physical site i
@@ -27,11 +27,10 @@ directly corresponds to Majorana pair (2i−1, 2i).
 **Majorana-chain granularity** (`site_type="Majorana"`,
 `state.backend.majoranas_per_site == 1`): each site is ONE Majorana mode
 and the product-state covariance is the DIMERIZED pairing
-⊕ₖ [[0,1],[−1,0]] over consecutive site pairs `(γ_{2k−1}, γ_{2k})`,
+``\bigoplus_k \begin{pmatrix}0&1\\-1&0\end{pmatrix}`` over consecutive site pairs `(γ_{2k−1}, γ_{2k})`,
 k = 1..L÷2. The bit pattern therefore has length **L÷2** (NOT L): bit `k`
 sets the parity sign of the pair `(γ_{2k−1}, γ_{2k})` — bit `0` ⇒
-`Γ[2k−1,2k] = +1` (parity `iγγ = −1`, the "vacuum" sign), bit `1` ⇒
-`Γ[2k−1,2k] = −1`. The pattern is derived by the shared
+``\Gamma[2k-1,2k] = +1`` (parity ``i\gamma\gamma = -1``, the "vacuum" sign), bit `1` ⇒ ``\Gamma[2k-1,2k] = -1``. The pattern is derived by the shared
 `_bit_pattern_string` helper with length L÷2, so `binary_int` is padded to
 L÷2 binary digits and an explicit `bitstring` is padded/truncated to
 exactly L÷2 characters — i.e. the pattern length is always exactly L÷2.
@@ -73,15 +72,15 @@ function initialize!(state::SimulationState{GaussianBackend}, init::ProductState
     return state
 end
 
-"""
+@doc raw"""
     initialize!(state::SimulationState{GaussianBackend}, init::RandomGaussianState)
 
 Initialize a Gaussian-backend `SimulationState` with a Haar-random pure
-fermionic Gaussian state: draw `O ∈ SO(N)` exactly Haar-distributed (via
+fermionic Gaussian state: draw ``O \in SO(N)`` exactly Haar-distributed (via
 [`haar_orthogonal`](@ref)), with `N` the total Majorana count
-(`N = 2L` fermionic-mode granularity; `N = L` for the Majorana chain,
+(``N = 2L`` fermionic-mode granularity; ``N = L`` for the Majorana chain,
 `site_type="Majorana"`), and rotate the vacuum covariance matrix,
-`Γ = O·Γ₀·Oᵀ`, which preserves purity (`Γ² = −I`) and antisymmetry.
+``\Gamma = O\,\Gamma_0\,O^T``, which preserves purity (``\Gamma^2 = -I``) and antisymmetry.
 
 Requires an `RNGRegistry` attached to the state; the orthogonal matrix is
 drawn deterministically from the registry's `:state_init` stream — the same

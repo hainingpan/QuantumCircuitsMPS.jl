@@ -12,13 +12,13 @@
 # callable composes three `MutualInformation` evaluations, which dispatch
 # to this override automatically.
 
-"""
+@doc raw"""
     _gaussian_region_majoranas(state, region) -> Vector{Int}
 
 Map a (sorted, duplicate-free) collection of PHYSICAL sites to the sorted
 vector of its Majorana indices, granularity-aware via
 [`site_majoranas`](@ref): fermionic-mode granularity — each site `s`
-contributes `(2r−1, 2r)` with `r = state.phy_ram[s]` (2·|region| indices);
+contributes ``(2r-1, 2r)`` with `r = state.phy_ram[s]` (2·|region| indices);
 Majorana-chain granularity (`site_type="Majorana"`) — each site contributes
 its own single Majorana index (|region| indices).
 """

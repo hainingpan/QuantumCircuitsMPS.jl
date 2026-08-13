@@ -63,7 +63,7 @@ function apply!(builder::CircuitBuilder, gate, geometry)
     return nothing
 end
 
-"""
+@doc raw"""
     apply_with_prob!(builder::CircuitBuilder; outcomes)
 
 Record a stochastic operation in the circuit builder (v0.1 unified rule).
@@ -79,18 +79,18 @@ with a migration message).
 
 # Semantics (v0.1 unified stochastic rule)
 Each outcome's geometry expands to elements (`elements(geo, L, bc)`); all
-outcomes must expand to the SAME element count K. Per element k = 1..K, the
+outcomes must expand to the SAME element count K. Per element ``k = 1, \ldots, K``, the
 engine draws ONE `:gates_spacetime` coin and makes a categorical selection
-among the outcomes; the remainder `1 - Σp` selects identity (nothing applied).
+among the outcomes; the remainder ``1 - \sum p`` selects identity (nothing applied).
 
 # Build-time validations (all `ArgumentError`)
 - `outcomes` must be non-empty
-- Σp must be ≤ 1 (tolerance `1e-10`)
+- ``\sum p`` must be ``\le 1`` (tolerance `1e-10`)
 - Equal-K: every outcome's geometry must expand to the same element count
   (the error names each outcome's geometry and K)
 - Staircase/Pointer physics guard: if any outcome uses a staircase or
-  `Pointer` geometry, Σp must equal 1. The CIPT random walk advances via the
-  selected staircase every step; an identity remainder (`Σp < 1`) would
+  `Pointer` geometry, ``\sum p`` must equal ``1``. The CIPT random walk advances via the
+  selected staircase every step; an identity remainder (``\sum p < 1``) would
   silently stall the walk.
 - The removed `rng=` keyword (or any other keyword) throws with a migration
   message

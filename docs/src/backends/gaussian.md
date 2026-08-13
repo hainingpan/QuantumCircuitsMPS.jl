@@ -1,8 +1,8 @@
 # Gaussian Backend
 
-`QuantumCircuitsMPS.jl` also ships a fermionic Gaussian (free-fermion / FLO — "fermionic linear optics") backend for circuits built entirely out of Gaussian-preserving gates and parity measurements. Instead of an MPS, a dense state vector, or a stabilizer tableau, the state is stored as a `2L×2L` real antisymmetric **Majorana covariance matrix** `Γ`, and gate/measurement application is a Schur-complement tensor contraction on `Γ` rather than any operation on a Hilbert-space vector. `apply!`, `track!`, `record!`, and `simulate!` all work exactly as on the other three backends; only the `SimulationState(...)` constructor call changes.
+`QuantumCircuitsMPS.jl` also ships a fermionic Gaussian (free-fermion / FLO — "fermionic linear optics") backend for circuits built entirely out of Gaussian-preserving gates and parity measurements. Instead of an MPS, a dense state vector, or a stabilizer tableau, the state is stored as a ``2L \times 2L`` real antisymmetric **Majorana covariance matrix** ``\Gamma``, and gate/measurement application is a Schur-complement tensor contraction on ``\Gamma`` rather than any operation on a Hilbert-space vector. `apply!`, `track!`, `record!`, and `simulate!` all work exactly as on the other three backends; only the `SimulationState(...)` constructor call changes.
 
-**When to use it**: circuits built entirely out of fermionic Gaussian unitaries and parity measurements — measurement-induced phase transitions in free-fermion (class-D/DIII) circuits, entanglement transitions with free fermions, and the staggered class-DIII Majorana-chain protocol of Pan et al. Polynomial-time simulation (`O(L³)` per gate), no truncation error, exact for any circuit depth.
+**When to use it**: circuits built entirely out of fermionic Gaussian unitaries and parity measurements — measurement-induced phase transitions in free-fermion (class-D/DIII) circuits, entanglement transitions with free fermions, and the staggered class-DIII Majorana-chain protocol of Pan et al. Polynomial-time simulation (``O(L^3)`` per gate), no truncation error, exact for any circuit depth.
 
 **When not to use it**: any circuit that needs a non-Gaussian gate — `Hadamard`, `CNOT`, `HaarRandom`, `RandomClifford`, generic `Projection`, or anything from the qubit-gate vocabulary. Use `backend=:mps` (see [MPS Backend](@ref)) or `backend=:statevector` (see [State Vector Backend](@ref)) for those. The Gaussian backend is fermionic-mode-only (`local_dim=2`); arbitrary spin-`S` sites (see [Arbitrary Spin-S Support](@ref)) are MPS/state-vector-only.
 
@@ -24,32 +24,32 @@ entropies = state.observables[:entropy]
 println("Final entropy: $(entropies[end])")
 ```
 
-**Physics**: `GaussianHaar()` draws an independent Haar-random `O(4)`/`O(2)` rotation for each bond (from `:gates_realization`) and conjugates it directly onto the Majorana covariance matrix — no dense Hilbert-space unitary is ever built. `Measure(:Z)` and `BondParity()` are projective parity measurements of, respectively, the on-site occupation `iγ_{2i-1}γ_{2i}` and the bond parity spanning two adjacent sites; both collapse `Γ` via the same fermionic-linear-optics contraction kernel used for the unitary case.
+**Physics**: `GaussianHaar()` draws an independent Haar-random ``O(4)``/``O(2)`` rotation for each bond (from `:gates_realization`) and conjugates it directly onto the Majorana covariance matrix — no dense Hilbert-space unitary is ever built. `Measure(:Z)` and `BondParity()` are projective parity measurements of, respectively, the on-site occupation ``i\gamma_{2i-1}\gamma_{2i}`` and the bond parity spanning two adjacent sites; both collapse ``\Gamma`` via the same fermionic-linear-optics contraction kernel used for the unitary case.
 
 ## What a Gaussian State Is
 
-A pure fermionic Gaussian state on `L` modes is completely characterized (no exponentially large amplitude vector needed) by its `2L×2L` real antisymmetric **Majorana covariance matrix**
+A pure fermionic Gaussian state on `L` modes is completely characterized (no exponentially large amplitude vector needed) by its ``2L \times 2L`` real antisymmetric **Majorana covariance matrix**
 
-```
-Γ[a,b] = (i/2) ⟨[γ_a, γ_b]⟩ ,
-```
-
-where `γ_1, …, γ_{2L}` are the Majorana operators (`γ_{2i-1} = c_i + c_i†`, `γ_{2i} = i(c_i† - c_i)` for fermionic mode `i`, with a Jordan–Wigner string on lower-indexed modes). A pure Gaussian state satisfies the invariant
-
-```
-Γ² = -I
+```math
+\Gamma_{ab} = \frac{i}{2}\langle [\gamma_a, \gamma_b] \rangle \, ,
 ```
 
-exactly (the eigenvalues of `iΓ` are all `±1`). Every gate and measurement in this backend updates `Γ` while preserving this invariant to machine precision; a re-purification step (`purify!` — eigen-clamp `iΓ`'s spectrum back to `±1`) fires automatically whenever floating-point drift exceeds `state.backend.purify_tol` (default `1e-10`).
+where ``\gamma_1, \ldots, \gamma_{2L}`` are the Majorana operators (``\gamma_{2i-1} = c_i + c_i^\dagger``, ``\gamma_{2i} = i(c_i^\dagger - c_i)`` for fermionic mode `i`, with a Jordan–Wigner string on lower-indexed modes). A pure Gaussian state satisfies the invariant
+
+```math
+\Gamma^2 = -I
+```
+
+exactly (the eigenvalues of ``i\Gamma`` are all ``\pm 1``). Every gate and measurement in this backend updates ``\Gamma`` while preserving this invariant to machine precision; a re-purification step (`purify!` — eigen-clamp ``i\Gamma``'s spectrum back to ``\pm 1``) fires automatically whenever floating-point drift exceeds `state.backend.purify_tol` (default `1e-10`).
 
 ## Supported Gates
 
 | Category | Gate | Fermionic-mode (`site_type="Qubit"`, default) | Majorana chain (`site_type="Majorana"`) |
 |---|---|---|---|
-| Random Gaussian unitary | `GaussianHaar()` | Haar-random `O ∈ SO(4)` on the 4 Majoranas of 2 adjacent sites, from `:gates_realization` | Haar-random `O ∈ SO(2)` on the 2 Majoranas of 2 adjacent sites — exactly `exp(θ γ_iγ_j)`, `θ ~ U[0, 2π)` (the class-DIII unitary `K_U`) |
+| Random Gaussian unitary | `GaussianHaar()` | Haar-random ``O \in SO(4)`` on the 4 Majoranas of 2 adjacent sites, from `:gates_realization` | Haar-random ``O \in SO(2)`` on the 2 Majoranas of 2 adjacent sites — exactly ``\exp(\theta \gamma_i\gamma_j)``, ``\theta \sim U[0, 2\pi)`` (the class-DIII unitary `K_U`) |
 | Occupation flip | `PauliX()` | fermionic occupation-parity flip (reflects one Majorana row/column) — enables `Reset` | rejected: `ArgumentError` (a single Majorana site has no occupation to flip) |
-| On-site measurement | `Measure(:Z)` | projective occupation-parity measurement `iγ_{2i-1}γ_{2i}` | rejected: `ArgumentError` (use `BondParity` instead) |
-| Bond measurement | `BondParity()` | projective bond-parity measurement `iγ_{2i}γ_{2i+1}` between adjacent sites (PBC wrap `(L,1)` supported) | projective parity `iγ_iγ_{i+1}` between adjacent Majorana sites (PBC wrap supported) — this IS the class-DIII monitored measurement |
+| On-site measurement | `Measure(:Z)` | projective occupation-parity measurement ``i\gamma_{2i-1}\gamma_{2i}`` | rejected: `ArgumentError` (use `BondParity` instead) |
+| Bond measurement | `BondParity()` | projective bond-parity measurement ``i\gamma_{2i}\gamma_{2i+1}`` between adjacent sites (PBC wrap `(L,1)` supported) | projective parity ``i\gamma_i\gamma_{i+1}`` between adjacent Majorana sites (PBC wrap supported) — this IS the class-DIII monitored measurement |
 | Feedback | `Reset()` | forces unoccupied (measure, then `PauliX` if occupied) — identical semantics to the other backends | rejected: `ArgumentError` (routes through `Measure(:Z)`, which is rejected) |
 
 Any gate outside this set — `Hadamard`, `CNOT`, `HaarRandom`, `RandomClifford`, `SWAP`, `PhaseGate`, `PauliY`, `PauliZ`, `CZ`, `Projection`, `SpinSectorProjection` — has no covariance-matrix representation and raises an informative error rather than being silently approximated:
@@ -70,7 +70,7 @@ ArgumentError: Gaussian backend only supports fermionic Gaussian operations (Gau
 
 ## Majorana Chain (`site_type="Majorana"`)
 
-A second site granularity turns each **site into one Majorana mode** rather than one fermionic mode (2 Majoranas). This models the class-DIII monitored Majorana-chain circuit of Pan, Shapourian, Jian et al. directly, with no new gate types: `GaussianHaar` on 2 Majorana sites *is* `exp(θγ_aγ_b)`, `θ ~ U[0,2π)` (Haar on `SO(2) ≅ U(1)` is exactly the uniform-angle rotation), and `BondParity` on 2 Majorana sites *is* the `iγ_iγ_{i+1}` parity measurement — the staggered odd/even-link protocol maps directly onto `Bricklayer(:odd)`/`Bricklayer(:even)`.
+A second site granularity turns each **site into one Majorana mode** rather than one fermionic mode (2 Majoranas). This models the class-DIII monitored Majorana-chain circuit of Pan, Shapourian, Jian et al. directly, with no new gate types: `GaussianHaar` on 2 Majorana sites *is* ``\exp(\theta\gamma_a\gamma_b)``, ``\theta \sim U[0,2\pi)`` (Haar on ``SO(2) \cong U(1)`` is exactly the uniform-angle rotation), and `BondParity` on 2 Majorana sites *is* the ``i\gamma_i\gamma_{i+1}`` parity measurement — the staggered odd/even-link protocol maps directly onto `Bricklayer(:odd)`/`Bricklayer(:even)`.
 
 ```julia
 using QuantumCircuitsMPS
@@ -86,9 +86,9 @@ size(mstate.backend.corr)   # (8, 8) — Γ is L×L, not 2L×2L, on the Majorana
 Key facts:
 
 - `site_type="Majorana"` requires **even `L`** (a pure Gaussian state needs an even number of Majoranas): odd `L` throws `ArgumentError` at construction.
-- `Γ` is `L×L` (one Majorana per site) instead of `2L×2L`.
-- `ProductState` bit patterns have length `L÷2`: bit `k` sets the parity sign of the consecutive Majorana pair `(γ_{2k-1}, γ_{2k})` (dimerized vacuum when all bits are `0`).
-- Rejected on the Majorana chain (informative `ArgumentError`, each naming "Majorana"): `PauliX`, `Measure(:Z)`, `Reset`, `Magnetization`. There is no single-Majorana occupation or `⟨Z⟩` — parity lives on a *pair*.
+- ``\Gamma`` is ``L \times L`` (one Majorana per site) instead of ``2L \times 2L``.
+- `ProductState` bit patterns have length `L÷2`: bit `k` sets the parity sign of the consecutive Majorana pair ``(\gamma_{2k-1}, \gamma_{2k})`` (dimerized vacuum when all bits are `0`).
+- Rejected on the Majorana chain (informative `ArgumentError`, each naming "Majorana"): `PauliX`, `Measure(:Z)`, `Reset`, `Magnetization`. There is no single-Majorana occupation or ``\langle Z \rangle`` — parity lives on a *pair*.
 - `EntanglementEntropy`, `MutualInformation`, and `TripartiteMutualInformation` work unchanged (the site→Majorana index mapping is the identity on this granularity, and arbitrary/wrapped site subsets are still supported).
 
 Physics sanity check on the dimerized vacuum (`ProductState(binary_int=0)`, all pairs unoccupied): even cuts see zero entanglement (the cut falls between dimerized pairs), odd cuts split a pair and see `log(2)/2` nats (half a fermion's worth), and two dimerized-paired Majorana sites have `MI = log(2)`:
@@ -156,8 +156,8 @@ EntanglementEntropy(cut=[6, 1])(state)   # PBC-wrapped region {6, 1}
 
 As with the bipartition form, the region path supports real `renyi_index`
 (normalized to `Float64`, finite and `> 0`): both paths compute
-`S_n = 1/(1−n) · Σ_k ln[((1+λ_k)/2)^n + ((1−λ_k)/2)^n]` over the paired
-eigenvalues `λ_k` of the region's covariance matrix, with an extra `ln(2)/2`
+``S_n = \frac{1}{1-n}\sum_k \ln\!\big[((1+\lambda_k)/2)^n + ((1-\lambda_k)/2)^n\big]`` over the paired
+eigenvalues ``\lambda_k`` of the region's covariance matrix, with an extra ``\ln(2)/2``
 contribution per unpaired zero mode on odd-sized Majorana-chain regions
 (`n = 1` recovers the existing von Neumann formula bit-for-bit). Region
 sites are always **physical** sites, well-defined under both open and
@@ -197,14 +197,14 @@ On the Majorana chain (`site_type="Majorana"`), `ProductState` bit patterns have
 
 ## Conventions
 
-- **Mode ↔ Majorana mapping**: fermionic mode `i` (1-indexed) ↔ Majorana indices `(2i-1, 2i)`. On the Majorana chain, site `i` IS Majorana `i` directly.
-- **Occupation sign**: `Γ[2i-1,2i] = +1` ↔ mode `i` unoccupied; `Γ[2i-1,2i] = -1` ↔ occupied — i.e. `⟨c_i†c_i⟩ = (1 - Γ[2i-1,2i])/2`. Verified empirically against the Python GTN reference implementation's `get_C_f`.
-- **Measurement outcome**: `outcome = 0` ↔ unoccupied/parity `+1` result on `Γ`; `outcome = 1` ↔ occupied/parity `-1` result. `ProductState` bit `1` ↔ occupied, matching this convention.
+- **Mode ↔ Majorana mapping**: fermionic mode `i` (1-indexed) ↔ Majorana indices ``(2i-1, 2i)``. On the Majorana chain, site `i` IS Majorana `i` directly.
+- **Occupation sign**: ``\Gamma_{2i-1,2i} = +1`` ↔ mode `i` unoccupied; ``\Gamma_{2i-1,2i} = -1`` ↔ occupied — i.e. ``\langle c_i^\dagger c_i\rangle = (1 - \Gamma_{2i-1,2i})/2``. Verified empirically against the Python GTN reference implementation's `get_C_f`.
+- **Measurement outcome**: `outcome = 0` ↔ unoccupied/parity `+1` result on ``\Gamma``; `outcome = 1` ↔ occupied/parity `-1` result. `ProductState` bit `1` ↔ occupied, matching this convention.
 - **Exact-Haar sampler note**: `haar_orthogonal` draws Haar-random `SO(n)` matrices exactly via QR decomposition of a Ginibre matrix (sign-fixed, det-corrected) — this is a **deliberate departure** from the Python GTN reference implementation, whose `get_O` uses `expm` of a random skew-symmetric matrix (an approximation the GTN codebase's own notes flag as not proven exactly Haar). All Gaussian-backend randomness (`GaussianHaar`, `RandomGaussianState`) uses the exact sampler.
 
 ## Cross-Backend RNG Reproducibility
 
-Like the other three backends, every measurement (`Measure(:Z)` and `BondParity()`) consumes **exactly one** `:born_measurement` draw per measured site/bond — even for a deterministic outcome, where the draw is discarded (the REDUNDANT-DRAW CONTRACT; see the [Backend Interface Contract](@ref)). Random gate content (`GaussianHaar`) draws from `:gates_realization`; random initial states (`RandomGaussianState`) draw from `:state_init`. Same seeds ⇒ bitwise-identical `Γ` and identical measurement records, within the Gaussian backend:
+Like the other three backends, every measurement (`Measure(:Z)` and `BondParity()`) consumes **exactly one** `:born_measurement` draw per measured site/bond — even for a deterministic outcome, where the draw is discarded (the REDUNDANT-DRAW CONTRACT; see the [Backend Interface Contract](@ref)). Random gate content (`GaussianHaar`) draws from `:gates_realization`; random initial states (`RandomGaussianState`) draw from `:state_init`. Same seeds ⇒ bitwise-identical ``\Gamma`` and identical measurement records, within the Gaussian backend:
 
 ```julia
 using QuantumCircuitsMPS
@@ -223,10 +223,10 @@ sA.backend.corr == sB.backend.corr   # true — bitwise identical
 ```
 
 !!! note "Fermionic semantics are physically distinct — no cross-backend seed lockstep is claimed"
-    Unlike MPS/state-vector/Clifford (which agree on the same seeded trajectory because they share the same qubit Hilbert space), the Gaussian backend simulates a *different physical system* (free fermions vs. qubits) and makes **no** claim of matching MPS/SV/Clifford measurement records under the same seeds. Self-reproducibility (same seed ⇒ same `Γ`, on the Gaussian backend) and the redundant-draw stream-position contract are the guarantees.
+    Unlike MPS/state-vector/Clifford (which agree on the same seeded trajectory because they share the same qubit Hilbert space), the Gaussian backend simulates a *different physical system* (free fermions vs. qubits) and makes **no** claim of matching MPS/SV/Clifford measurement records under the same seeds. Self-reproducibility (same seed ⇒ same ``\Gamma``, on the Gaussian backend) and the redundant-draw stream-position contract are the guarantees.
 
 !!! warning "Purify/eigendecomposition platform caveat"
-    Re-purification (`purify!`) eigendecomposes `Γ/i` via `LinearAlgebra.eigen`, which — like any LAPACK-backed eigensolver — can return eigenvectors in a platform/BLAS-dependent order or with an arbitrary sign/phase when eigenvalues are degenerate. This never affects the *physical* state (the reconstructed `Γ` is invariant), but it means bitwise reproducibility across different machines/BLAS backends is not guaranteed once `purify!` has fired (only same-machine, same-BLAS reproducibility is guaranteed) — the same caveat that applies to any eigendecomposition-based computation in this package.
+    Re-purification (`purify!`) eigendecomposes ``\Gamma/i`` via `LinearAlgebra.eigen`, which — like any LAPACK-backed eigensolver — can return eigenvectors in a platform/BLAS-dependent order or with an arbitrary sign/phase when eigenvalues are degenerate. This never affects the *physical* state (the reconstructed ``\Gamma`` is invariant), but it means bitwise reproducibility across different machines/BLAS backends is not guaranteed once `purify!` has fired (only same-machine, same-BLAS reproducibility is guaranteed) — the same caveat that applies to any eigendecomposition-based computation in this package.
 
 ## References
 

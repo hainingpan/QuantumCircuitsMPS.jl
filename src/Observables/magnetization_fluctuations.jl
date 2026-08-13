@@ -8,19 +8,21 @@
 # special-cased analytically (PauliString rejects repeated sites, so the
 # i = j term must NOT be evaluated as a PauliString).
 
-"""
+@doc raw"""
     MagnetizationFluctuations(region; axis=:Z)
 
-Variance of the total magnetization M = Σ_{i∈R} Pᵢ over the site region `R`,
+Variance of the total magnetization ``M = \sum_{i\in R} P_i`` over the site region `R`,
 with P the Pauli operator selected by `axis` (`:X`, `:Y`, or `:Z`).
 
 Computed as
 
-    Var(M) = |R| + Σ_{i≠j} ⟨PᵢPⱼ⟩ − (Σᵢ ⟨Pᵢ⟩)²
+```math
+\mathrm{Var}(M) = |R| + \sum_{i\neq j} \langle P_iP_j\rangle - \Big(\sum_i \langle P_i\rangle\Big)^2
+```
 
-using Pᵢ² = I for the diagonal of ⟨M²⟩ (the analytic constant |R|), so the
+using ``P_i^2 = I`` for the diagonal of ``\langle M^2\rangle`` (the analytic constant |R|), so the
 formula never evaluates a same-site Pauli-string product. This is
-O(|R|²) `PauliString` evaluations. Supported on all three backends
+``O(\lvert R\rvert^2)`` `PauliString` evaluations. Supported on all three backends
 (composition of `PauliString`, which dispatches per backend); qubit-only in
 v0.4.0 (inherited from `PauliString`).
 
@@ -30,8 +32,7 @@ of single-site operators).
 
 # Properties (analytic anchors)
 - Product Z-basis state, `axis=:Z`: Var = 0 (M is sharp)
-- GHZ(L=6), R=1:6, `axis=:Z`: ⟨ZᵢZⱼ⟩=1 for all i≠j and ⟨Zᵢ⟩=0, so
-  Var = 6 + 30 − 0 = 36 exactly
+- GHZ(L=6), R=1:6, `axis=:Z`: ``\langle Z_iZ_j\rangle=1`` for all ``i\neq j`` and ``\langle Z_i\rangle=0``, so ``\mathrm{Var} = 6 + 30 - 0 = 36`` exactly
 
 # Examples
 ```julia

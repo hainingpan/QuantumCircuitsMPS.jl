@@ -1,6 +1,6 @@
 # Clifford Backend
 
-`QuantumCircuitsMPS.jl` also ships a stabilizer-tableau backend, built on [QuantumClifford.jl](https://github.com/QuantumSavory/QuantumClifford.jl), for circuits built entirely out of Clifford-group gates. Instead of an MPS or a dense state vector, the state is stored as a `MixedDestabilizer` tableau, a compact `O(L)`-generator representation that only Clifford operations can update. `apply!`, `track!`, `record!`, and `simulate!` all work exactly as on the other two backends; only the `SimulationState(...)` constructor call changes.
+`QuantumCircuitsMPS.jl` also ships a stabilizer-tableau backend, built on [QuantumClifford.jl](https://github.com/QuantumSavory/QuantumClifford.jl), for circuits built entirely out of Clifford-group gates. Instead of an MPS or a dense state vector, the state is stored as a `MixedDestabilizer` tableau, a compact ``O(L)``-generator representation that only Clifford operations can update. `apply!`, `track!`, `record!`, and `simulate!` all work exactly as on the other two backends; only the `SimulationState(...)` constructor call changes.
 
 **When to use it**: MIPT/CIPT studies that only need Clifford gates (Pauli twirls, random Clifford circuits, stabilizer measurements) and want to reach system sizes `L = 100-1000+`, far beyond what MPS or the state-vector backend can practically reach.
 
@@ -29,13 +29,13 @@ println("Entropy after one layer + measurement: $(state.observables[:entropy][en
 
 ## Scalability
 
-Unlike the state-vector backend's `2^L` memory or the MPS backend's bond-dimension-dependent cost, the stabilizer-tableau representation scales polynomially: `O(L²)` memory (`L` stabilizer generators, each an `L`-bit string) and `O(L²)`-`O(L³)` per gate or measurement update. In practice, a full even+odd `RandomClifford(2)` bricklayer sweep over all `L` qubits completes in well under a second at `L=500` or `L=1000` on a single core, sizes that are simply unreachable for a dense state vector (`2^500` amplitudes) and impractical for MPS once entanglement growth forces `maxdim` up.
+Unlike the state-vector backend's ``2^L`` memory or the MPS backend's bond-dimension-dependent cost, the stabilizer-tableau representation scales polynomially: ``O(L^2)`` memory (`L` stabilizer generators, each an `L`-bit string) and ``O(L^2)``-``O(L^3)`` per gate or measurement update. In practice, a full even+odd `RandomClifford(2)` bricklayer sweep over all `L` qubits completes in well under a second at `L=500` or `L=1000` on a single core, sizes that are simply unreachable for a dense state vector (``2^{500}`` amplitudes) and impractical for MPS once entanglement growth forces `maxdim` up.
 
 | Backend | Memory scaling | Practical qubit range |
 |---------|-----------------|------------------------|
-| State vector | `2^L` (exponential) | `L ≲ 25-27` |
+| State vector | ``2^L`` (exponential) | ``L \lesssim 25\text{-}27`` |
 | MPS | Bond-dimension dependent (`maxdim`) | `L = 100+` |
-| **Clifford** | `O(L²)` (polynomial) | **`L = 100-1000+`** |
+| **Clifford** | ``O(L^2)`` (polynomial) | **`L = 100-1000+`** |
 
 ## Supported Gates
 

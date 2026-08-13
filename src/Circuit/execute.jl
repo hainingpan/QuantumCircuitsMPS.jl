@@ -20,20 +20,20 @@ function _reset_circuit_geometries!(circuit::Circuit)
     end
 end
 
-"""
+@doc raw"""
     select_outcome_index(rng::AbstractRNG, probs::Vector{Float64}) -> Int
 
 SINGLE SOURCE OF TRUTH for the v0.1 unified stochastic rule's categorical
 selection. Draws exactly ONE scalar coin from `rng` and returns the 1-based
 index of the selected outcome, or `0` for the identity remainder
-(`r >= Σp`).
+(``r \ge \sum p``).
 
 Semantics (bit-identical to `test/reference_rule.jl`'s `reference_select`
 for a single element):
 - one scalar `rand(rng)` per call — never vectorized draws
 - cumulative walk over `probs` with strict `<`
 - cumsum snapping: when `abs(sum(probs) - 1) <= 1e-10`, the LAST cumulative
-  boundary is snapped to exactly `1.0`, so float dust in Σp cannot leak
+  boundary is snapped to exactly `1.0`, so float dust in ``\sum p`` cannot leak
   spurious identity selections
 
 `expand.jl`'s visualization path (Task 15) also delegates to this function —
@@ -55,7 +55,7 @@ function select_outcome_index(rng::AbstractRNG, probs::Vector{Float64})
     return 0   # identity remainder
 end
 
-"""
+@doc raw"""
     simulate!(circuit::Circuit, state::SimulationState; n_steps::Int=1, record_when::Union{Symbol,Function}=:every_step)
 
 Execute a circuit on a simulation state, applying gates and recording observables.
@@ -74,9 +74,9 @@ Every stochastic operation (`apply_with_prob!`) is executed as follows:
 1. All outcomes expand to the SAME number of elements K (validated at build
    time; broadcast geometries expand via `elements(geo, L, bc)`, set
    geometries are a single element).
-2. For each element k = 1..K: exactly ONE scalar coin is drawn from the
+2. For each element ``k = 1, \ldots, K``: exactly ONE scalar coin is drawn from the
    `:gates_spacetime` stream and a categorical selection is made among the
-   outcomes via `select_outcome_index` (remainder `1 - Σp` = identity).
+   outcomes via `select_outcome_index` (remainder ``1 - \sum p`` = identity).
 3. The winning outcome's gate is executed at its k-th element; identity
    applies nothing (and does NOT advance staircases).
 

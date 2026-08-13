@@ -15,24 +15,26 @@
 #   ⟨cᵢ†cᵢ⟩ = (1 − Γ[2i−1, 2i]) / 2
 #   Γ[2i−1,2i] = +1 ⇒ unoccupied (outcome 0);  −1 ⇒ occupied (outcome 1).
 
-"""
+@doc raw"""
     born_probability(state::SimulationState{GaussianBackend}, site::Int, outcome::Int) -> Float64
 
 Compute the Born probability of measuring occupation `outcome` (0 =
 unoccupied, 1 = occupied) at physical `site` for a fermionic Gaussian state.
 
 For a Gaussian state the on-site occupation probability is an affine
-function of a SINGLE covariance-matrix element `g = Γ[2i−1, 2i]` (with `i`
+function of a SINGLE covariance-matrix element ``g = \Gamma[2i-1,2i]`` (with `i`
 the RAM-mapped mode index):
 
-    P(0) = (1 + g) / 2        P(1) = (1 − g) / 2
+```math
+P(0)=\frac{1+g}{2},\qquad P(1)=\frac{1-g}{2}
+```
 
-(equivalently `P(1) = ⟨cᵢ†cᵢ⟩`, verified convention: vacuum has `g = +1`
+(equivalently ``P(1) = \langle c_i^\dagger c_i\rangle``, verified convention: vacuum has `g = +1`
 ⇒ `P(0) = 1.0` exactly). This is a NON-DESTRUCTIVE, read-only query — a
 single matrix-element read, no copies, `state.backend.corr` is untouched.
 
 The raw affine value is returned without clamping: for a purified state
-`|g| ≤ 1` up to machine precision, so any excursion outside `[0, 1]` is
+``\lvert g\rvert \le 1`` up to machine precision, so any excursion outside `[0, 1]` is
 at the 1e-15 level and harmless to the `rand() < p₀` threshold convention.
 """
 function born_probability(state::SimulationState{GaussianBackend}, site::Int, outcome::Int)
@@ -51,7 +53,7 @@ function born_probability(state::SimulationState{GaussianBackend}, site::Int, ou
     return outcome == 0 ? (1 + g) / 2 : (1 - g) / 2
 end
 
-"""
+@doc raw"""
     _measure_single_site!(state::SimulationState{GaussianBackend}, site::Int) -> Int
 
 Override the default (Projection-based) `_measure_single_site!` for the
@@ -73,9 +75,9 @@ the Clifford backend).
 
 **Outcome → parity sign mapping (VERIFIED empirically, T2/T8):** the kernel
 projector `parity_projection_upsilon(s)` leaves the post-measurement state
-with `Γ[2i−1, 2i] = −s`. To end with `Γ[2i−1,2i] = +1` (outcome 0,
+with ``\Gamma[2i-1,2i]=-s``. To end with `Γ[2i−1,2i] = +1` (outcome 0,
 unoccupied) we contract with `s = −1`; for `Γ[2i−1,2i] = −1` (outcome 1,
-occupied), `s = +1`. I.e. `s = 2·outcome − 1`.
+occupied), `s = +1`. I.e. ``s = 2\cdot\mathrm{outcome}-1``.
 
 Throws `ArgumentError` if the sampled outcome has probability ≤ 1e-15
 (probability-zero branch — cannot be projected onto);
@@ -114,7 +116,7 @@ function _measure_single_site!(state::SimulationState{GaussianBackend}, site::In
     return outcome
 end
 
-"""
+@doc raw"""
     execute!(state::SimulationState{GaussianBackend}, gate::BondParity, phy_sites::Vector{Int})
 
 Projective measurement of the BOND fermion parity `i γ_a γ_b` on the two
@@ -138,17 +140,19 @@ kernel, same draw contract — only the site→Majorana index mapping (via
 [`site_majoranas`](@ref)) differs.
 
 **Born rule (VERIFIED empirically vs the T5 ED/Pfaffian oracle, T9):** the
-covariance element `g = Γ[ix₁, ix₂]` satisfies `⟨i γ̂_{ix₁} γ̂_{ix₂}⟩ = −g`,
+covariance element ``g = \Gamma[ix_1,ix_2]`` satisfies ``\langle i\hat\gamma_{ix_1}\hat\gamma_{ix_2}\rangle = -g``,
 so with the outcome encoding `outcome ∈ (0, 1) ↔ parity eigenvalue
 s = 2·outcome − 1 ∈ (−1, +1)`:
 
-    P(outcome = 0) = (1 + g)/2        P(outcome = 1) = (1 − g)/2
+```math
+P(\mathrm{outcome}=0)=\frac{1+g}{2},\qquad P(\mathrm{outcome}=1)=\frac{1-g}{2}
+```
 
 — the SAME affine structure as the on-site occupation measurement
 (`_measure_single_site!`), because on-site occupation is itself the bond
-parity of the intra-mode pair (`n = (1 + iγ₁γ₂)/2`). The kernel `s` IS the
+parity of the intra-mode pair (``n = (1 + i\gamma_1\gamma_2)/2``). The kernel `s` IS the
 measured parity eigenvalue: contracting `parity_projection_upsilon(s)`
-leaves `Γ[ix₁, ix₂] = −s`, i.e. `⟨i γ̂ γ̂⟩ = s` post-measurement.
+leaves ``\Gamma[ix_1,ix_2] = -s``, i.e. ``\langle i\hat\gamma\hat\gamma\rangle = s`` post-measurement.
 
 **Draw contract (REDUNDANT-DRAW, cross-backend lockstep):** exactly ONE
 scalar `:born_measurement` draw is consumed per BondParity application —

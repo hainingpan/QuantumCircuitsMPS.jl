@@ -4,15 +4,15 @@
 # Gaussian-specific `_apply_single!`/`execute!` override, which Julia's
 # method dispatch prefers over the generic fallback defined in this file.
 
-"""
+@doc raw"""
     BondParity()
 
-Projective measurement of the bond parity `iγ_{2i}γ_{2i+1}` between two
+Projective measurement of the bond parity ``i\gamma_{2i}\gamma_{2i+1}`` between two
 adjacent sites `(i, i+1)` — the parity operator built from the "inner" pair
 of Majoranas straddling the bond (site `i`'s second Majorana and site
 `i+1`'s first Majorana, in the `QuantumCircuitsMPS.majorana_indices`
 convention). This is the natural 2-site projective measurement in the
-Majorana-covariance-matrix (Γ) formalism used by the Gaussian backend (see
+Majorana-covariance-matrix (``\Gamma``) formalism used by the Gaussian backend (see
 `QuantumCircuitsMPS.parity_projection_upsilon`).
 
 Like `Measure`, `BondParity` Born-samples via the `:born_measurement` RNG

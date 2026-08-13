@@ -6,11 +6,11 @@
 # Basis ordering: |1,1⟩, |1,0⟩, |1,-1⟩, |0,1⟩, |0,0⟩, |0,-1⟩, |-1,1⟩, |-1,0⟩, |-1,-1⟩
 # (i.e., m₁ ∈ {1,0,-1}, m₂ ∈ {1,0,-1}, lexicographic order)
 
-"""
+@doc raw"""
     spin1_operators()
 
 Return the spin-1 operators Sz, S+, S- as 3×3 matrices.
-Basis ordering: |+1⟩, |0⟩, |-1⟩ (descending m).
+Basis ordering: ``\lvert +1 \rangle, \lvert 0 \rangle, \lvert -1 \rangle`` (descending m).
 """
 function spin1_operators()
     # Sz = diag(1, 0, -1)
@@ -29,13 +29,15 @@ function spin1_operators()
     return Sz, Sp, Sm
 end
 
-"""
+@doc raw"""
     s1_dot_s2()
 
-Compute the S₁·S₂ operator for two spin-1 particles.
+Compute the ``S_1 \cdot S_2`` operator for two spin-1 particles.
 Returns a 9×9 matrix in the tensor product basis.
 
-S₁·S₂ = Sz₁⊗Sz₂ + (1/2)(S+₁⊗S-₂ + S-₁⊗S+₂)
+```math
+S_1 \cdot S_2 = S_z^{(1)}\otimes S_z^{(2)} + \frac{1}{2}\left(S_+^{(1)}\otimes S_-^{(2)} + S_-^{(1)}\otimes S_+^{(2)}\right)
+```
 """
 function s1_dot_s2()
     Sz, Sp, Sm = spin1_operators()
@@ -46,10 +48,10 @@ function s1_dot_s2()
     return S1dotS2
 end
 
-"""
+@doc raw"""
     _s_dot_s(s::Rational) -> Matrix{Float64}
 
-The S₁·S₂ operator for two spin-`s` particles as a `(2s+1)² × (2s+1)²`
+The ``S_1 \cdot S_2`` operator for two spin-`s` particles as a `(2s+1)² × (2s+1)²`
 matrix in the descending-m tensor product basis (generic version of
 [`s1_dot_s2`](@ref), built from `spin_operators(s)`).
 """
@@ -58,13 +60,13 @@ function _s_dot_s(s::Rational)
     return kron(Sz, Sz) + 0.5 * (kron(Sp, Sm) + kron(Sm, Sp))
 end
 
-"""
+@doc raw"""
     total_spin_projector(S::Int; s::Real=1, d::Int=Int(2*Rational(s)+1)) -> Matrix{Float64}
 
 Construct the projector onto total spin sector `S` for two spin-`s`
 particles (default `s=1`, the historical spin-1 case).
 
-The tensor product decomposes as s ⊗ s = 0 ⊕ 1 ⊕ ... ⊕ 2s, so valid sectors
+The tensor product decomposes as ``s \otimes s = 0 \oplus 1 \oplus \cdots \oplus 2s``, so valid sectors
 are `S ∈ 0:Int(2s)`. Returns a d²×d² projector matrix (d = 2s+1).
 
 # Arguments
@@ -86,13 +88,19 @@ P0_32 = total_spin_projector(0; s=3//2)  # spin-3/2 singlet (16×16, rank 1)
 # Physics
 For `s=1` the three historical hardcoded Clebsch-Gordan polynomials are used
 (byte-identical output to pre-v0.4 releases):
-- P₂ = (1/6)(S₁·S₂)² + (1/2)(S₁·S₂) + (1/3)I
-- P₁ = -(1/2)(S₁·S₂)² - (1/2)(S₁·S₂) + I
-- P₀ = (1/3)(S₁·S₂)² - (1/3)I
+- ``P_2 = \frac{1}{6}(S_1\cdot S_2)^2 + \frac{1}{2}(S_1\cdot S_2) + \frac{1}{3}I``
+- ``P_1 = -\frac{1}{2}(S_1\cdot S_2)^2 - \frac{1}{2}(S_1\cdot S_2) + I``
+- ``P_0 = \frac{1}{3}(S_1\cdot S_2)^2 - \frac{1}{3}I``
 
-For any other `s`, the general Lagrange interpolation in S₁·S₂ is used:
-P_S = Π_{S'≠S} (S₁·S₂ − λ_{S'}) / (λ_S − λ_{S'}) with eigenvalues
-λ_S = ½[S(S+1) − 2s(s+1)] — no Clebsch-Gordan tables needed.
+For any other `s`, the general Lagrange interpolation in ``S_1 \cdot S_2`` is used:
+```math
+P_S = \prod_{S' \neq S} \frac{S_1\cdot S_2 - \lambda_{S'}}{\lambda_S - \lambda_{S'}}
+```
+with eigenvalues
+```math
+\lambda_S = \frac{1}{2}\left[S(S+1) - 2s(s+1)\right]
+```
+— no Clebsch-Gordan tables needed.
 """
 function total_spin_projector(S::Int; s::Real = 1,
         d::Int = Int(2 * Rational{Int}(s) + 1))
@@ -143,17 +151,17 @@ function total_spin_projector(S::Int; s::Real = 1,
     return P
 end
 
-"""
+@doc raw"""
     verify_spin_projectors(; s::Real=1, tol::Float64=1e-10)
 
 Verify that the spin-`s` pair projectors satisfy required properties.
 Returns true if all checks pass, throws error otherwise.
 
 Checks (over all sectors S = 0..2s):
-1. Completeness: Σ_S P_S = I
-2. Idempotence: P_S² = P_S for all S
-3. Orthogonality: Pᵢ·Pⱼ = 0 for i ≠ j
-4. Correct dimensions: tr(P_S) = 2S+1
+1. Completeness: ``\sum_S P_S = I``
+2. Idempotence: ``P_S^2 = P_S`` for all ``S``
+3. Orthogonality: ``P_i \cdot P_j = 0`` for ``i \neq j``
+4. Correct dimensions: ``\operatorname{tr}(P_S) = 2S+1``
 """
 function verify_spin_projectors(; s::Real = 1, tol::Float64 = 1e-10)
     srat = Rational{Int}(s)

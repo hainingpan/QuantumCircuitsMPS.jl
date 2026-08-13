@@ -164,7 +164,7 @@ end
     RandomMPS(; bond_dim::Int)
 
 Random MPS with specified bond dimension.
-Requires RNGRegistry with :state_init stream.
+Requires RNGRegistry with `:state_init` stream.
 """
 struct RandomMPS <: AbstractInitialState
     bond_dim::Int
@@ -181,7 +181,7 @@ Haar-random pure fermionic Gaussian state initialization. Only supported on
 the Gaussian backend (`backend=:gaussian`); no fields (mirrors
 `RandomStateVector`'s simplicity — randomness comes entirely from the
 `:state_init` RNG stream at `initialize!` time via `haar_orthogonal`).
-Requires RNGRegistry with :state_init stream attached to the SimulationState.
+Requires RNGRegistry with `:state_init` stream attached to the SimulationState.
 """
 struct RandomGaussianState <: AbstractInitialState end
 
@@ -189,7 +189,7 @@ struct RandomGaussianState <: AbstractInitialState end
     initialize!(state::SimulationState, init::ProductState)
 
 Initialize state with a product state based on specified initialization method.
-Supports binary_int, binary_decimal, or bitstring.
+Supports `binary_int`, `binary_decimal`, or bitstring.
 Uses CT.jl MSB ordering: site 1 = MSB, site L = LSB.
 """
 function initialize!(state::SimulationState, init::ProductState)
@@ -242,7 +242,7 @@ end
     initialize!(state::SimulationState, init::RandomMPS)
 
 Initialize state with a random MPS.
-Requires RNGRegistry with :state_init stream attached to state.
+Requires RNGRegistry with `:state_init` stream attached to state.
 The MPS is drawn deterministically from the registry's `:state_init`
 stream: the same seed produces an identical MPS.
 """

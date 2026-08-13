@@ -7,13 +7,13 @@ For PBC: folded mapping - interleaves sites zig-zagging outward from `pbc_fold_s
 Parameters:
 - L: system size
 - bc: boundary condition (:open or :periodic)
-- pbc_fold_start: physical site the PBC zig-zag fold starts from (default `L÷4+1`,
+- `pbc_fold_start`: physical site the PBC zig-zag fold starts from (default `L÷4+1`,
   the middle-aligned choice giving a contiguous half-cut). Ignored for `bc == :open`.
   Must satisfy `1 <= pbc_fold_start <= L` for `bc == :periodic`.
 
-Returns: (phy_ram, ram_phy) where:
-- phy_ram[physical_site] = ram_index
-- ram_phy[ram_index] = physical_site
+Returns: (`phy_ram`, `ram_phy`) where:
+- `phy_ram[physical_site] = ram_index`
+- `ram_phy[ram_index] = physical_site`
 """
 function compute_basis_mapping(L::Int, bc::Symbol; pbc_fold_start::Int = L÷4+1)
     bc in (:open, :periodic) ||

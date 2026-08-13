@@ -1,17 +1,17 @@
 # === MatrixGate: user-supplied explicit matrix gate ===
 
-"""
+@doc raw"""
     gate_matrix(gate::AbstractGate) -> Matrix{ComplexF64}
 
 Return the explicit matrix of a gate whose action is defined by a fixed
 matrix (e.g. [`MatrixGate`](@ref), [`Rx`](@ref), [`Ry`](@ref), [`Rz`](@ref),
-[`Hadamard`](@ref)). Matrix convention: `U[out, in] = ⟨out|U|in⟩` with
+[`Hadamard`](@ref)). Matrix convention: ``U_{\text{out},\text{in}} = \langle \text{out} \rvert U \lvert \text{in} \rangle`` with
 Kronecker (row-major site) ordering — the FIRST site of the region is the
 slowest basis digit, so `kron(A, B)` acts with `A` on the first site.
 """
 function gate_matrix end
 
-"""
+@doc raw"""
     MatrixGate(U::AbstractMatrix)
     MatrixGate(U::AbstractMatrix; d::Int)
 
@@ -41,9 +41,9 @@ otherwise). `MatrixGate(U; d=2)` / `d=3` agree with inference for the sizes
 inference accepts (and additionally allow a single-site 3×3 with `d=3`).
 
 # Matrix convention
-`U[out, in] = ⟨out|U|in⟩` with standard Kronecker ordering:
+``U_{\text{out},\text{in}} = \langle \text{out} \rvert U \lvert \text{in} \rangle`` with standard Kronecker ordering:
 `U = kron(A, B)` acts with `A` on the FIRST site of the region and `B` on
-the second, i.e. basis states `|b₁ b₂ … bₙ⟩` are ordered with the LAST site
+the second, i.e. basis states ``\lvert b_1\, b_2\, \ldots\, b_n \rangle`` are ordered with the LAST site
 as the fastest digit.
 
 # Notes
@@ -120,12 +120,12 @@ end
 
 # === build_operator implementations ===
 
-"""
+@doc raw"""
     build_operator(gate::MatrixGate, sites::Vector{Index}, local_dim::Int) -> ITensor
 
 Reshape the stored `d^n × d^n` matrix into a `2n`-index ITensor. Column-major
 reshape puts the LAST site of the region on the fastest matrix digit, so the
-tensor dims map to `(sₙ', …, s₁', sₙ, …, s₁)` with primed = output (row) and
+tensor dims map to ``(s_n', \ldots, s_1', s_n, \ldots, s_1)`` with primed = output (row) and
 unprimed = input (column).
 """
 function build_operator(gate::MatrixGate, sites::Vector{<:Index}, local_dim::Int; kwargs...)

@@ -6,18 +6,18 @@
 # override, which Julia's method dispatch prefers over the generic fallback
 # defined in this file (more specific on `state`'s type parameter).
 
-"""
+@doc raw"""
     GaussianHaar()
 
 2-site fermionic Gaussian unitary gate: a Haar-random orthogonal rotation
-`O ∈ SO(4)` acting on the 4 Majorana operators of the two sites (Majorana
+``O \in SO(4)`` acting on the 4 Majorana operators of the two sites (Majorana
 indices `(2i-1, 2i, 2i+1, 2i+2)` for adjacent sites `i, i+1` — see
 `QuantumCircuitsMPS.majorana_indices`), drawn from the `:gates_realization`
 RNG stream via `QuantumCircuitsMPS.haar_orthogonal`.
 
 This is the fermionic-Gaussian analog of a 2-qubit Haar-random unitary
 (`HaarRandom(2)`), restricted to the Gaussian (free-fermion) subgroup that
-preserves the Majorana-covariance-matrix (Γ) representation of the state —
+preserves the Majorana-covariance-matrix (``\Gamma``) representation of the state —
 see Jian, Bauer, Fisher (and related free-fermion measurement-induced-phase-
 transition literature) for the covariance-matrix formalism this gate acts on.
 

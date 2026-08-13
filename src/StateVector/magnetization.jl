@@ -5,13 +5,13 @@ State-vector implementation of the `Magnetization` observable.
 
 Computes Mz = (1/L) Σᵢ ⟨Zᵢ⟩ via direct basis-state summation over the dense
 state vector `state.backend.ψ`. For each physical site `j` (1-indexed, site 1
-is the most-significant digit of the basis index), ⟨Zⱼ⟩ = P(bit_j=0) -
-P(bit_j=1) = 2*P(bit_j=0) - 1.
+is the most-significant digit of the basis index), ⟨Zⱼ⟩ = `P(bit_j=0)` -
+`P(bit_j=1)` = 2*`P(bit_j=0)` - 1.
 
 Implementation: a single O(d^L) pass (each amplitude is read exactly once)
 replaces the former L independent O(d^L) scans. The probabilities
 `a_n = |ψ_n|²` are reduced hierarchically: one sweep builds contiguous
-block sums of size d, d², …, d^(L-1), and P(digit_k = 0) for site k is the
+block sums of size d, d², …, d^(L-1), and `P(digit_k = 0)` for site k is the
 sum of the first size-d^(L-k) sub-block of every size-d^(L-k+1) block —
 i.e. exactly the same addends in the same ascending basis-index order as the
 old per-site scans, only grouped into contiguous partial sums. The grouping
@@ -89,11 +89,11 @@ function (m::Magnetization)(state::SimulationState{StateVectorBackend})
     return total / L
 end
 
-"""
+@doc raw"""
     _sv_spin_magnetization(state, s::Rational) -> Float64
 
-Spin-site state-vector Magnetization: Mz = (1/L) Σᵢ ⟨Szᵢ⟩ with
-⟨Sz⟩ = Σₖ (S-k)·P(digit=k), summed over all 2S+1 levels (level k, 0-based,
+Spin-site state-vector Magnetization: ``M_z = \frac{1}{L}\sum_i \langle S_{z,i}\rangle`` with
+``\langle S_z\rangle = \sum_k (S-k)\,P(\mathrm{digit}=k)``, summed over all 2S+1 levels (level k, 0-based,
 has eigenvalue m = S-k; site 1 = MSB digit). One O(L·dᴸ) pass — spin SV
 states are small, so the simple double loop is fine.
 """

@@ -20,17 +20,17 @@
 
 using LinearAlgebra: Hermitian, eigvals
 
-"""
+@doc raw"""
     _xlogx(x::Real) -> Float64
 
-`x * log(x)` with the exact limit `0 · log(0) = 0` (returns `0.0` for any
+`x * log(x)` with the exact limit ``0 \cdot \log(0) = 0`` (returns `0.0` for any
 `x <= 0`). Natural log. Used by [`subsystem_entropy`](@ref) so that exactly
-(un)occupied modes (λ ∈ {0, 1}) contribute zero entropy with no NaN/Inf and
+(un)occupied modes (``\lambda \in \{0, 1\}``) contribute zero entropy with no NaN/Inf and
 no imaginary-epsilon regularization.
 """
 _xlogx(x::Real) = x <= 0 ? 0.0 : x * log(x)
 
-"""
+@doc raw"""
     subsystem_entropy(Γ::AbstractMatrix{<:Real}, majorana_idx::AbstractVector{Int};
                       renyi_index::Real = 1) -> Float64
 
@@ -48,21 +48,23 @@ Port of `von_Neumann_entropy_m` (GTN.py:753-759):
    (i·Γ_A is exactly Hermitian since Γ is exactly antisymmetric).
 3. `λ = clamp.((1 .- ξ) ./ 2, 0.0, 1.0)` — occupation eigenvalues in [0, 1]
    (clamped: float noise can push ξ marginally outside [−1, 1]).
-4. `S = -Σ [λ log λ + (1−λ) log(1−λ)] / 2` at n = 1, and generally
-   `Sₙ = Σ log(λⁿ + (1−λ)ⁿ) / (1−n) / 2` — the division by 2 compensates
+4. ``S = -\sum \left[\lambda \log \lambda + (1-\lambda)\log(1-\lambda)\right] / 2`` at n = 1, and generally
+   ``S_n = \sum \log(\lambda^n + (1-\lambda)^n) / (1-n) / 2`` — the division by 2 compensates
    the double-counting of the Majorana eigenvalues (they come in ±ξ
    pairs; Python divides the full sum by 2 the same way).
 
-Equivalently, over the PAIRED part of spec(iΓ_A) = {±ξ_k} (each pair gives
-the occupation pair {λ, 1−λ} = {(1−ξ_k)/2, (1+ξ_k)/2} from step 3),
+Equivalently, over the PAIRED part of ``\mathrm{spec}(i\Gamma_A) = \{\pm\xi_k\}`` (each pair gives
+the occupation pair ``\{\lambda, 1-\lambda\} = \{(1-\xi_k)/2, (1+\xi_k)/2\}`` from step 3),
 
-    Sₙ = 1/(1−n) · Σ_k ln[((1+ξ_k)/2)ⁿ + ((1−ξ_k)/2)ⁿ]
+```math
+S_n = \frac{1}{1-n} \sum_k \ln\!\left[\left(\frac{1+\xi_k}{2}\right)^n + \left(\frac{1-\xi_k}{2}\right)^n\right]
+```
 
 and an ODD-dimensional `Γ_A` (a Majorana-chain region) carries one extra
 UNPAIRED ξ = 0 mode contributing exactly `ln(2)/2` to Sₙ for EVERY n — the
 per-eigenvalue sum above produces that with no special-casing.
 
-`renyi_index` is evaluated in three branches of `δ = n − 1`, at the SAME
+`renyi_index` is evaluated in three branches of ``\delta = n - 1``, at the SAME
 thresholds as the MPS / state-vector / mutual-information kernels
 (`_RENYI_SHUNT`, `_RENYI_NEAR1`): the exact n = 1 body, a cancellation-safe
 `expm1`/`log1p` near-1 form, and a scale-before-overflow log-domain form that

@@ -23,9 +23,8 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
   and region paths, from the same covariance-spectrum formula).
 - Gaussian Rényi-n entanglement entropy (bipartition `cut::Int` and region
   `cut::Vector{Int}`) and Rényi mutual information, computed from the
-  covariance-matrix eigenvalue spectrum: `S_n = 1/(1−n) · Σ_k
-  ln[((1+λ_k)/2)^n + ((1−λ_k)/2)^n]` over the paired spectrum, plus
-  `ln(2)/2` per unpaired zero mode on odd-sized Majorana-chain regions.
+  covariance-matrix eigenvalue spectrum: ``S_n = \frac{1}{1-n}\sum_k \ln\!\big[((1+\lambda_k)/2)^n + ((1-\lambda_k)/2)^n\big]`` over the paired spectrum, plus
+  ``\ln(2)/2`` per unpaired zero mode on odd-sized Majorana-chain regions.
   `TripartiteMutualInformation` and `EntropyProfile` gain the same support
   by composition.
 - Documentation: new **Custom Gates** page (`docs/src/custom_gates.md`)
@@ -74,16 +73,16 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
 ### Fixed
 
 - MPS `born_probability` was double-normalized: `ITensorMPS.expect` already
-  divides by `⟨ψ|ψ⟩` internally, so the additional `/ inner(ψ, ψ)` inflated
-  every probability by `1/‖ψ‖²` whenever the state was not normalized — which
+  divides by ``\langle \psi \vert \psi \rangle`` internally, so the additional `/ inner(ψ, ψ)` inflated
+  every probability by ``1/\lVert\psi\rVert^2`` whenever the state was not normalized — which
   is the case right after a truncating unitary layer, since those are not
   renormalized. Reported values could therefore exceed 1, and the inflated
   probabilities fed the cumulative-probability outcome sampler. Sampled
-  trajectories on normalized states (`‖ψ‖² = 1`, where the extra division was
+  trajectories on normalized states (``\lVert\psi\rVert^2 = 1``, where the extra division was
   a no-op) are unaffected, but MPS Born probabilities and any `Measure`
   sampling in an actively truncating regime now differ numerically from
   earlier versions. The projector is also evaluated only at the requested
-  site instead of at all `L` sites, removing a separate `O(L)` `inner`
+  site instead of at all ``L`` sites, removing a separate ``O(L)`` `inner`
   contraction from the measurement hot path.
 
 ## [0.5.2] - 2026-07-15
@@ -120,40 +119,40 @@ test suite.
 ### Added
 
 - **Gaussian backend** (`backend=:gaussian`): a pure fermionic Gaussian state
-  is represented as a dense `2L×2L` real antisymmetric Majorana covariance
-  matrix `Γ` (`Γ[a,b] = (i/2)⟨[γ_a,γ_b]⟩`, satisfying `Γ² = -I`) instead of
+  is represented as a dense ``2L \times 2L`` real antisymmetric Majorana covariance
+  matrix ``\Gamma`` (``\Gamma_{ab} = (i/2)\langle[\gamma_a,\gamma_b]\rangle``, satisfying ``\Gamma^2 = -I``) instead of
   an MPS, state vector, or stabilizer tableau; `GaussianBackend` holds
   `corr`, a `scratch` buffer, `purify_tol` (default `1e-10`), and
   `majoranas_per_site`. `apply!`, `track!`, `record!`, and `simulate!` work
   unchanged — only the `SimulationState(...; backend=:gaussian)` constructor
-  call differs. Gate/measurement application is `O(L³)` per operation
-  (Schur-complement contraction on `Γ`, no truncation error, exact for any
+  call differs. Gate/measurement application is ``O(L^3)`` per operation
+  (Schur-complement contraction on ``\Gamma``, no truncation error, exact for any
   circuit depth), and a re-purification step (`purify!`, eigen-clamping
-  `iΓ`'s spectrum back to `±1`) fires automatically whenever floating-point
+  ``i\Gamma``'s spectrum back to ``\pm 1``) fires automatically whenever floating-point
   drift exceeds `purify_tol`.
 - Two new gates, dispatched only on the Gaussian backend (informative
   `ArgumentError` rejection on MPS/state-vector/Clifford):
   - `GaussianHaar()` — Haar-random `SO(4)` rotation (fermionic-mode
     granularity) or `SO(2)` rotation (Majorana-chain granularity,
-    `exp(θγ_aγ_b)`, `θ ~ U[0,2π)`), drawn from `:gates_realization` and
-    conjugated directly onto `Γ`.
-  - `BondParity()` — projective bond-parity measurement `iγ_{2i}γ_{2i+1}`
-    between adjacent sites (fermionic-mode) or `iγ_iγ_{i+1}` between
+    ``\exp(\theta\gamma_a\gamma_b)``, ``\theta \sim U[0,2\pi)``), drawn from `:gates_realization` and
+    conjugated directly onto ``\Gamma``.
+  - `BondParity()` — projective bond-parity measurement ``i\gamma_{2i}\gamma_{2i+1}``
+    between adjacent sites (fermionic-mode) or ``i\gamma_i\gamma_{i+1}`` between
     adjacent Majorana sites (Majorana chain), with PBC wrap support;
     consumes one `:born_measurement` draw per bond under the same
     redundant-draw contract as `Measure`.
 - `PauliX()`, `Measure(:Z)`, and `Reset()` now also work on the Gaussian
   backend: `PauliX` flips fermionic occupation parity (a single Majorana
   row/column sign flip), `Measure(:Z)` is a projective on-site
-  occupation-parity measurement (`iγ_{2i-1}γ_{2i}`), and `Reset()` composes
+  occupation-parity measurement (``i\gamma_{2i-1}\gamma_{2i}``), and `Reset()` composes
   the two, matching the existing semantics on every other backend.
 - **Majorana-chain site granularity** (`site_type="Majorana"`): each site is
-  one Majorana mode rather than one fermionic mode (`Γ` is `L×L` instead of
-  `2L×2L`; requires even `L`), directly modeling the staggered class-DIII
+  one Majorana mode rather than one fermionic mode (``\Gamma`` is ``L \times L`` instead of
+  ``2L \times 2L``; requires even `L`), directly modeling the staggered class-DIII
   monitored Majorana-chain circuit family — `GaussianHaar`/`BondParity` on
   `Bricklayer(:odd)`/`Bricklayer(:even)` reproduce the protocol with no new
   gate types.
-- `RandomGaussianState` initial-state type: draws `O ∈ SO(2L)` (or `SO(L)`
+- `RandomGaussianState` initial-state type: draws ``O \in SO(2L)`` (or ``SO(L)``
   on the Majorana chain) from `:state_init` via an exact Haar sampler,
   `haar_orthogonal`, using QR decomposition of a Ginibre matrix.
 - Gaussian-backend observable support: `EntanglementEntropy` (von Neumann
@@ -191,21 +190,21 @@ removes one redundant gate and tightens the public export surface.
 - `PauliString(i => :P, j => :P', ...)` — multi-site Pauli-string expectation
   value observable, on the MPS, state-vector, and Clifford backends.
 - `MutualInformation(regionA, regionB; renyi_index=1, base=ℯ)` —
-  `I(A:B) = S(A) + S(B) - S(A∪B)` for two disjoint contiguous site regions, on
+  ``I(A:B) = S(A) + S(B) - S(A\cup B)`` for two disjoint contiguous site regions, on
   all three backends (MPS via subset-RDM contraction with a size guard, exact
   state vector via partial trace, Clifford via poly-time GF(2)-rank stabilizer
   entropies). Regions are physical sites on every backend and under both
   boundary conditions.
 - `Correlator(i => :P, j => :P')` — connected two-point correlator
-  `⟨PᵢPⱼ⟩ - ⟨Pᵢ⟩⟨Pⱼ⟩`, composed from `PauliString`.
+  ``\langle P_iP_j\rangle - \langle P_i\rangle\langle P_j\rangle``, composed from `PauliString`.
 - `EntropyProfile(; renyi_index=1, base=ℯ)` — vector observable returning
   `[S(cut=x) for x in 1:L-1]` in one call; the first vector-valued built-in
   observable (see the custom-observable API below for how the vector storage
   is threaded through `track!`/`record!`).
-- `TripartiteMutualInformation(A, B, C)` — `I₃ = I(A:B) + I(A:C) - I(A:BC)`
+- `TripartiteMutualInformation(A, B, C)` — ``I_3 = I(A:B) + I(A:C) - I(A:BC)``
   (Gullans–Huse MIPT convention), composed from `MutualInformation`.
 - `MagnetizationFluctuations(region; axis=:Z)` — `Var(M)` for
-  `M = Σᵢ∈region Pᵢ`, composed from `PauliString`.
+  ``M = \sum_{i\in\text{region}} P_i``, composed from `PauliString`.
 - **Custom-observable API**: `track!` now also accepts `Symbol => <any callable>`
   (not just a built-in `AbstractObservable`), `record_value` has an untyped
   fallback (`record_value(obs, state) = obs(state)`), and per-key storage
@@ -281,8 +280,8 @@ removes one redundant gate and tightens the public export surface.
   gate_matrix(::SpinSectorProjection)` — the AKLT Quick Start could not run
   with `backend=:statevector`).
 - `Magnetization(:Z)` on `"S=1"` (and other arbitrary spin-S) MPS/state-vector
-  states no longer throws; it now correctly reports `⟨Sz⟩ ∈ [-S, S]` (qubit
-  and `"S=1/2"` sites keep the existing `±1` Pauli convention).
+  states no longer throws; it now correctly reports ``\langle S_z\rangle \in [-S, S]`` (qubit
+  and `"S=1/2"` sites keep the existing ``\pm 1`` Pauli convention).
 - `SimulationState(L=0, ...)` (or negative `L`) now throws an informative
   `ArgumentError` on all backends (previously constructed a silent, unusable
   empty state).
@@ -323,8 +322,8 @@ removes one redundant gate and tightens the public export surface.
   (`local_dim != 2`) with an informative `ArgumentError`, matching the
   existing guard on `Rx`/`Ry`/`Rz`/`Hadamard`. Previously these gates
   silently built an undocumented, non-standard qudit generalization when
-  applied to `S≥1` sites (e.g. a 3-level "CZ" that put `-1` only on
-  `|22⟩` instead of the standard `ωʲᵏ` phases) — a silent-physics-trap that
+  applied to ``S \ge 1`` sites (e.g. a 3-level "CZ" that put `-1` only on
+  ``\lvert 22\rangle`` instead of the standard ``\omega^{jk}`` phases) — a silent-physics-trap that
   is now a clean error instead.
 - `born_probability(state, site, outcome)` is now a documented public export
   (promoted out of the internal-exports block).

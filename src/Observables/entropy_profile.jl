@@ -8,7 +8,7 @@
 # profile for free. Vector-valued recording relies on the track!/record!
 # storage-widening contract (see `track!`).
 
-"""
+@doc raw"""
     EntropyProfile(; renyi_index=1, threshold=1e-16, base=ℯ)
 
 Entanglement-entropy profile: the vector `[S(cut=x) for x in 1:L-1]` of
@@ -26,10 +26,10 @@ bipartite entropies at every cut, computed by the existing per-cut
   `EntanglementEntropy` itself defaults to `base=2`; pass `base=2` for bits)
 
 # Backend cost
-- MPS: O(L) orthogonalized MPS copies — O(L²·χ³) total
-- StateVector: O(L) dense reshapes + SVDs
-- Clifford: O(L) tableau copies + GF(2)-rank computations
-- Gaussian: O(L) covariance-submatrix eigendecompositions — O(L⁴) total
+- MPS: ``O(L)`` orthogonalized MPS copies — ``O(L^2\chi^3)`` total
+- StateVector: ``O(L)`` dense reshapes + SVDs
+- Clifford: ``O(L)`` tableau copies + GF(2)-rank computations
+- Gaussian: ``O(L)`` covariance-submatrix eigendecompositions — ``O(L^4)`` total
   (real `renyi_index`, inherited from `EntanglementEntropy` on that backend)
 
 # PBC caveat (cross-backend semantics)

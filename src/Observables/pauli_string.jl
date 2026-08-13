@@ -11,10 +11,10 @@
 #   - Clifford (src/Clifford/pauli_string.jl): QuantumClifford.expect on the
 #     stabilizer tableau (poly-time; expectation ∈ {-1, 0, +1})
 
-"""
+@doc raw"""
     PauliString(ops::Pair{Int,Symbol}...)
 
-Expectation value ⟨∏ᵢ Pᵢ⟩ of a product of single-qubit Pauli operators.
+Expectation value ``\langle \textstyle\prod_i P_i\rangle`` of a product of single-qubit Pauli operators.
 
 Each argument is a `site => pauli` pair with `pauli ∈ (:X, :Y, :Z)`;
 identity is implied on every site not listed. Sites must be distinct and
@@ -26,7 +26,7 @@ Qubit-only in v0.4.0: evaluating on a non-qubit state (e.g.
 on the roadmap).
 
 # Sign convention
-Matches `Magnetization`: ⟨Zᵢ⟩ = +1 on |0⟩ and -1 on |1⟩ at site `i`.
+Matches `Magnetization`: ``\langle Z_i\rangle = +1`` on ``|0\rangle`` and ``-1`` on ``|1\rangle`` at site `i`.
 
 # Examples
 ```julia

@@ -1,4 +1,4 @@
-"""
+@doc raw"""
     EntanglementEntropy(; cut, renyi_index::Real=1, threshold::Float64=1e-16, base::Real=2)
 
 Entanglement entropy observable.
@@ -34,10 +34,10 @@ parametric observable `EntanglementEntropy{C}` with `C === Int` or
   finite `BigFloat("1e400")` normalizes to `Inf` and a finite
   `BigFloat("1e-400")` to `0.0`, so both are rejected even though each is a
   "finite real > 0" before conversion. `Bool` is rejected outright.
-  - `renyi_index=1`: von Neumann entropy S₁ = -Σᵢ λᵢ log(λᵢ) (default)
-  - `renyi_index=2`: Rényi-2 entropy S₂ = log(Σᵢ λᵢ²) / (1-2)
-  - `renyi_index=n`: Rényi-n entropy Sₙ = log(Σᵢ λᵢⁿ) / (1-n) for any real
-    `n ≠ 1`. Indices within `1e-8` of 1 evaluate the von Neumann formula
+  - `renyi_index=1`: von Neumann entropy ``S_1 = -\sum_i \lambda_i \log(\lambda_i)`` (default)
+  - `renyi_index=2`: Rényi-2 entropy ``S_2 = \log\!\big(\sum_i \lambda_i^2\big) / (1-2)``
+  - `renyi_index=n`: Rényi-n entropy ``S_n = \log\!\big(\sum_i \lambda_i^n\big) / (1-n)`` for any real
+    ``n \neq 1``. Indices within `1e-8` of 1 evaluate the von Neumann formula
     instead (its continuous limit; error O(1e-8)), and the general branch is
     evaluated in a scale-before-overflow log domain, so extreme indices such
     as `n = 2048` or `n = floatmax(Float64)` are finite and accurate rather
@@ -46,7 +46,7 @@ parametric observable `EntanglementEntropy{C}` with `C === Int` or
 - `base::Real=2`: Base of logarithm for entropy computation (default: 2 for bits)
 
 !!! note "Hartley entropy (renyi_index=0) is NOT supported"
-    Hartley entropy (renyi_index=0) measures log₂(Schmidt rank), but is not available via 
+    Hartley entropy (`renyi_index=0`) measures ``\log_2(\text{Schmidt rank})``, but is not available via
     this interface because:
     - MPS compression retains singular values above a cutoff threshold (~1e-10)
     - Numerically, "zero" singular values are never truly zero in floating-point arithmetic
@@ -56,14 +56,14 @@ parametric observable `EntanglementEntropy{C}` with `C === Int` or
     **Alternative**: Access MPS singular values directly via `orthogonalize!` + `svd`,
     then apply your own threshold to determine the Schmidt rank.
 
-    The same mechanism degrades CONTINUOUSLY as `n → 0⁺`, so small
-    `0 < n ≪ 1` is accepted but should be read with care: on the MPS and
+    The same mechanism degrades CONTINUOUSLY as ``n \to 0^+``, so small
+    ``0 < n \ll 1`` is accepted but should be read with care: on the MPS and
     state-vector backends the probability FLOOR (`threshold^2` per clamped
-    Schmidt value) dominates `Σ pⁿ` as `n → 0⁺` — a floor of `1e-32`
-    contributes `1e-32ⁿ`, i.e. `≈ 6e-4` at `n = 0.1` but `≈ 0.5` at
+    Schmidt value) dominates ``\sum p^n`` as ``n \to 0^+`` — a floor of `1e-32`
+    contributes ``(1\text{e-32})^n``, i.e. ``\approx 6\text{e-4}`` at `n = 0.1` but ``\approx 0.5`` at
     `n = 0.01` — so the reported entropy becomes threshold-dependent long
     before `n` reaches 0. On the Gaussian backend there is no floor, but
-    covariance-eigenvalue roundoff makes the `n → 0⁺` rank limit numerically
+    covariance-eigenvalue roundoff makes the ``n \to 0^+`` rank limit numerically
     sensitive in the same way. The Clifford backend is EXEMPT: its
     GF(2)-rank entropy is exact and independent of every accepted `n`
     (stabilizer entanglement spectra are flat).
@@ -282,7 +282,7 @@ const _RENYI_SHUNT = 1e-8 + eps(1.0)
 # truth is ≈ +3.8e−15).
 const _RENYI_NEAR1 = 1e-4
 
-"""
+@doc raw"""
     _renyi_scaled_tails(logs, n::Real) -> (t_n, s)
 
 Rescaled tail sums of a log-probability vector, shared by the GENERAL-n branch
@@ -290,8 +290,12 @@ of all three entropy kernels (and by nothing else — no `n = 1` path calls it).
 
 With `lmax = maximum(logs)` attained at index `imax`, returns
 
-    t_n = Σ_{k ≠ imax} exp(n · (logs[k] − lmax)) = Σ_{k ≠ imax} (p_k/pmax)ⁿ
-    s   = Σ_{k ≠ imax} exp(logs[k] − lmax)       = (Σp − pmax)/pmax
+```math
+t_n = \sum_{k \neq i_{\max}} \exp\big(n(\ell_k - \ell_{\max})\big) = \sum_{k \neq i_{\max}} (p_k/p_{\max})^n
+```
+```math
+s = \sum_{k \neq i_{\max}} \exp(\ell_k - \ell_{\max}) = (\textstyle\sum p - p_{\max})/p_{\max}
+```
 
 Every exponent is `≤ 0`, so neither sum can overflow at ANY accepted `n`, and
 both lie in `[0, length(logs) − 1]`.
@@ -324,7 +328,7 @@ function _renyi_scaled_tails(logs, n::Real)
     return (t_n, s)
 end
 
-"""
+@doc raw"""
     _von_neumann_entropy(mps::MPS, i::Int; n::Real=1, threshold::Float64=1e-16, base::Float64=2.0) -> Float64
 
 Compute entanglement entropy at bond i of an MPS.
@@ -344,10 +348,10 @@ The function:
 2. Performs SVD on the tensor to extract Schmidt values
 3. Computes probabilities from Schmidt values (squared)
 4. Returns entropy based on Rényi index, in three branches of δ = n − 1:
-   - `|δ| <= _RENYI_SHUNT`: von Neumann entropy S₁ = -Σ p log_b(p) — the exact
+   - `|δ| <= _RENYI_SHUNT`: von Neumann entropy ``S_1 = -\sum p \log_b(p)`` — the exact
      n = 1 expression, used as the continuous limit (error O(1e-8))
    - `_RENYI_SHUNT < |δ| <= _RENYI_NEAR1`: cancellation-safe near-1 form
-   - `|δ| > _RENYI_NEAR1`: Rényi entropy Sₙ = log_b(Σ pⁿ)/(1−n), evaluated in
+   - `|δ| > _RENYI_NEAR1`: Rényi entropy ``S_n = \log_b\!\big(\sum p^n\big)/(1-n)``, evaluated in
      a scale-before-overflow log domain
 
 Hartley entropy (n = 0) is NOT a case here: `EntanglementEntropy` rejects

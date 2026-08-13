@@ -8,7 +8,7 @@
 # (Circuit/execute.jl) — the eager form simply validates and executes
 # immediately instead of recording an operation for `simulate!`.
 
-"""
+@doc raw"""
     apply_with_prob!(state::SimulationState; outcomes)
 
 Eagerly execute ONE stochastic operation on `state` under the v0.1 unified
@@ -23,10 +23,10 @@ Each outcome is a NamedTuple with fields:
 # Semantics (v0.1 unified stochastic rule)
 Each outcome's geometry expands to elements (`elements(geo, L, bc)` for
 broadcast geometries; set geometries are a single element); all outcomes must
-expand to the SAME element count K. For each element k = 1..K, exactly ONE
+expand to the SAME element count K. For each element ``k = 1, \ldots, K``, exactly ONE
 scalar coin is drawn from the `:gates_spacetime` stream and a categorical
 selection is made among the outcomes via `select_outcome_index` (the
-engine's single source of truth); the remainder `1 - Σp` selects identity
+engine's single source of truth); the remainder ``1 - \sum p`` selects identity
 (nothing applied, staircases not advanced). The winning outcome's gate is
 executed at its k-th element via the uniform `execute!` protocol.
 
@@ -39,11 +39,11 @@ staircase/Pointer state across calls.
 # Call-time validation (all `ArgumentError`, thrown BEFORE any coin is drawn
 # or the state is touched — the lazy form runs the same checks at build time)
 - `outcomes` must be non-empty
-- Σp must be ≤ 1 (tolerance `1e-10`)
+- ``\sum p`` must be ``\le 1`` (tolerance `1e-10`)
 - Equal-K: every outcome's geometry must expand to the same element count
   (the error names each outcome's geometry and K)
 - Staircase/`Pointer` physics guard: if any outcome uses a staircase or
-  `Pointer` geometry, Σp must equal 1 (an identity remainder would silently
+  `Pointer` geometry, ``\sum p`` must equal ``1`` (an identity remainder would silently
   stall the random walk — see the builder docstring for the CIPT rationale)
 - The removed `rng=` keyword (or any other keyword) throws with a migration
   message: all coins come from `:gates_spacetime` in v0.1
@@ -63,7 +63,7 @@ apply_with_prob!(state;
 )
 ```
 
-# Example (Σp < 1: remaining 0.3 = identity)
+# Example (``\sum p < 1``: remaining 0.3 = identity)
 ```julia
 apply_with_prob!(state;
     outcomes = [
