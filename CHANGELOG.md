@@ -8,6 +8,19 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
 
 ## [Unreleased]
 
+## [0.5.4] - 2026-08-13
+
+### Added
+
+- `apply_with_prob!` accepts a vector `probability` — one entry per geometry
+  element, in `elements(geo, L, bc)` order — so each gate location can have its
+  own probability.
+
+### Changed
+
+- Invalid scalar probabilities (negative, `NaN`/`Inf`, or `> 1`) now throw
+  instead of passing silently; only their sum was checked before.
+
 ## [0.5.3] - 2026-07-26
 
 ### Added
@@ -428,7 +441,8 @@ documentation.
 
 Initial clean release, with CIPT and MIPT example notebooks.
 
-[Unreleased]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.3...HEAD
+[Unreleased]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.4...HEAD
+[0.5.4]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.1...v0.5.2
 [0.5.1]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.0...v0.5.1
