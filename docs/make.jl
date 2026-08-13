@@ -30,7 +30,11 @@ makedocs(;
     authors="Haining Pan <haining.pan.physics@gmail.com>, Jedediah H Pixley <jed.pixley@physics.rutgers.edu>",
     sitename="QuantumCircuitsMPS.jl",
     format=Documenter.HTML(;
-        canonical="https://hainingpan.github.io/QuantumCircuitsMPS.jl",
+        # Must include the version segment: Documenter builds each page's
+        # canonical link as `rstrip(canonical, '/') * "/" * <page path>`
+        # (HTMLWriter.canonical_url), so a base without `/stable` emits
+        # canonical URLs like `.../QuantumCircuitsMPS.jl/api/` that 404.
+        canonical="https://hainingpan.github.io/QuantumCircuitsMPS.jl/stable",
         edit_link="dev",
         assets=String[],
         # T5 originally raised these to 500/300 KiB to accommodate a single
