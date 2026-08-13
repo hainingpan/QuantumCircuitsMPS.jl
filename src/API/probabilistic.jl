@@ -1,12 +1,7 @@
 # Probabilistic Branching API — EAGER mode (v0.1 unified stochastic rule)
-# =======================================================================
 #
 # `apply_with_prob!(state::SimulationState; outcomes)` is the imperative twin
-# of the lazy builder form (`apply_with_prob!(c::CircuitBuilder; outcomes)`,
-# Circuit/builder.jl). Both execute the SAME unified rule through the SAME
-# single-source selection function `select_outcome_index`
-# (Circuit/execute.jl) — the eager form simply validates and executes
-# immediately instead of recording an operation for `simulate!`.
+# of the lazy builder form; both share the same selection/resolver logic.
 
 """
     apply_with_prob!(state::SimulationState; outcomes)
@@ -16,19 +11,27 @@ stochastic rule — identical semantics to recording the same `outcomes` in a
 `Circuit` and running one step of `simulate!`, but applied immediately.
 
 Each outcome is a NamedTuple with fields:
-- `probability::Real` (required)
+- `probability` (required): a scalar `Real`, which broadcasts identically
+  across every element. `probability` may also be an `AbstractVector{<:Real}`
+  with one entry per geometry element (in `elements(geo, L, bc)` order),
+  so each gate location gets its own probability. Scalar and vector
+  outcomes may be freely mixed within one call.
 - `gate::AbstractGate` (required)
 - `geometry::AbstractGeometry` (required)
 
 # Semantics (v0.1 unified stochastic rule)
 Each outcome's geometry expands to elements (`elements(geo, L, bc)` for
 broadcast geometries; set geometries are a single element); all outcomes must
-expand to the SAME element count K. For each element k = 1..K, exactly ONE
-scalar coin is drawn from the `:gates_spacetime` stream and a categorical
-selection is made among the outcomes via `select_outcome_index` (the
-engine's single source of truth); the remainder `1 - Σp` selects identity
-(nothing applied, staircases not advanced). The winning outcome's gate is
-executed at its k-th element via the uniform `execute!` protocol.
+expand to the SAME element count K. At element k, `Σp` is the sum of every
+outcome's probability value AT THAT ELEMENT — a scalar outcome contributes
+the same value to every element, a vector outcome contributes its `k`-th
+entry. For each element k = 1..K, exactly ONE scalar coin is drawn from the
+`:gates_spacetime` stream — unchanged whether probabilities are scalar or
+per-element vectors — and a categorical selection is made among the
+outcomes via `select_outcome_index` (the engine's single source of truth);
+the remainder `1 - Σp` selects identity (nothing applied, staircases not
+advanced). The winning outcome's gate is executed at its k-th element via
+the uniform `execute!` protocol.
 
 A selected staircase advances after application and other staircase
 geometries in `outcomes` are synced to its position
@@ -104,10 +107,15 @@ function apply_with_prob!(
         throw(ArgumentError("outcomes cannot be empty"))
     end
 
-    probs = Float64[Float64(o.probability) for o in outcomes]
-    total_prob = sum(probs)
-    if total_prob > 1.0 + 1e-10
-        throw(ArgumentError("Probabilities sum to $total_prob (must be ≤ 1)"))
+    # Scalar-only fast path: reproduce the legacy Σp <= 1 error message
+    # exactly; vector/mixed calls are validated by the resolver below.
+    is_pure_scalar_call = all(o -> o.probability isa Real, outcomes)
+    if is_pure_scalar_call
+        probs = Float64[Float64(o.probability) for o in outcomes]
+        total_prob = sum(probs)
+        if total_prob > 1.0 + 1e-10
+            throw(ArgumentError("Probabilities sum to $total_prob (must be ≤ 1)"))
+        end
     end
 
     # Equal-K rule via the SHARED helper (Circuit/draws.jl) — throws an
@@ -115,17 +123,38 @@ function apply_with_prob!(
     op = (type = :stochastic, rng = :gates_spacetime, outcomes = collect(outcomes))
     K = _op_element_count(op, state.L, state.bc)
 
-    # Staircase/Pointer physics guard: the walk must advance EVERY call.
+    # Shared per-element probability-schedule resolver: validates shape,
+    # finiteness, range, and per-column Σp<=1+1e-10 before any coin draw.
+    schedule = resolve_probability_schedule(outcomes, K)
+
+    # Staircase/Pointer guard: the walk must advance at every element
+    # (caller-level; the shared resolver stays permissive of Σp<1).
     has_walker = any(o -> (o.geometry isa AbstractStaircase) || (o.geometry isa Pointer),
         outcomes)
-    if has_walker && total_prob < 1.0 - 1e-10
-        throw(ArgumentError(
-            "Stochastic operation with staircase/Pointer geometry requires Σp = 1 " *
-            "(got Σp = $total_prob). The identity remainder (probability $(1 - total_prob)) " *
-            "does not advance staircases, which would silently stall the random walk " *
-            "(CIPT physics requires the walk to advance every step). Either make the " *
-            "probabilities sum to 1 (e.g. add an explicit identity-like outcome) or use " *
-            "a non-walking geometry."))
+    if has_walker
+        for k in 1:K
+            total_probability_at_k = sum(view(schedule, :, k))
+            if !(abs(total_probability_at_k - 1.0) <= 1e-10)
+                if is_pure_scalar_call
+                    throw(ArgumentError(
+                        "Stochastic operation with staircase/Pointer geometry requires Σp = 1 " *
+                        "(got Σp = $total_probability_at_k). The identity remainder (probability $(1 - total_probability_at_k)) " *
+                        "does not advance staircases, which would silently stall the random walk " *
+                        "(CIPT physics requires the walk to advance every step). Either make the " *
+                        "probabilities sum to 1 (e.g. add an explicit identity-like outcome) or use " *
+                        "a non-walking geometry."))
+                else
+                    throw(ArgumentError(
+                        "Stochastic operation with staircase/Pointer geometry requires Σp = 1 " *
+                        "at element $k (got Σp = $total_probability_at_k). The identity " *
+                        "remainder (probability $(1 - total_probability_at_k)) does not advance " *
+                        "staircases, which would silently stall the random walk (CIPT physics " *
+                        "requires the walk to advance at every element). Either make element " *
+                        "$k's probabilities sum to 1 (e.g. add an explicit identity-like " *
+                        "outcome) or use a non-walking geometry."))
+                end
+            end
+        end
     end
 
     # === EXECUTION (mirrors simulate!'s :stochastic branch exactly) ===
@@ -142,7 +171,13 @@ function apply_with_prob!(
                                                      for o in outcomes]
 
     for k in 1:K
-        sel = select_outcome_index(actual_rng, probs)
+        # Per-element categorical selection: pass THIS element's resolved
+        # schedule column (row i = outcome i's probability at element k)
+        # to the SAME single-source selector every other execution path
+        # uses — materialized as a Vector{Float64} copy, matching
+        # select_outcome_index's Vector{Float64} signature exactly.
+        probs_k = schedule[:, k]
+        sel = select_outcome_index(actual_rng, probs_k)
         if sel != 0
             outcome = outcomes[sel]
             sites = elem_lists[sel] === nothing ?

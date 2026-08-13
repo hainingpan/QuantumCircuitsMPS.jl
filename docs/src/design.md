@@ -116,6 +116,12 @@ gates to the same bond. Using one rule for measurements, random gates, and
 control protocols makes stochastic trajectories easier to reason about and
 reproduce.
 
+Each outcome's `probability` may also be an `AbstractVector{<:Real}` with one entry per geometry element (in `elements(geo, L, bc)` order), so each gate location gets its own probability.
+```julia
+apply_with_prob!(c; outcomes=[
+    (probability=[0.1, 0.5, 0.2, 0.0], gate=Measure(:Z), geometry=AllSites()),
+])
+```
 ## Geometry Expresses Intent
 
 A geometry is more than a list of site indices: it states whether an operation

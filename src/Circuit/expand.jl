@@ -160,6 +160,11 @@ categorical selection among the outcomes, remainder `1 - Σp` = identity
 with `seed=X` shows the same selections the engine makes when its
 `:gates_spacetime` stream is seeded with `X`.
 
+# Per-element probability schedules
+`probability` may also be an `AbstractVector{<:Real}` with one entry per
+geometry element (in `elements(geo, L, bc)` order), so each gate location
+gets its own probability — resolved via the same `resolve_probability_schedule` `simulate!` uses.
+
 # Record markers
 `(type=:record_mark, ...)` pseudo-ops (from `record!(c[, names...])`) become
 gate-less marker `ExpandedOp`s (see [`is_record_mark`](@ref)) in their own
@@ -196,6 +201,20 @@ function expand_circuit_grouped(circuit::Circuit; n_steps::Int = 1, seed::Int = 
         # :record_mark and unknown op types carry no geometry — nothing to validate
     end
 
+    # === PREFLIGHT ===
+    # Resolve every stochastic op's schedule (same resolver `simulate!`
+    # uses) before geometry reset, RNG construction, or `result` is allocated.
+    n_ops = length(circuit.operations)
+    op_schedules = Vector{Union{Nothing, Matrix{Float64}}}(nothing, n_ops)
+    op_Ks = Vector{Int}(undef, n_ops)
+    for (op_idx, op) in enumerate(circuit.operations)
+        if op.type == :stochastic
+            K = _op_element_count(op, circuit.L, circuit.bc)
+            op_Ks[op_idx] = K
+            op_schedules[op_idx] = resolve_probability_schedule(op.outcomes, K)
+        end
+    end
+
     # Reset staircase positions before expansion
     _reset_circuit_geometries!(circuit)
     rng = MersenneTwister(seed)
@@ -204,7 +223,7 @@ function expand_circuit_grouped(circuit::Circuit; n_steps::Int = 1, seed::Int = 
     for step in 1:n_steps
         step_groups = Vector{Vector{ExpandedOp}}()
 
-        for op in circuit.operations
+        for (op_idx, op) in enumerate(circuit.operations)
             group_ops = ExpandedOp[]
 
             if op.type == :deterministic
@@ -225,11 +244,15 @@ function expand_circuit_grouped(circuit::Circuit; n_steps::Int = 1, seed::Int = 
             elseif op.type == :stochastic
                 # === v0.1 UNIFIED RULE — mirrors simulate!'s :stochastic branch ===
                 # Selection is DELEGATED to select_outcome_index (Circuit/
-                # execute.jl): per element k, ONE scalar coin, categorical
-                # choice among outcomes, identity remainder applies nothing.
+                # execute.jl) — the SAME function the engine calls, given a
+                # COLUMN VIEW of the schedule matrix resolved in the
+                # preflight pass above. Per element k, ONE scalar coin,
+                # categorical choice among outcomes, identity remainder
+                # applies nothing. No second categorical-selection
+                # implementation exists in this file.
                 outcomes = op.outcomes
-                K = _op_element_count(op, circuit.L, circuit.bc)
-                probs = Float64[Float64(o.probability) for o in outcomes]
+                K = op_Ks[op_idx]
+                schedule = op_schedules[op_idx]
 
                 # Precompute broadcast element lists (fixed within the op);
                 # set geometries resolve lazily at selection time because
@@ -240,7 +263,9 @@ function expand_circuit_grouped(circuit::Circuit; n_steps::Int = 1, seed::Int = 
                                                                  for o in outcomes]
 
                 for k in 1:K
-                    sel = select_outcome_index(rng, probs)
+                    # COLUMN VIEW per element — never a copy, matching
+                    # simulate!'s exact `select_outcome_index` call-site convention.
+                    sel = select_outcome_index(rng, view(schedule, :, k))
                     sel == 0 && continue   # identity remainder: nothing rendered
                     outcome = outcomes[sel]
                     sites = elem_lists[sel] === nothing ?

@@ -46,6 +46,10 @@ include("types.jl")
 # Fixed-draw contract helper (expected_draws)
 include("draws.jl")
 
+# Shared probability-schedule resolver — used by CircuitBuilder/execute
+# below, so must be included before them.
+include("probabilities.jl")
+
 # CircuitBuilder and do-block API
 include("builder.jl")
 

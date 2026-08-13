@@ -21,7 +21,7 @@ function _reset_circuit_geometries!(circuit::Circuit)
 end
 
 """
-    select_outcome_index(rng::AbstractRNG, probs::Vector{Float64}) -> Int
+    select_outcome_index(rng::AbstractRNG, probs::AbstractVector{<:Real}) -> Int
 
 SINGLE SOURCE OF TRUTH for the v0.1 unified stochastic rule's categorical
 selection. Draws exactly ONE scalar coin from `rng` and returns the 1-based
@@ -36,10 +36,15 @@ for a single element):
   boundary is snapped to exactly `1.0`, so float dust in Σp cannot leak
   spurious identity selections
 
-`expand.jl`'s visualization path (Task 15) also delegates to this function —
-there is exactly one categorical-selection implementation in the package.
+`probs` accepts any `AbstractVector{<:Real}` — including a `SubArray`/
+column view into a per-element probability-schedule `Matrix{Float64}`
+(see `simulate!`'s per-call schedule cache below) — in addition to a
+plain `Vector{Float64}`.
+
+`expand.jl`'s visualization path also delegates to this function — there
+is exactly one categorical-selection implementation in the package.
 """
-function select_outcome_index(rng::AbstractRNG, probs::Vector{Float64})
+function select_outcome_index(rng::AbstractRNG, probs::AbstractVector{<:Real})
     # SCALAR-DRAW CONTRACT: exactly one scalar coin per element
     r = rand(rng)
     n = length(probs)
@@ -75,10 +80,23 @@ Every stochastic operation (`apply_with_prob!`) is executed as follows:
    time; broadcast geometries expand via `elements(geo, L, bc)`, set
    geometries are a single element).
 2. For each element k = 1..K: exactly ONE scalar coin is drawn from the
-   `:gates_spacetime` stream and a categorical selection is made among the
+   `:gates_spacetime` stream — unchanged whether probabilities are scalar
+   or per-element vectors — and a categorical selection is made among the
    outcomes via `select_outcome_index` (remainder `1 - Σp` = identity).
 3. The winning outcome's gate is executed at its k-th element; identity
    applies nothing (and does NOT advance staircases).
+
+Each outcome's `probability` may be a scalar `Real` (broadcast identically
+across every element) or a per-element `AbstractVector{<:Real}` of exact
+length K, indexed in the SAME canonical `elements(geo, L, bc)` order as
+element k above — see `apply_with_prob!(::CircuitBuilder; outcomes)` for
+the full per-element probability contract (canonical ordering including
+the `Bricklayer` PBC wrap-bond position, and `K = 1` vector support).
+Scalar and vector outcomes may be freely mixed; at element k, `Σp` is the
+sum of every outcome's value at that element. Every stochastic op's
+schedule — scalar or vector alike — is validated once (length, range, and
+per-element totals) before geometry reset, RNG construction, or any gate
+execution.
 
 Coin consumption is therefore data-independent: K draws per stochastic op
 per step, always — see `expected_draws`.
@@ -163,8 +181,13 @@ simulate!(circuit, state; n_steps=10, record_when=every_n_steps(2))
 - All stochastic coins come from `:gates_spacetime` (the builder no longer
   accepts an `rng=` keyword).
 - Scalar draws only; element order = documented enumeration order of the
-  outcome geometries (`elements`).
-- Consumption is data-independent: `expected_draws(circuit, n_steps)` coins.
+  outcome geometries (`elements`) — the SAME order a per-element vector
+  probability's entries are indexed in (see
+  `apply_with_prob!(::CircuitBuilder; outcomes)` for the canonical
+  ordering, including the `Bricklayer` PBC wrap-bond position).
+- Consumption is data-independent: `expected_draws(circuit, n_steps)`
+  coins, exactly one per element per stochastic op per step — unchanged
+  whether an outcome's probability is a scalar or a per-element vector.
 
 # Thread safety
 A `Circuit` holding staircase/Pointer geometries is MUTABLE (positions
@@ -235,6 +258,17 @@ function simulate!(circuit::Circuit, state::SimulationState;
     # element slot regardless of stochastic outcome (identity included), so
     # recording schedules based on it are trajectory-independent.
     gate_idx = 0
+
+    # === Per-call probability-schedule cache ===
+    # Every stochastic op's schedule is resolved exactly ONCE per
+    # `simulate!` call, before geometry reset or any RNG access; the
+    # builder/eager staircase/Pointer unit-sum guard is NOT applied here.
+    stoch_schedule_cache = Dict{Int, Matrix{Float64}}()
+    for (op_idx, op) in enumerate(circuit.operations)
+        op.type == :stochastic || continue
+        K = _op_element_count(op, circuit.L, circuit.bc)
+        stoch_schedule_cache[op_idx] = resolve_probability_schedule(op.outcomes, K)
+    end
 
     # Reset staircase positions once at the start
     _reset_circuit_geometries!(circuit)
@@ -327,7 +361,10 @@ function simulate!(circuit::Circuit, state::SimulationState;
                 else
                     _op_element_count(op, circuit.L, circuit.bc)
                 end
-                probs = Float64[Float64(o.probability) for o in outcomes]
+                # Per-call schedule cache lookup (resolved once, above, for
+                # EVERY stochastic op — see the comment at its construction
+                # site). `prob_matrix` is never re-resolved or copied here.
+                prob_matrix = stoch_schedule_cache[op_idx]
 
                 # Precompute broadcast element lists (fixed within the op);
                 # set geometries resolve lazily at selection time because
@@ -343,7 +380,10 @@ function simulate!(circuit::Circuit, state::SimulationState;
                              _build_elem_lists()
 
                 for k in 1:K
-                    sel = select_outcome_index(actual_rng, probs)
+                    # COLUMN VIEW per element — never a copy, never
+                    # vectorized/hoisted (select_outcome_index draws exactly
+                    # one rand(rng) and recomputes its snap fresh here).
+                    sel = select_outcome_index(actual_rng, view(prob_matrix, :, k))
                     applied_gate = nothing
                     if sel != 0
                         outcome = outcomes[sel]
