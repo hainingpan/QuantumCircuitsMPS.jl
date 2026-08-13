@@ -75,23 +75,40 @@ pre-v0.1 `rng=` keyword was REMOVED (passing it throws an `ArgumentError`
 with a migration message).
 
 # Arguments
-- `outcomes`: Vector of NamedTuples with keys `(:probability, :gate, :geometry)`
+- `outcomes`: Vector of NamedTuples with keys `(:probability, :gate, :geometry)`.
+  Each `probability` may be a scalar `Real`, broadcast identically across
+  every element; `probability` may also be an `AbstractVector{<:Real}` with
+  one entry per geometry element (in `elements(geo, L, bc)` order), so each
+  gate location gets its own probability. Scalar and vector outcomes may be
+  freely mixed within one call. The operation records the caller's
+  ORIGINAL `probability` values unchanged — this builder never stores a
+  derived probability matrix.
 
 # Semantics (v0.1 unified stochastic rule)
 Each outcome's geometry expands to elements (`elements(geo, L, bc)`); all
-outcomes must expand to the SAME element count K. Per element k = 1..K, the
-engine draws ONE `:gates_spacetime` coin and makes a categorical selection
-among the outcomes; the remainder `1 - Σp` selects identity (nothing applied).
+outcomes must expand to the SAME element count K. At element k, `Σp` is the
+sum of every outcome's probability value AT THAT ELEMENT — a scalar
+outcome contributes the same value to every element, a vector outcome
+contributes its `k`-th entry. Per element k = 1..K, the engine draws ONE
+`:gates_spacetime` coin — unchanged whether probabilities are scalar or
+per-element vectors — and makes a categorical selection among the
+outcomes; the remainder `1 - Σp` selects identity (nothing applied).
 
 # Build-time validations (all `ArgumentError`)
+All of the following are checked — and any violation is thrown — before
+any RNG draw or state mutation; the builder never touches
+`:gates_spacetime` or pushes a partial operation onto `builder.operations`.
 - `outcomes` must be non-empty
-- Σp must be ≤ 1 (tolerance `1e-10`)
 - Equal-K: every outcome's geometry must expand to the same element count
   (the error names each outcome's geometry and K)
+- Per outcome, `probability` is validated (finite, in `[0,1]`) and every
+  element's total probability (summed across outcomes) must be ≤ 1
+  (tolerance `1e-10`) — via the shared `resolve_probability_schedule`
+  resolver (`src/Circuit/probabilities.jl`)
 - Staircase/Pointer physics guard: if any outcome uses a staircase or
-  `Pointer` geometry, Σp must equal 1. The CIPT random walk advances via the
-  selected staircase every step; an identity remainder (`Σp < 1`) would
-  silently stall the walk.
+  `Pointer` geometry, Σp at that element must equal 1 (tolerance `1e-10`).
+  The CIPT random walk advances via the selected staircase every step; an
+  identity remainder (`Σp < 1`) would silently stall the walk.
 - The removed `rng=` keyword (or any other keyword) throws with a migration
   message
 
@@ -104,13 +121,22 @@ Circuit(L=4, bc=:periodic) do c
     ])
 end
 ```
+
+# Example (per-element vector probability)
+```julia
+Circuit(L=4, bc=:periodic) do c
+    apply_with_prob!(c; outcomes=[
+        (probability=[0.1, 0.2, 0.3, 0.1], gate=Measure(:Z), geometry=AllSites())
+    ])
+end
+```
 """
 function apply_with_prob!(
         builder::CircuitBuilder;
         outcomes::Vector{<:NamedTuple{(:probability, :gate, :geometry)}},
         kwargs...
 )
-    # (iv) rng= kwarg was hard-removed in v0.1 — fail loudly, never ignore
+    # rng= kwarg was hard-removed in v0.1 — fail loudly, never ignore
     if haskey(kwargs, :rng)
         throw(ArgumentError(
             "apply_with_prob! no longer accepts the rng= keyword (removed in v0.1.0). " *
@@ -123,39 +149,50 @@ function apply_with_prob!(
             join(keys(kwargs), ", ")))
     end
 
-    # Must provide at least one outcome
+    # Explicit pre-check: avoids crashing on `first(Ks)` in
+    # _op_element_count below for an empty outcomes vector.
     if isempty(outcomes)
         throw(ArgumentError("outcomes cannot be empty"))
     end
 
-    # (ii) Validate probabilities sum to ≤ 1.0
-    probs = Float64[Float64(o.probability) for o in outcomes]
-    total_prob = sum(probs)
-    if total_prob > 1.0 + 1e-10
-        throw(ArgumentError("Probabilities sum to $total_prob (must be ≤ 1)"))
-    end
-
     op = (type = :stochastic, rng = :gates_spacetime, outcomes = collect(outcomes))
 
-    # (i) Equal-K rule: every outcome must expand to the same element count.
-    # _op_element_count (Circuit/draws.jl) throws an ArgumentError naming
-    # each outcome's geometry and K on violation.
-    _op_element_count(op, builder.L, builder.bc)
+    # Equal-K rule: every outcome's geometry must expand to the same
+    # element count K (Circuit/draws.jl).
+    K = _op_element_count(op, builder.L, builder.bc)
 
-    # (iii) Staircase/Pointer physics guard: the walk must advance EVERY
-    # step. With Σp < 1 the identity remainder would sometimes be selected,
-    # and identity does not advance staircases — silently freezing the CIPT
-    # random walk. Make that a build-time error.
+    # Validate via the shared resolver; reuse its per-column sums below for
+    # the walker guard. Scalar-only calls keep the legacy Σp error message.
+    is_scalar_only = all(o -> o.probability isa Real, outcomes)
+    M = try
+        resolve_probability_schedule(outcomes, K)
+    catch e
+        if is_scalar_only && e isa ArgumentError && occursin("must be <= 1", e.msg)
+            probs = Float64[Float64(o.probability) for o in outcomes]
+            total_prob = sum(probs)
+            throw(ArgumentError("Probabilities sum to $total_prob (must be ≤ 1)"))
+        end
+        rethrow()
+    end
+
+    # Staircase/Pointer guard: the walk must advance every element; reuse
+    # M's per-column sums rather than recomputing from raw outcomes.
     has_walker = any(o -> (o.geometry isa AbstractStaircase) || (o.geometry isa Pointer),
         outcomes)
-    if has_walker && total_prob < 1.0 - 1e-10
-        throw(ArgumentError(
-            "Stochastic operation with staircase/Pointer geometry requires Σp = 1 " *
-            "(got Σp = $total_prob). The identity remainder (probability $(1 - total_prob)) " *
-            "does not advance staircases, which would silently stall the random walk " *
-            "(CIPT physics requires the walk to advance every step). Either make the " *
-            "probabilities sum to 1 (e.g. add an explicit identity-like outcome) or use " *
-            "a non-walking geometry."))
+    if has_walker
+        for k in 1:K
+            total_k = sum(view(M, :, k))
+            if !(abs(total_k - 1.0) <= 1e-10)
+                throw(ArgumentError(
+                    "Stochastic operation with staircase/Pointer geometry requires " *
+                    "Σp = 1 at every element (element $k of $K got Σp = $total_k). " *
+                    "The identity remainder (probability $(1 - total_k)) does not " *
+                    "advance staircases, which would silently stall the random walk " *
+                    "(CIPT physics requires the walk to advance every step). Either " *
+                    "make the probabilities at element $k sum to 1 (e.g. add an " *
+                    "explicit identity-like outcome) or use a non-walking geometry."))
+            end
+        end
     end
 
     # Odd-L PBC brickwork layers have no valid tiling — warn (once per
@@ -165,7 +202,8 @@ function apply_with_prob!(
             _warn_bricklayer_odd_pbc(o.geometry, builder.L, builder.bc)
     end
 
-    # Record stochastic operation
+    # Record stochastic operation — the caller's ORIGINAL outcomes (scalar
+    # or vector probability values), never the resolver's derived matrix.
     push!(builder.operations, op)
     return nothing
 end

@@ -35,20 +35,29 @@ function build_template_groups_ascii(circuit; n_steps::Int = 1)
                 end
 
             elseif op.type == :stochastic
-                # Template: show ALL outcomes unconditionally (no random selection)
-                for outcome in op.outcomes
+                # Template: show ALL outcomes unconditionally (no random selection).
+                # Resolve the shared per-element schedule once so each rendered
+                # gate gets its own p_k instead of a single scalar broadcast.
+                K = _op_element_count(op, circuit.L, circuit.bc)
+                schedule = resolve_probability_schedule(op.outcomes, K)
+                for (i, outcome) in enumerate(op.outcomes)
                     outcome_ops = ExpandedOp[]
-                    # Annotate label with probability so template view distinguishes from deterministic ops
-                    p = outcome.probability
                     base_label = gate_label(outcome.gate)
-                    label = p == 1.0 ? base_label :
-                            string(base_label, "(", round(p; digits = 2), ")")
                     if is_compound_geometry(outcome.geometry)
                         elements = get_compound_elements(outcome.geometry, circuit.L, circuit.bc)
-                        for sites in elements
+                        for (k, sites) in enumerate(elements)
+                            p_k = schedule[i, k]
+                            label = p_k == 1.0 ? base_label :
+                                    string(base_label, "(", round(p_k; digits = 2), ")")
                             push!(outcome_ops, ExpandedOp(step, outcome.gate, sites, label))
                         end
                     else
+                        # Set geometry: semantically ONE label position — use
+                        # column 1 of the resolved schedule (matches existing
+                        # single-label rendering for set geometries).
+                        p_k = schedule[i, 1]
+                        label = p_k == 1.0 ? base_label :
+                                string(base_label, "(", round(p_k; digits = 2), ")")
                         sites = compute_sites_dispatch(
                             outcome.geometry, outcome.gate, step, circuit.L, circuit.bc)
                         push!(outcome_ops, ExpandedOp(step, outcome.gate, sites, label))

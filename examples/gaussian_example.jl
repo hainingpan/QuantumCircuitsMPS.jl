@@ -79,6 +79,67 @@ function run_diii(; L, p, seed, t=L, bc=:periodic)
     return state.observables[:mi][end]
 end
 
+# --- Inhomogeneous p to induce domain walls: `probability` can also be a
+# vector — one entry per bond, in element order — so each gate can have its own
+# p. Here each bond's measurement probability follows a space- and
+# time-dependent profile p(i, t): two domain walls sweep toward the center,
+# cross at t = 48, and separate again. Odd bonds measure with p(i, t), even
+# bonds with 1 - p(i, t).
+function p_profile(x::Real, t::Int; L::Int=128, p_low=0.1, p_high=0.9, k=0.5)
+    t == 0 && return p_low
+    v = (L / 4) / (48 - 16)
+    δ = max(t - 16, 0)
+    a, b = minmax(L / 4 + v * δ, 3L / 4 - v * δ)
+    u = 0.5 * (tanh(k * (x - a)) - tanh(k * (x - b)))
+    return t <= 48 ? p_low + (p_high - p_low) * u : p_high - (p_high - p_low) * u
+end
+
+# One static, vector-probability circuit for a single time step t: the odd
+# half-layer measures with the field p(x, t) at each bond midpoint x, the even
+# half-layer (incl. the PBC wrap bond) with its local complement 1 - p(x, t).
+function build_diii_circuit_t(t::Int; L::Int=128, bc::Symbol=:periodic)
+    p_odd = [p_profile(mod(first(s), L) + 0.5, t; L=L)
+             for s in elements(Bricklayer(:odd), L, bc)]
+    p_even = [1.0 - p_profile(mod(first(s), L) + 0.5, t; L=L)
+              for s in elements(Bricklayer(:even), L, bc)]
+    return Circuit(L=L, bc=bc) do c
+        apply_with_prob!(c; outcomes=[
+            (probability=p_odd,      gate=BondParity(),  geometry=Bricklayer(:odd)),
+            (probability=1 .- p_odd, gate=GaussianHaar(), geometry=Bricklayer(:odd)),
+        ])
+        apply_with_prob!(c; outcomes=[
+            (probability=p_even,      gate=BondParity(),  geometry=Bricklayer(:even)),
+            (probability=1 .- p_even, gate=GaussianHaar(), geometry=Bricklayer(:even)),
+        ])
+    end
+end
+
+# Full trajectory: rebuild circuit_t each step (the per-bond probabilities
+# depend on t, the state/RNG registry is preserved across rebuilds) and collect
+# the BondP measurements selected at each step from the newly logged events.
+function run_inhomogeneous_demo(; L::Int=128, tmax::Int=80, seed::Int=1)
+    state = SimulationState(L=L, bc=:periodic, backend=:gaussian, site_type="Majorana",
+        rng=RNGRegistry(gates_spacetime=4 * (seed - 1) + 1,
+                        born_measurement=4 * (seed - 1) + 2,
+                        gates_realization=4 * (seed - 1) + 3,
+                        state_init=4 * (seed - 1) + 4),
+        log_events=true)
+    initialize!(state, RandomGaussianState())
+
+    measurements = NamedTuple{(:t, :layer, :x), Tuple{Int, Symbol, Float64}}[]
+    for t in 1:tmax
+        circuit_t = build_diii_circuit_t(t; L=L)
+        event_start = length(events(state))
+        simulate!(circuit_t, state; n_steps=1, record_when=:final_only)
+        for ev in events(state)[(event_start + 1):end]
+            (ev isa QuantumCircuitsMPS.GateApplied && ev.gate_label == "BondP") || continue
+            push!(measurements, (t=t, layer=(ev.op_idx == 1 ? :odd : :even),
+                x=mod(first(ev.sites), L) + 0.5))
+        end
+    end
+    return measurements
+end
+
 if abspath(PROGRAM_FILE) == @__FILE__
     # === Sweep parameters (mirror of the notebook's Section 3) ===
     # L = number of MAJORANA sites (paper's curves use L = 32..256; reduced here)
@@ -128,4 +189,11 @@ if abspath(PROGRAM_FILE) == @__FILE__
         pmax = p_list[imax]
         @printf("L=%-3d  max MI = %.4f at p = %.3f\n", L_list[iL], MI_mean[imax, iL], pmax)
     end
+
+    # === Inhomogeneous-p domain-wall demo (L=128, tmax=80, seed=1) ===
+    measurements = run_inhomogeneous_demo()
+    n_odd = count(m -> m.layer == :odd, measurements)
+    n_even = count(m -> m.layer == :even, measurements)
+    println("\nInhomogeneous-p demo: $(length(measurements)) BondP measurements " *
+            "($n_odd odd, $n_even even)")
 end

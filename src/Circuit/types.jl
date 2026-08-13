@@ -35,6 +35,12 @@ Operations are stored as NamedTuples with different formats:
 ```julia
 (type = :stochastic, rng = :gates_spacetime, outcomes = [(probability=p, gate=g, geometry=geo), ...])
 ```
+Each outcome's `probability` (`p` above) is a scalar `Real`, which
+broadcasts identically across every element; `probability` may also be an
+`AbstractVector{<:Real}` with one entry per geometry element (in
+`elements(geo, L, bc)` order), so each gate location gets its own
+probability. Scalar and vector outcomes may be freely mixed within one
+operation's `outcomes` list.
 
 # Construction
 Users construct circuits via the do-block API (see `CircuitBuilder`):
