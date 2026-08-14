@@ -1008,7 +1008,7 @@ end
     end
 
     @testset "Multi-qubit spanning box works in transposed layout" begin
-        # Ensure spanning box logic (from Task 3) still works after transpose
+        # Ensure spanning box logic still works after transpose
         circuit = Circuit(L = 4, bc = :periodic) do c
             apply!(c, HaarRandom(), AdjacentPair(1))
         end
@@ -1045,7 +1045,7 @@ end
                 # Read SVG content
                 read(svg_path, String)
             finally
-                rm(svg_path; force = true)   # tempfile hygiene (T28)
+                rm(svg_path; force = true)   # tempfile hygiene
             end
 
             # Verify SVG was created and contains expected structure
@@ -1085,7 +1085,7 @@ end
                 plot_circuit(circuit; gates_spacetime = 0, filename = svg_path)
                 read(svg_path, String)
             finally
-                rm(svg_path; force = true)   # tempfile hygiene (T28)
+                rm(svg_path; force = true)   # tempfile hygiene
             end
 
             # Verify SVG was created
@@ -1390,7 +1390,7 @@ end
                 plot_circuit(circuit; gates_spacetime = 0, filename = svg_path)
                 read(svg_path, String)
             finally
-                rm(svg_path; force = true)   # tempfile hygiene (T28)
+                rm(svg_path; force = true)   # tempfile hygiene
             end
 
             # Verify label is NOT the type name (Luxor renders text as glyphs)
@@ -1420,7 +1420,7 @@ end
                 plot_circuit(circuit; gates_spacetime = 0, filename = svg_path)
                 read(svg_path, String)
             finally
-                rm(svg_path; force = true)   # tempfile hygiene (T28)
+                rm(svg_path; force = true)   # tempfile hygiene
             end
 
             # Count boxes - should have 2 per NNN gate (4 gates × 2 = 8 boxes minimum)
@@ -1450,7 +1450,7 @@ end
                 plot_circuit(circuit; gates_spacetime = 0, filename = svg_path)
                 read(svg_path, String)
             finally
-                rm(svg_path; force = true)   # tempfile hygiene (T28)
+                rm(svg_path; force = true)   # tempfile hygiene
             end
 
             # Verify no letter suffixes (1a, 1b, etc)
@@ -1487,7 +1487,7 @@ end
                 plot_circuit(circuit; gates_spacetime = 0, filename = svg_path)
                 read(svg_path, String)
             finally
-                rm(svg_path; force = true)   # tempfile hygiene (T28)
+                rm(svg_path; force = true)   # tempfile hygiene
             end
 
             # Just verify SVG was created successfully

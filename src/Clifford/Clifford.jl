@@ -2,14 +2,13 @@
 # _apply_single! methods dispatching each Clifford-compatible gate directly
 # onto a QuantumClifford.jl MixedDestabilizer tableau (state.backend.tableau).
 #
-# NAMESPACE NOTE (see .sisyphus/notepads/clifford-backend/learnings.md, Task 6
-# critical-fix section): QuantumCircuitsMPS.jl ITSELF defines and exports its
+# NAMESPACE NOTE: QuantumCircuitsMPS.jl ITSELF defines and exports its
 # own `apply!` (src/Core/apply.jl, `apply!(state::SimulationState, gate, geo)`).
 # A selective `using QuantumClifford: apply!` inside this file would bind the
 # name `apply!` in THIS module to QuantumClifford's generic function before
 # Core/apply.jl (included later) tries to add its own method to the SAME name
-# — a namespace collision risk analogous to the `expect` bug that broke 89
-# tests in Task 6. To avoid this entirely, we use a bare `import QuantumClifford`
+# — a namespace collision risk this pattern previously caused with `expect`.
+# To avoid this entirely, we use a bare `import QuantumClifford`
 # (no names pulled into scope) and fully-qualify every call as
 # `QuantumClifford.apply!(...)`, `QuantumClifford.sX(...)`, etc.
 import QuantumClifford

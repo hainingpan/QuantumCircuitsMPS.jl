@@ -339,8 +339,7 @@ removes one redundant gate and tightens the public export surface.
 ### Performance
 
 Baseline: commit `5ab86ab` (`benchmark/results/baseline-5ab86ab.json`),
-Julia 1.12.6. All comparisons below are before/after on the same machine;
-see the notepad-linked evidence logs for full detail.
+Julia 1.12.6. All comparisons below are before/after on the same machine.
 
 - **State-vector observable loop optimization** (shared `_sv_digit` stride
   helper + single-pass algorithms, L=12 random state):

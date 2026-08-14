@@ -1,6 +1,6 @@
-# === Gaussian backend: Majorana chain site granularity (T15) ===
+# === Gaussian backend: Majorana chain site granularity ===
 # Standalone: julia --project=. -e 'include("test/gaussian/test_majorana_chain.jl")'
-# NOT wired into runtests.jl (T13's job).
+# NOT wired into runtests.jl.
 #
 # site_type="Majorana": each site IS one Majorana mode (majoranas_per_site=1,
 # Γ is L×L) vs the default fermionic-mode granularity (2 Majoranas per site,

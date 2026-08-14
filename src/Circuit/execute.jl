@@ -239,7 +239,7 @@ function simulate!(circuit::Circuit, state::SimulationState;
     # Reset staircase positions once at the start
     _reset_circuit_geometries!(circuit)
 
-    # === Per-call elements() caches (perf, T23) ===
+    # === Per-call elements() caches (performance) ===
     # `elements(geo, L, bc)` is recomputed every step in the hot loop; for
     # provably step-invariant geometries (see `_is_static_geometry`) the
     # result is cached here, keyed by op index. Scope is STRICTLY local to
@@ -262,7 +262,7 @@ function simulate!(circuit::Circuit, state::SimulationState;
                     # Broadcast geometry: one application per element, in
                     # canonical enumeration order (API contract).
                     # Step-invariant geometries are cached per op index for
-                    # the duration of this simulate! call (T23).
+                    # the duration of this simulate! call.
                     elems = if _is_static_geometry(geo)
                         get!(() -> elements(geo, circuit.L, circuit.bc),
                             det_elems_cache, op_idx)
@@ -314,8 +314,8 @@ function simulate!(circuit::Circuit, state::SimulationState;
                 outcomes = op.outcomes
 
                 # An op's elements() results may be cached across steps only
-                # when EVERY outcome geometry is provably step-invariant
-                # (T23). Any staircase/Pointer/unknown member disables
+                # when EVERY outcome geometry is provably step-invariant.
+                # Any staircase/Pointer/unknown member disables
                 # caching for the WHOLE op — conservative by design.
                 op_cacheable = all(o -> _is_static_geometry(o.geometry), outcomes)
 

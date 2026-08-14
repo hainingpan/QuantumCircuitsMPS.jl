@@ -4,13 +4,12 @@
 #   - GaussianHaar: Haar-random O ∈ SO(4) conjugation on the 4 Majoranas of
 #     the two target sites (DIRECT conjugation — exact for unitaries; the
 #     Choi/contraction kernel `gaussian_contraction!` is reserved for
-#     measurements, which a later task wires up).
+#     measurements).
 #   - PauliX: fermionic occupation flip (single-Majorana reflection).
 #   - AbstractGate fallback: informative ArgumentError (mirrors the Clifford
 #     backend's rejecting fallback in src/Clifford/Clifford.jl).
 #
-# DISPATCH NOTE (see .sisyphus/notepads/gaussian-backend/learnings.md, Task 3
-# follow-up fix): the AbstractGate catch-all below (specializing on `state`'s
+# DISPATCH NOTE: the AbstractGate catch-all below (specializing on `state`'s
 # type parameter only) is AMBIGUOUS against any un-parameterized
 # `_apply_single!(state::SimulationState, gate::SpecificGate, ...)` method
 # (specializing on `gate`'s type only) — exactly the bug class previously hit
@@ -36,8 +35,8 @@ where `n` is the total number of Majorana indices carried by the two sites
   ``\exp(\theta\,\gamma_a\gamma_b)`` with ``\theta \sim U[0,2\pi)`` (``SO(2)\cong U(1)``, Haar = uniform angle) —
   the class-DIII unitary `K_U` of Pan, Shapourian, Jian, arXiv:2411.04191 (Eq. S-III.1; Python reference
   `GTN.measure_all_tri_op`'s `Υ = kraus((0, cos φ, sin φ))` branch). The
-  φ ↔ rotation convention, DERIVED EMPIRICALLY from the Python golden
-  cross-check (`test/gaussian/test_majorana_chain.jl`): contracting
+  φ ↔ rotation convention, matching the reference Python implementation
+  (cross-checked in `test/gaussian/test_majorana_chain.jl`): contracting
   `kraus((0, cos φ, sin φ))` on the Majorana pair `(a, b)` equals direct
   conjugation ``\Gamma \leftarrow R\,\Gamma\,R^T`` with ``R = \begin{pmatrix}\cos\varphi & -\sin\varphi\\ \sin\varphi & \cos\varphi\end{pmatrix}`` on
   rows/columns `(a, b)` (exact to machine precision). Since ``\varphi \sim U[0,2\pi)``
@@ -128,8 +127,7 @@ end
 
 Dispatch disambiguator (always throws). `BondParity` is a projective
 measurement: on the Gaussian backend it is executed through the `execute!`
-measurement protocol (Gaussian `execute!` override, added by the measurement
-task), never through the `_apply_single!` gate path. This method exists so
+measurement protocol (Gaussian `execute!` override), never through the `_apply_single!` gate path. This method exists so
 the `AbstractGate` catch-all below (specializing on `state`'s type
 parameter) is not ambiguous against the un-parameterized
 `_apply_single!(state::SimulationState, gate::BondParity, ...)` rejection

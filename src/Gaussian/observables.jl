@@ -20,27 +20,27 @@
 # MPS-typed generic implementations in `src/Observables/*.jl` and crash with
 # a raw field-access error (`type GaussianBackend has no field mps`) instead
 # of an informative message — this exact failure mode previously happened
-# for the Clifford backend (see `src/Clifford/observables.jl` and
-# `.sisyphus/notepads/v04-findings.md`, T9 findings), motivating exhaustive
-# rejection coverage here. These typed overrides intercept the call before
-# the generic runs, mirroring `src/Clifford/observables.jl`'s style.
+# for the Clifford backend (see `src/Clifford/observables.jl`), motivating
+# exhaustive rejection coverage here. These typed overrides intercept the
+# call before the generic runs, mirroring `src/Clifford/observables.jl`'s
+# style.
 #
 # NOT rejected here (handled elsewhere, do not add a Gaussian rejection for
-# these — see .sisyphus/notepads/gaussian-backend/learnings.md, Task 12):
+# these):
 #   - BornProbability: `born_probability(state::SimulationState{GaussianBackend}, ...)`
-#     implemented in `src/Gaussian/measurement.jl` (T8).
+#     implemented in `src/Gaussian/measurement.jl`.
 #   - EntanglementEntropy, Magnetization: pending a Gaussian-specific
-#     covariance-matrix override (T10) — NOT yet landed as of this task, but
+#     covariance-matrix override — not yet implemented, but
 #     intentionally left unrejected since they are permanently supportable
 #     (not deferred/rejected) fermionic-Gaussian quantities.
 #   - EntropyProfile: a pure composition of EntanglementEntropy — no
-#     rejection needed; it will work automatically once T10's
+#     rejection needed; it will work automatically once the
 #     EntanglementEntropy override lands (composition, not its own
 #     backend-specific code).
-#   - MutualInformation, TripartiteMutualInformation: reserved for a future
-#     task (T11) that will add real Gaussian (covariance-matrix subsystem
-#     entropy) implementations — explicitly NOT rejected here per this
-#     task's instructions, even though no Gaussian override exists yet.
+#   - MutualInformation, TripartiteMutualInformation: reserved for future
+#     real Gaussian (covariance-matrix subsystem entropy) implementations —
+#     deliberately NOT rejected here, even though no Gaussian override
+#     exists yet.
 
 """
     (obs::StringOrder)(state::SimulationState{GaussianBackend})

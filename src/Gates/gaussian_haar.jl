@@ -1,7 +1,7 @@
 # === GaussianHaar Gate (fermionic Gaussian backend) ===
 # Type definition + generic (MPS/state-vector) rejection ONLY. The actual
 # Gaussian-backend behavior (Haar-random SO(4) rotation on the Majorana
-# covariance matrix) is added by a LATER task via a
+# covariance matrix) is provided via a
 # `_apply_single!(state::SimulationState{GaussianBackend}, gate::GaussianHaar, ...)`
 # override, which Julia's method dispatch prefers over the generic fallback
 # defined in this file (more specific on `state`'s type parameter).
@@ -35,7 +35,7 @@ support(::GaussianHaar) = 2
 
 Generic (MPS/state-vector-backend) rejection fallback: `GaussianHaar` has no
 `gate_matrix`/`build_operator` representation and is only implemented on
-`backend=:gaussian`. A later task adds the Gaussian-specific
+`backend=:gaussian`. The Gaussian backend provides the Gaussian-specific
 `_apply_single!(state::SimulationState{GaussianBackend}, ::GaussianHaar, ...)`
 override; Julia's dispatch prefers that method (more specific on `state`)
 over this fallback whenever the state actually uses `GaussianBackend`. The

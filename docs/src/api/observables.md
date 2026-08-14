@@ -29,8 +29,8 @@ list_observables
 
 ## Observables Catalog
 
-New in v0.4.0: `PauliString` and `MutualInformation` (T24/T25), plus four
-observables composed on top of them (T38). All six are supported on **all
+New in v0.4.0: `PauliString` and `MutualInformation`, plus four
+observables composed on top of them. All six are supported on **all
 three backends** (MPS, state vector, Clifford):
 
 | Observable | Formula | Backend notes |

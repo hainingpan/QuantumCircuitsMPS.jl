@@ -1,6 +1,6 @@
 # === BondParity Gate (fermionic Gaussian backend) ===
 # Type definition + generic (MPS/state-vector) rejection ONLY. The actual
-# Gaussian-backend measurement behavior is added by a LATER task via a
+# Gaussian-backend measurement behavior is provided via a
 # Gaussian-specific `_apply_single!`/`execute!` override, which Julia's
 # method dispatch prefers over the generic fallback defined in this file.
 
@@ -32,7 +32,7 @@ is_measurement(::BondParity) = true  # Born-samples via :born_measurement, like 
 
 Generic (MPS/state-vector-backend) rejection fallback: `BondParity` has no
 `gate_matrix`/`build_operator` representation and is only implemented on
-`backend=:gaussian`. A later task adds the Gaussian-specific
+`backend=:gaussian`. The Gaussian backend provides the Gaussian-specific
 `_apply_single!`/`execute!` override (more specific on `state`), which
 Julia's dispatch prefers whenever the state actually uses `GaussianBackend`.
 The `CliffordBackend`'s own `AbstractGate` fallback independently rejects

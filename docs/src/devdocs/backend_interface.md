@@ -144,9 +144,8 @@ and `CliffordBackend` each already have their own
 12), which is neither more nor less specific than an un-parameterized
 `(::SimulationState, ::GaussianHaar)`/`::BondParity` rejection — an ambiguous
 pair Julia cannot resolve. The disambiguating methods specialize on *both*
-`state`'s type parameter and the gate's type, so they win outright. See
-`.sisyphus/notepads/gaussian-backend/learnings.md` (Task 3 follow-up) for the
-discovery/fix history; any future backend adding its own
+`state`'s type parameter and the gate's type, so they win outright. Any
+future backend adding its own
 `(::SimulationState{ItsBackend}, ::AbstractGate)` catch-all alongside a
 gate-specific rejection defined elsewhere must repeat this pattern.
 

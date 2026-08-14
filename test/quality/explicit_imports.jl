@@ -1,12 +1,11 @@
-# === QUALITY GATE: ExplicitImports.jl — Task 29 (standing check) ===
+# === QUALITY GATE: ExplicitImports.jl (standing check) ===
 #
-# Guards the explicit-import discipline established in T29: every name the
+# Guards the explicit-import discipline established here: every name the
 # package uses from a dependency is imported explicitly (`using X: name`) in
 # the header block of src/QuantumCircuitsMPS.jl — no implicit `using X`
 # reliance — and no explicitly-imported name is stale (imported but unused).
 #
-# Deliberately NOT enforced here (both are advisory findings we accept, see
-# .sisyphus/evidence/v04/task-29-explicitimports-after.log):
+# Deliberately NOT enforced here (both are advisory findings we accept):
 #   - `check_all_qualified_accesses_via_owners`: flags `Random.rand`/
 #     `Random.randn` (owner: Base) in the SentinelRNG overload block of
 #     src/Core/rng.jl. That block is frozen by the v0.4 plan guardrail (no
@@ -21,7 +20,7 @@ using Test
 using ExplicitImports
 using QuantumCircuitsMPS
 
-@testset "QUALITY ExplicitImports (T29)" begin
+@testset "QUALITY ExplicitImports" begin
     # `check_*` functions return `nothing` when clean, throw otherwise —
     # the `=== nothing` form surfaces the diagnostic as a test error.
     @test check_no_implicit_imports(QuantumCircuitsMPS) === nothing

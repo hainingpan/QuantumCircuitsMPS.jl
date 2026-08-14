@@ -1,4 +1,4 @@
-# === Task 14: legacy API removal — migration stubs + export surface ===
+# === legacy API removal — migration stubs + export surface ===
 # Contract under test: the v0.1 API-surface manifest (KEEP + ADD + REMOVE
 # tables), maintained inline as the `keep`/`add` arrays below.
 # Removed entry points must NOT vanish silently (UndefVarError) — each remains
@@ -7,7 +7,7 @@
 using Test
 using QuantumCircuitsMPS
 
-@testset "Legacy API removal (v0.1.0, Task 14)" begin
+@testset "Legacy API removal (v0.1.0)" begin
     @testset "EXPORTS: surface == manifest KEEP + ADD" begin
         # KEEP table (v0.4.0 surface: CT.jl-parity internal exports removed,
         # Measurement removed, born_probability kept as public)
@@ -41,11 +41,11 @@ using QuantumCircuitsMPS
             :EachSite, :Sites, :Measure, :OnOutcome, :MatrixGate,
             :Rx, :Ry, :Rz, :Hadamard, :ProductGate,
             :events, :measurements, :expected_draws,
-            :CNOT, :PhaseGate, :SWAP, :RandomClifford,  # Clifford backend gates (Task 11)
-            :RandomStateVector,  # v0.4.0 (T13): SV random-init exported alongside RandomMPS
-            :PauliString,  # v0.4.0 (T24): Pauli-string expectation observable (all 3 backends)
-            :MutualInformation,  # v0.4.0 (T25): I(A:B) = S(A)+S(B)-S(A∪B) (all 3 backends)
-            # v0.4.0 (T38): composed common observables (all 3 backends)
+            :CNOT, :PhaseGate, :SWAP, :RandomClifford,  # Clifford backend gates
+            :RandomStateVector,  # v0.4.0: SV random-init exported alongside RandomMPS
+            :PauliString,  # v0.4.0: Pauli-string expectation observable (all 3 backends)
+            :MutualInformation,  # v0.4.0: I(A:B) = S(A)+S(B)-S(A∪B) (all 3 backends)
+            # v0.4.0: composed common observables (all 3 backends)
             :Correlator, :EntropyProfile, :TripartiteMutualInformation,
             :MagnetizationFluctuations,
             # Gaussian (free-fermion) backend surface (gaussian-backend plan):
@@ -55,12 +55,12 @@ using QuantumCircuitsMPS
         ]
         # Geometry contract helpers documented in the KEEP table's
         # AbstractGeometry row ("Gains canonical elements(geo, L, bc),
-        # element_count, is_broadcast trait") — exported by Task 3.
+        # element_count, is_broadcast trait") — exported.
         geometry_contract = [:elements, :element_count, :is_broadcast]
 
         expected = Set(vcat(keep, add, geometry_contract))
         actual = Set(names(QuantumCircuitsMPS))
-        delete!(actual, :QuantumCircuitsMPS)  # module name itself (Task 2 gotcha)
+        delete!(actual, :QuantumCircuitsMPS)  # module name itself
 
         extra = sort!(collect(setdiff(actual, expected)))
         missing_ = sort!(collect(setdiff(expected, actual)))

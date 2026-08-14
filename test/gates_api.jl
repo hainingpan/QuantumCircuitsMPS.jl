@@ -20,7 +20,7 @@ using ITensors: siteinds, ITensor, prime, Index
 import ITensorMPS
 
 const QCM = QuantumCircuitsMPS
-using QuantumCircuitsMPS: GateApplied  # internal since Task 14 (not in manifest)
+using QuantumCircuitsMPS: GateApplied  # internal (not in manifest)
 
 # Helper: fresh |0...0⟩ qubit state
 function _fresh_state(L::Int; seeds = (
@@ -305,7 +305,7 @@ end
     end
 
     # =====================================================================
-    # ProductGate (Task 11): product layer as ONE gate (K = 1 in outcomes)
+    # ProductGate: product layer as ONE gate (K = 1 in outcomes)
     # =====================================================================
     @testset "ProductGate (v0.1)" begin
         @testset "construction validation" begin

@@ -1,8 +1,8 @@
-# === T25: MutualInformation observable — analytic cross-checks ===
+# === MutualInformation observable — analytic cross-checks ===
 #
 # I(A:B) = S(A) + S(B) - S(A∪B), contiguous disjoint regions, all 3 backends.
 #
-# Analytic anchors (derived, see .sisyphus/notepads/v04-findings.md T25 entry):
+# Analytic anchors (derived):
 #   - Product state: every RDM is a pure product projector ⇒ I = 0.
 #   - Bell on (1,2), A={1}, B={2}: S(A)=S(B)=log2; A∪B={1,2} is PURE
 #     (unentangled from the rest) ⇒ S(A∪B)=0 ⇒ I = 2·log2. (General rule:
@@ -15,8 +15,8 @@
 #   - Stabilizer states have flat entanglement spectra ⇒ every renyi_index
 #     gives the same I on Bell/GHZ states (checked with renyi_index=2).
 #
-# BC note: all scenarios use bc=:open per T6's PBC-cut-semantics finding /
-# T11's established practice (MutualInformation itself is defined on physical
+# BC note: all scenarios use bc=:open per the PBC-cut-semantics finding /
+# established practice (MutualInformation itself is defined on physical
 # sites and is PBC-safe by construction, but open BC keeps cross-backend
 # comparisons free of the folded-MPS confound).
 
@@ -49,7 +49,7 @@ function _mi_scrambled_state(backend::Symbol, L::Int)
     return state
 end
 
-@testset "FEATURE MutualInformation (T25)" begin
+@testset "FEATURE MutualInformation" begin
     @testset "(a) product state: I = 0 on all backends" begin
         for backend in (:mps, :statevector, :clifford)
             state = _mi_state(backend, 6)

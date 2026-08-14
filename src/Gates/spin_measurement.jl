@@ -54,7 +54,7 @@ needs_normalization(::SpinSectorProjection) = true  # coherent projection shrink
     gate_matrix(gate::SpinSectorProjection) -> Matrix{ComplexF64}
 
 State-vector-path equivalent of `build_operator(gate::SpinSectorProjection, ...)`:
-the 9×9 projector as a dense complex matrix (audit fix, T17 — this method was
+the 9×9 projector as a dense complex matrix (this method was previously
 missing, so `apply!` on `backend=:statevector` threw `MethodError` and the
 README AKLT protocol could not run on the SV backend).
 

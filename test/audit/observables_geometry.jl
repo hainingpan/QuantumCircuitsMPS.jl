@@ -1,6 +1,6 @@
 # === AUDIT: Observables (Magnetization, StringOrder, DomainWall) + Geometry semantics ===
 #
-# Task 9 of the v0.4.0 physics audit. Analytic cross-checks reviewed against:
+# Part of the v0.4.0 physics audit. Analytic cross-checks reviewed against:
 #   src/Observables/{magnetization,string_order,domain_wall}.jl (MPS)
 #   src/StateVector/{magnetization,string_order,domain_wall}.jl  (SV)
 #   src/Clifford/magnetization.jl                                (Clifford)
@@ -30,21 +30,20 @@
 #   error ("type CliffordBackend has no field mps" / "... no field sites")
 #   by falling through to the MPS-typed generic methods
 #   (src/Observables/string_order.jl, src/Observables/domain_wall.jl).
-#   T14 fixed the rejection; the clean ArgumentError is pinned below.
+#   The rejection was fixed; the clean ArgumentError is pinned below.
 # - Magnetization(:Z) on an S=1 MPS state used to throw (expect(mps, "Z") →
 #   ArgumentError; "Z" op string undefined for ITensor "S=1" sites,
-#   src/Observables/magnetization.jl:24). T39 (arbitrary spin-S) fixed it;
+#   src/Observables/magnetization.jl:24). Arbitrary spin-S support fixed it;
 #   pinned below as a passing value test.
 # - SpinSectorProjection on the SV backend: originally a MethodError (no
-#   gate_matrix method) — FIXED in T17. The SV AKLT construction below
+#   gate_matrix method) — FIXED. The SV AKLT construction below
 #   still uses the MatrixGate(P₀+P₁) + manual renormalization route, which
 #   doubles as an independent cross-check of the gate_matrix fix.
 #
-# odd-L PBC Bricklayer behavior (PINNED, silently partial — recorded in
-# .sisyphus/notepads/v04-findings.md for T27):
+# odd-L PBC Bricklayer behavior (PINNED, silently partial):
 #   L=5 PBC :odd  → (1,2),(3,4)              [site 5 unpaired — no wrap pair]
 #   L=5 PBC :even → (2,3),(4,5)              [site 1 unpaired — no wrap pair;
-#                                             T17 fixed the former (5,1)
+#                                             this fixed the former (5,1)
 #                                             double-touch of site 5]
 #   L=5 PBC :nn   → 5 pairs (all ring bonds) [site coverage uneven per layer]
 #   NNN sublayers produce stride-4 partial covers; no error is raised.
@@ -133,8 +132,8 @@ end
         @test Magnetization(:Y)(sx) ≈ 0.0 atol=1e-12
     end
 
-    @testset "FIXED (T39): Magnetization(:Z) works on S=1 MPS" begin
-        # T39 routes spin site types to expect(mps, "Sz") — Magnetization
+    @testset "FIXED: Magnetization(:Z) works on S=1 MPS" begin
+        # This routes spin site types to expect(mps, "Sz") — Magnetization
         # returns (1/L)Σ⟨Sz⟩ (0.0 for the uniform |Z0⟩ product state).
         s1 = SimulationState(L = 4, bc = :open, site_type = "S=1", maxdim = 32,
             rng = _rng())
@@ -183,9 +182,9 @@ end
         @test_throws ArgumentError StringOrder(1, 9)(s)
     end
 
-    @testset "T17 FIX: SpinSectorProjection now supported on SV backend" begin
+    @testset "FIX: SpinSectorProjection now supported on SV backend" begin
         # gate_matrix(::SpinSectorProjection) was missing — the SV gate path
-        # threw MethodError (audit finding, T9 + T11; fixed in T17). Now
+        # threw MethodError (audit finding; fixed). Now
         # verify it applies AND matches the MatrixGate(P01)+normalize
         # workaround exactly.
         P01 = total_spin_projector(0) + total_spin_projector(1)
@@ -265,7 +264,7 @@ end
     @testset "FINDING: Clifford StringOrder/DomainWall crash" begin
         cs = _qubit_state(:clifford; L = 4)
 
-        # T14 fixed these to throw a clean ArgumentError instead of the
+        # This fixed these to throw a clean ArgumentError instead of the
         # historical raw FieldError (`state.backend.mps` fall-through).
         # Pinned at two levels: they throw (never a silent wrong answer) …
         @test_throws Exception StringOrder(1, 3)(cs)
@@ -338,10 +337,9 @@ end
     @testset "odd-L PBC Bricklayer behavior (PINNED)" begin
         # Odd L cannot be tiled by disjoint NN pairs. CURRENT behavior is
         # silently partial coverage — NO error is raised. Pinned verbatim
-        # so any future change is a deliberate, visible decision (T27 owns
-        # the coverage-policy question; see notepad).
+        # so any future change is a deliberate, visible decision.
         #
-        # T17 FIX: `:even` at odd L under PBC previously ALSO pushed the
+        # FIX: `:even` at odd L under PBC previously ALSO pushed the
         # wrap pair (L,1), so site L appeared in TWO pairs within one layer
         # ([[2,3],[4,5],[5,1]] at L=5) — a brickwork layer must touch each
         # site at most once. The wrap pair is now added only for even L;

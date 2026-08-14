@@ -1,23 +1,23 @@
 # test/regression/edge_cases.jl
 #
-# T27 coverage additions (v0.4.0) — permanent regression guards for:
+# Coverage additions (v0.4.0) — permanent regression guards for:
 #   1. L=1 minimal systems (MPS + Clifford backends)
-#   2. odd-L periodic circuits (L=5): Bricklayer wrap behavior post-T17 fix
+#   2. odd-L periodic circuits (L=5): Bricklayer wrap behavior post-fix
 #      (commit 23a5dee — no double-touch), a full MIPT circuit on the SV
 #      backend, and the MPS backend's documented clean rejection of odd-L PBC
 #      (the folded basis requires even L, src/Core/basis.jl)
 #   3. SimulationState / ProductState constructor validation, including two
-#      validations ADDED by T27 (L >= 1; binary_int >= 0) that previously
+#      validations ADDED (L >= 1; binary_int >= 0) that previously
 #      allowed silent construction of unusable/garbage states
 #
-# Scope is EXACTLY the cases enumerated in the v0.4 plan (T27) — no fuzzing,
+# Scope is EXACTLY the cases enumerated in the v0.4 plan — no fuzzing,
 # no exhaustive negative testing.
 
 using Test
 using QuantumCircuitsMPS
 using LinearAlgebra: norm
 
-@testset "REGRESSION edge_cases (T27)" begin
+@testset "REGRESSION edge_cases" begin
 
     # =====================================================================
     # 1. L=1 minimal systems
@@ -44,13 +44,13 @@ using LinearAlgebra: norm
     # =====================================================================
     # 2. Odd-L PBC (L=5)
     # =====================================================================
-    @testset "odd-L PBC: Bricklayer wrap behavior (post-T17 fix 23a5dee)" begin
-        # T17 fixed the :even odd-L PBC double-touch bug (enumeration was
+    @testset "odd-L PBC: Bricklayer wrap behavior (post-fix 23a5dee)" begin
+        # This fixed the :even odd-L PBC double-touch bug (enumeration was
         # [[2,3],[4,5],[5,1]] — site 5 in TWO pairs of one brickwork layer).
         # PIN the corrected behavior: NO wrap pair is added at odd L; :even
         # leaves site 1 unpaired (mirror of :odd leaving site L unpaired).
         # Partial per-layer coverage at odd L is the documented design (no
-        # error raised) — see .sisyphus/notepads/v04-findings.md (T9 + T17).
+        # error raised).
         @test QuantumCircuitsMPS.elements(Bricklayer(:even), 5, :periodic) ==
               [[2, 3], [4, 5]]
         @test QuantumCircuitsMPS.elements(Bricklayer(:odd), 5, :periodic) ==
@@ -160,7 +160,7 @@ using LinearAlgebra: norm
     # 3. Constructor validation
     # =====================================================================
     @testset "SimulationState: L=0 rejected (all 3 backends)" begin
-        # Validation ADDED by T27: previously L=0 (and negative L) was
+        # Validation ADDED: previously L=0 (and negative L) was
         # silently accepted on all 3 backends, yielding an empty state.
         for backend in (:mps, :statevector, :clifford)
             @test_throws ArgumentError SimulationState(
@@ -198,7 +198,7 @@ using LinearAlgebra: norm
     end
 
     @testset "ProductState: binary_int=-1 rejected" begin
-        # Validation ADDED by T27: previously ProductState(binary_int=-1) was
+        # Validation ADDED: previously ProductState(binary_int=-1) was
         # silently accepted, and initialize! parsed the '-' sign character of
         # the base-2 string as a bogus state label — producing a garbage state
         # instead of erroring.

@@ -10,7 +10,7 @@
 #   - arbitrary regions: non-contiguous / PBC-wrapped site subsets are
 #     supported on the Gaussian backend ONLY; the MPS/SV/Clifford paths
 #     still reject them at evaluation time (backward compat)
-#   - straddling entangled pair: I = 2·log(2), cross-checked against T5's
+#   - straddling entangled pair: I = 2·log(2), cross-checked against the
 #     exact density-matrix oracle at L=4
 #   - TMI == S_A+S_B+S_C−S_AB−S_AC−S_BC+S_ABC from subsystem entropies
 #   - Rényi-MI: real renyi_index composes the three Gaussian Sₙ terms (flat
@@ -22,7 +22,7 @@ using LinearAlgebra: I, eigvals, Hermitian
 
 const QCM = QuantumCircuitsMPS
 
-# T5's exponential-cost exact oracle (test-only; L ≤ 5). Guarded so this file
+# The exponential-cost exact oracle (test-only; L ≤ 5). Guarded so this file
 # can be included in the same process as test_observables.jl (which also
 # includes oracle.jl) without method-redefinition churn.
 isdefined(@__MODULE__, :oracle_density_matrix) ||
@@ -95,7 +95,7 @@ function _mi_maj(state, sites)
     sort!(vcat([[2r - 1, 2r] for r in (state.phy_ram[s] for s in sites)]...))
 end
 
-@testset "Gaussian MutualInformation + TMI (T11)" begin
+@testset "Gaussian MutualInformation + TMI" begin
     @testset "product state: I(A:B) ≈ 0 for any disjoint A, B" begin
         L = 8
         for (k, bits) in enumerate(("00000000", "01011010", "11111111"))
@@ -124,7 +124,7 @@ end
         # spectator regions stay uncorrelated
         @test abs(MutualInformation(1, 4)(state)) < 1e-12
 
-        # exact-ρ oracle cross-check (T5), same L=4 state
+        # exact-ρ oracle cross-check, same L=4 state
         Γ = state.backend.corr
         @test MutualInformation(1:2, 3:4)(state) ≈
               _oracle_mi(Γ, [1, 2], [3, 4], L) atol = 1e-10
@@ -273,7 +273,7 @@ end
     end
 end
 
-# === Rényi-n MutualInformation / TMI (T4) ====================================
+# === Rényi-n MutualInformation / TMI ====================================
 # The Gaussian MI path forwards `mi.renyi_index` into the three
 # `subsystem_entropy` calls (src/Gaussian/mutual_information.jl), so Iₙ is the
 # composition Sₙ(A) + Sₙ(B) − Sₙ(A∪B). NOTE: Iₙ for n ≠ 1 is NOT a proper
@@ -281,7 +281,7 @@ end
 # regions — so only FLAT-state analytic values, finiteness and genuine
 # n-dependence are asserted here (deliberately no monotonicity assertion).
 
-@testset "Gaussian Rényi-n MutualInformation + TMI (T4)" begin
+@testset "Gaussian Rényi-n MutualInformation + TMI" begin
     @testset "dimerized Majorana chain: I(1:2) = log(2) ∀n (flat)" begin
         # site_type="Majorana" vacuum is ⊕[[0,1],[-1,0]]: sites 1 and 2 form a
         # pure dimer, so S({1}) = S({2}) = log(2)/2 (odd 1×1 Γ_A, unpaired

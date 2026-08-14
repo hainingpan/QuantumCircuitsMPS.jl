@@ -1,11 +1,11 @@
-# === T38: Common observables — Correlator, EntropyProfile,
+# === Common observables — Correlator, EntropyProfile,
 #          TripartiteMutualInformation, MagnetizationFluctuations ===
 #
 # All four are COMPOSITIONS of existing per-backend building blocks
 # (PauliString, EntanglementEntropy, MutualInformation), so a single generic
 # method serves all three backends.
 #
-# Analytic anchors (derived; see .sisyphus/notepads/v04-findings.md T38 entry):
+# Analytic anchors (derived):
 #   - Correlator (connected): product Z-basis state → C(Z;i,j) = 0
 #     (⟨ZᵢZⱼ⟩ = ⟨Zᵢ⟩⟨Zⱼ⟩ exactly); Bell on (1,2) → C(Z;1,2) = 1 − 0·0 = 1,
 #     and C(X;1,2) = 1 as well (⟨XX⟩ = +1, ⟨X⟩ = 0).
@@ -24,7 +24,7 @@
 #
 # BC note: every cross-backend comparison uses bc=:open — under PBC the MPS
 # EntanglementEntropy `cut` is a RAM-bond index of the folded MPS, not the
-# physical bipartition SV/Clifford use (T6 audit finding).
+# physical bipartition SV/Clifford use (audit finding).
 
 using Test
 using QuantumCircuitsMPS
@@ -66,7 +66,7 @@ function _co_scrambled(backend::Symbol, L::Int)
     return state
 end
 
-@testset "FEATURE common observables (T38)" begin
+@testset "FEATURE common observables" begin
 
     # ---------------------------------------------------------------- Correlator
     @testset "Correlator: analytic anchors on all backends" begin
@@ -192,7 +192,7 @@ end
         @test length(state.observables[:czz]) == 3
         @test all(v -> v isa Float64, state.observables[:czz])
         @test length(state.observables[:varM]) == 3
-        # Vector-valued recording (T37 storage widening): one profile per record
+        # Vector-valued recording (storage widening): one profile per record
         @test length(state.observables[:prof]) == 3
         @test all(p -> p isa Vector{Float64} && length(p) == L - 1,
             state.observables[:prof])

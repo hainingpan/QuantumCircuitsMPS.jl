@@ -1,6 +1,6 @@
 module QuantumCircuitsMPS
 
-# Explicit imports (ExplicitImports.jl-verified, T29): every name this module
+# Explicit imports (checked by test/quality/explicit_imports.jl): every name this module
 # uses from its dependencies is imported by name — no implicit `using X`
 # reliance. The standing gate lives in test/quality/explicit_imports.jl.
 using ITensorMPS: ITensorMPS, @OpName_str, @SiteType_str, @StateName_str,
@@ -157,7 +157,7 @@ export SimulationState, initialize!, ProductState, RandomMPS, RandomStateVector,
 export GaussianBackend  # payload struct for backend=:gaussian; exposed for `isa` checks
 # Event log (opt-in via SimulationState(...; log_events=true)).
 # Event TYPES (CircuitEvent, GateApplied, MeasurementOutcome) and log_event! are
-# internal — use qualified names (manifest KEEP+ADD tables list only the accessors).
+# internal — use qualified names (only the accessors are part of the public API).
 export events, measurements
 # RNG
 export RNGRegistry, get_rng
@@ -172,7 +172,7 @@ export CNOT, PhaseGate, SWAP, RandomClifford  # Clifford backend gates (also usa
 export Measure, OnOutcome  # v0.1 feedback system (AbstractFeedback/CallbackFeedback internal — use qualified)
 export total_spin_projector, verify_spin_projectors
 export SpinSectorProjection, SpinSectorMeasurement
-export GaussianHaar, BondParity  # backend=:gaussian gate types (Gaussian-backend behavior added in a later task)
+export GaussianHaar, BondParity  # backend=:gaussian gate types
 # Geometry
 export AbstractGeometry, SingleSite, AdjacentPair, Bricklayer, AllSites
 export StaircaseLeft, StaircaseRight
@@ -180,10 +180,10 @@ export Pointer, move!
 export EachSite, Sites, elements, element_count, is_broadcast  # v0.1 geometry vocabulary
 # Observables
 export AbstractObservable, DomainWall, BornProbability, EntanglementEntropy, StringOrder,
-       Magnetization, PauliString,  # PauliString added v0.4.0 (T24)
-       MutualInformation,  # MutualInformation added v0.4.0 (T25)
+       Magnetization, PauliString,  # PauliString added v0.4.0
+       MutualInformation,  # MutualInformation added v0.4.0
        Correlator, EntropyProfile, TripartiteMutualInformation,
-       MagnetizationFluctuations  # composed common observables added v0.4.0 (T38)
+       MagnetizationFluctuations  # composed common observables added v0.4.0
 export born_probability  # functional form of BornProbability (used in README/Quick Start)
 export track!, record!, list_observables
 # API — legacy entry points (simulate, simulate_circuits, run_circuit!,

@@ -1,6 +1,6 @@
 # test/regression/randommps_rng.jl
 #
-# REGRESSION (T13): RandomMPS / RandomStateVector must draw from the
+# REGRESSION: RandomMPS / RandomStateVector must draw from the
 # RNGRegistry's :state_init stream — never from the global RNG.
 #
 # Bug being pinned (v0.3.x): `initialize!(state, RandomMPS(...))`
@@ -53,7 +53,7 @@ function _t13_random_sv_state(state_init_seed::Int; global_scramble::Int, L::Int
     return state
 end
 
-@testset "REGRESSION randommps_rng: :state_init determinism (T13)" begin
+@testset "REGRESSION randommps_rng: :state_init determinism" begin
     @testset "RandomMPS: same :state_init seed => identical MPS" begin
         L = 6
         s1 = _t13_random_mps_state(7; global_scramble = 1111, L = L)

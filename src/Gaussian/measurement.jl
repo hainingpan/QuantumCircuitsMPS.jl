@@ -10,8 +10,7 @@
 # `Measure(:Z)` and `Reset` then flow through the EXISTING generic
 # `execute!` methods in Core/apply.jl unchanged.
 #
-# Occupation convention (VERIFIED empirically, see kernel.jl header and
-# .sisyphus/notepads/gaussian-backend/learnings.md, Task 2):
+# Occupation convention (see kernel.jl header):
 #   ⟨cᵢ†cᵢ⟩ = (1 − Γ[2i−1, 2i]) / 2
 #   Γ[2i−1,2i] = +1 ⇒ unoccupied (outcome 0);  −1 ⇒ occupied (outcome 1).
 
@@ -73,7 +72,7 @@ genuinely consumed by the comparison (for a deterministic site `p₀ ∈ {0,1}`
 and the comparison is vacuous, i.e. the draw is redundant, exactly as on
 the Clifford backend).
 
-**Outcome → parity sign mapping (VERIFIED empirically, T2/T8):** the kernel
+**Outcome → parity sign mapping:** the kernel
 projector `parity_projection_upsilon(s)` leaves the post-measurement state
 with ``\Gamma[2i-1,2i]=-s``. To end with `Γ[2i−1,2i] = +1` (outcome 0,
 unoccupied) we contract with `s = −1`; for `Γ[2i−1,2i] = −1` (outcome 1,
@@ -139,10 +138,10 @@ chain (wrap bond `(L, 1)` → `ix = [L, 1]` under PBC). Same Born rule, same
 kernel, same draw contract — only the site→Majorana index mapping (via
 [`site_majoranas`](@ref)) differs.
 
-**Born rule (VERIFIED empirically vs the T5 ED/Pfaffian oracle, T9):** the
+**Born rule** (cross-validated against the exact-diagonalization/Pfaffian reference in `test/gaussian/oracle.jl`): the
 covariance element ``g = \Gamma[ix_1,ix_2]`` satisfies ``\langle i\hat\gamma_{ix_1}\hat\gamma_{ix_2}\rangle = -g``,
-so with the outcome encoding `outcome ∈ (0, 1) ↔ parity eigenvalue
-s = 2·outcome − 1 ∈ (−1, +1)`:
+so with the outcome encoding ``\mathrm{outcome}\in(0,1)`` ↔ parity eigenvalue
+``s = 2\cdot\mathrm{outcome}-1\in(-1,+1)``:
 
 ```math
 P(\mathrm{outcome}=0)=\frac{1+g}{2},\qquad P(\mathrm{outcome}=1)=\frac{1-g}{2}
@@ -200,7 +199,7 @@ function execute!(state::SimulationState{GaussianBackend}, gate::BondParity, phy
     born_measurement_rng = get_rng(state.rng_registry, :born_measurement)
     r = rand(born_measurement_rng)
     g = Γ[ix[1], ix[2]]
-    p0 = (1 + g) / 2          # P(outcome 0, bond parity iγγ = −1); verified vs oracle
+    p0 = (1 + g) / 2          # P(outcome 0, bond parity iγγ = −1); verified against test/gaussian/oracle.jl
     outcome = r < p0 ? 0 : 1
     p_outcome = outcome == 0 ? p0 : 1 - p0
     p_outcome > 1e-15 || throw(ArgumentError(

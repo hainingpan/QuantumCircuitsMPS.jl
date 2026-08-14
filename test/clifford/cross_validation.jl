@@ -16,8 +16,7 @@ using QuantumCircuitsMPS
 
 const QCM = QuantumCircuitsMPS
 
-# Shared state builders (_make_state / make_triple) live in test/testutils.jl
-# (T28 DRY).
+# Shared state builders (_make_state / make_triple) live in test/testutils.jl.
 @isdefined(make_backend_state) || include(joinpath(@__DIR__, "..", "testutils.jl"))
 
 @testset "Clifford Cross-Validation (MPS / SV / Clifford)" begin
@@ -94,8 +93,7 @@ const QCM = QuantumCircuitsMPS
         @test e_mps ≈ e_cl atol=1e-12
         @test e_sv ≈ e_cl atol=1e-12
 
-        # FORMERLY A KNOWN BUG (documented in
-        # .sisyphus/notepads/clifford-backend/issues.md, "RandomClifford
+        # FORMERLY A KNOWN BUG ("RandomClifford
         # site-order mismatch: Clifford backend vs MPS/SV"), now FIXED.
         # RandomClifford's MPS/SV dense-matrix path applies a REVERSED
         # qubit-index-to-physical-site convention (src/Gates/two_qubit.jl:94-95,

@@ -2,7 +2,7 @@
 # Computes entanglement entropy at a bipartition cut using QuantumClifford.jl's
 # NATIVE `entanglement_entropy` function, which computes the GF(2) rank-deficiency
 # quantity directly on the stabilizer tableau (no hand-rolled Gaussian elimination
-# needed). Follows Task 6/9's namespace-collision precedent: bare `import
+# needed). Follows the backend's namespace-collision convention: bare `import
 # QuantumClifford` + fully-qualified calls (safer than a selective `using`, since
 # this module defines/exports its own generic names like `apply!`).
 import QuantumClifford

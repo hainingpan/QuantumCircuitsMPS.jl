@@ -11,7 +11,7 @@ consuming from the `:gates_realization` RNG stream.
 
 RNG contract: for `n = 2` the consumption pattern and produced matrices are
 bit-identical to the historical two-site implementation (exact CT.jl `U()`
-algorithm) — golden regressions depend on this.
+algorithm) — bit-exact regression tests depend on this.
 """
 struct HaarRandom <: AbstractGate
     n::Int
@@ -30,7 +30,7 @@ Haar random N×N unitary via QR of a complex Ginibre matrix.
 EXACT reproduction of the CT.jl U() algorithm (lines 585-592): two separate
 `randn(rng, N, N)` calls (real then imaginary parts), QR, then phase
 correction by `diag(R)/|diag(R)|`. Do NOT change the call shape/order —
-the `:gates_realization` stream consumption is an API contract (goldens).
+the `:gates_realization` stream consumption is an API contract (bit-exact regression tests).
 """
 function _haar_unitary(N::Int, rng::AbstractRNG)
     # Generate complex Gaussian matrix: real + imag parts separately
@@ -112,14 +112,14 @@ function build_operator(gate::HaarRandom, site::Index, local_dim::Int; rng, kwar
     return ITensor(U, prime(site), site)
 end
 
-# Shared qubit-only guard for the named two-qubit gates (T17 decision, audit
-# finding T8): CZ/CNOT/SWAP previously accepted any local_dim and silently
+# Shared qubit-only guard for the named two-qubit gates: CZ/CNOT/SWAP
+# previously accepted any local_dim and silently
 # built UNDOCUMENTED qudit generalizations (e.g. the d=3 "CZ" put −1 only on
 # |22⟩ — NOT the standard ω^{jk} qudit CZ; "CNOT" flipped the trit by index
 # reversal iff the control was in the highest basis state). These accidental
 # extensions are physics traps, so non-qubit sites are rejected with the same
-# informative error as Rx/Ry/Rz/Hadamard (parametrized.jl). If T39 (arbitrary
-# spin-S) wants qudit two-site gates, it should add principled, documented
+# informative error as Rx/Ry/Rz/Hadamard (parametrized.jl). If future arbitrary spin-S
+# support wants qudit two-site gates, it should add principled, documented
 # generalizations rather than lifting this guard as-is (note: SWAP's generic
 # exchange form IS canonical for any d, but gate_matrix(::SWAP) is hardcoded
 # 4×4, so the state-vector backend could not apply a qudit SWAP anyway).
@@ -134,12 +134,12 @@ end
 
 Build CZ gate operator. Qubit-only (`local_dim == 2`).
 
-Vectorized construction (T21): reshape the fixed `gate_matrix(::CZ)` into a
+Vectorized construction: reshape the fixed `gate_matrix(::CZ)` into a
 4-index tensor and hand it directly to `ITensor(...)`, following the same
 output-primed-first, input-unprimed-second, reverse-site-order convention as
 `MatrixGate` (see `matrix_gate.jl:98-110`) — eliminates the 16 scalar
-`setindex!` calls of the previous per-application loop. Verified bitwise
-identical to the prior loop-based construction (element-by-element `==`).
+`setindex!` calls of the previous per-application loop. Bitwise identical
+to the loop-based construction it replaced (element-by-element `==`).
 """
 function build_operator(
         gate::CZ, sites::Vector{<:Index}, local_dim::Int; rng = nothing, kwargs...)
@@ -179,9 +179,9 @@ gate_matrix(::SWAP) = ComplexF64[1 0 0 0; 0 0 1 0; 0 1 0 0; 0 0 0 1]
 Build CNOT gate operator. Control = sites[1], target = sites[2].
 Qubit-only (`local_dim == 2`).
 
-Vectorized construction (T21): reshape the fixed `gate_matrix(::CNOT)` into a
-4-index tensor, same convention as `CZ`/`MatrixGate` above. Verified bitwise
-identical to the prior loop-based construction (element-by-element `==`).
+Vectorized construction: reshape the fixed `gate_matrix(::CNOT)` into a
+4-index tensor, same convention as `CZ`/`MatrixGate` above. Bitwise identical to the
+loop-based construction it replaced (element-by-element `==`).
 """
 function build_operator(
         gate::CNOT, sites::Vector{<:Index}, local_dim::Int; rng = nothing, kwargs...)
@@ -200,9 +200,9 @@ end
 
 Build SWAP gate operator. Qubit-only (`local_dim == 2`).
 
-Vectorized construction (T21): reshape the fixed `gate_matrix(::SWAP)` into a
-4-index tensor, same convention as `CZ`/`CNOT`/`MatrixGate` above. Verified
-bitwise identical to the prior loop-based construction (element-by-element
+Vectorized construction: reshape the fixed `gate_matrix(::SWAP)` into a
+4-index tensor, same convention as `CZ`/`CNOT`/`MatrixGate` above. Bitwise identical
+to the loop-based construction it replaced (element-by-element
 `==`).
 """
 function build_operator(

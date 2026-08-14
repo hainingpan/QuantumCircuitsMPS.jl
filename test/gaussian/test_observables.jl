@@ -11,7 +11,7 @@
 #   - Magnetization(:Z) = (1/L) Σᵢ ⟨Zᵢ⟩ with ⟨Zᵢ⟩ = 2·P(0)−1 = Γ[2i−1,2i]
 #     — must agree with Clifford AND MPS for the same ProductState
 #   - Rényi-n for any real n > 0 (closed-form / per-pair-form pins, flat pins,
-#     monotonicity, near-1 branch handoffs) — see the T4 block at the end
+#     monotonicity, near-1 branch handoffs) — see the block at the end
 #   - rejections: :X/:Y axis, uninitialized state, out-of-range cut
 
 using Test
@@ -20,7 +20,7 @@ using LinearAlgebra: I, eigvals, Hermitian
 
 const QCM = QuantumCircuitsMPS
 
-# T5's exponential-cost exact oracle (test-only; L ≤ 5)
+# The exponential-cost exact oracle (test-only; L ≤ 5)
 include(joinpath(@__DIR__, "oracle.jl"))
 
 function _rng(k)
@@ -68,7 +68,7 @@ function _oracle_mode1_entropy(Γ)
     return -sum(x <= 0 ? 0.0 : x * log(x) for x in p)
 end
 
-@testset "Gaussian observables (T10)" begin
+@testset "Gaussian observables" begin
     @testset "vacuum: EE ≈ 0 at every cut" begin
         L = 8
         state = _gaussian_state(L, 1)
@@ -96,7 +96,7 @@ end
         _givens!(state, 2, π / 2)
         @test EntanglementEntropy(cut = 1, base = ℯ)(state) ≈ log(2) atol = 1e-10
         @test EntanglementEntropy(cut = 1)(state) ≈ 1.0 atol = 1e-10   # default base=2: 1 bit
-        # cross-check against T5's exact density-matrix oracle
+        # cross-check against the exact density-matrix oracle
         @test EntanglementEntropy(cut = 1, base = ℯ)(state) ≈
               _oracle_mode1_entropy(state.backend.corr) atol = 1e-10
     end
@@ -142,7 +142,7 @@ end
         @test profile ≈ [EntanglementEntropy(cut = x, base = ℯ)(state) for x in 1:(L - 1)]
     end
 
-    @testset "subsystem_entropy helper (for T11/MutualInformation)" begin
+    @testset "subsystem_entropy helper (for MutualInformation)" begin
         # non-contiguous Majorana index set: modes {1, 3} of an L=4 product state
         state = _gaussian_state(4, 7)
         initialize!(state, ProductState(bitstring = "0101"))
@@ -216,7 +216,7 @@ end
     end
 end
 
-# === Region-based EntanglementEntropy (T5) ===================================
+# === Region-based EntanglementEntropy ===================================
 # Tests for (ee::EntanglementEntropy{Vector{Int}})(::SimulationState{GaussianBackend})
 # (src/Gaussian/entanglement.jl). Conventions asserted here:
 #   - region semantics: ee.cut is a set of PHYSICAL sites (not a bond index),
@@ -224,7 +224,7 @@ end
 #   - prefix equivalence: cut=k (bipartition) ≡ cut=1:k (region)
 #   - complement symmetry S(A) = S(Ā) on a pure global state
 #   - call-time validation: out-of-range / full-system regions → ArgumentError
-# (Rényi-n on regions is covered by the T4 block at the end of this file.)
+# (Rényi-n on regions is covered by the block at the end of this file.)
 
 """
 Gaussian-preserving entangler (same construction as the "random circuit"
@@ -241,7 +241,7 @@ function _t5_entangled(L, k; bc = :open, layers = 10)
     return st
 end
 
-@testset "Gaussian region EntanglementEntropy (T5)" begin
+@testset "Gaussian region EntanglementEntropy" begin
     @testset "product state: every region has zero entropy" begin
         L = 6
         state = _gaussian_state(L, 40)
@@ -319,7 +319,7 @@ end
     end
 end
 
-# === Rényi-n EntanglementEntropy (T4) ========================================
+# === Rényi-n EntanglementEntropy ========================================
 # Tests for the general-n branches of `subsystem_entropy`
 # (src/Gaussian/entanglement.jl), reached through BOTH public EE paths
 # (bipartition `cut::Int` and region `cut::Vector{Int}`). Conventions asserted:
@@ -333,7 +333,7 @@ end
 #     state), scale-safe log-domain general form
 #   - invariances at n = 2: prefix equivalence, complement symmetry, log base
 
-@testset "Gaussian Rényi-n EntanglementEntropy (T4)" begin
+@testset "Gaussian Rényi-n EntanglementEntropy" begin
     @testset "closed-form single-mode pin Sₙ = log(νⁿ+(1−ν)ⁿ)/(1−n)" begin
         # L=2 fermionic modes, one GaussianHaar on the (1,2) bond. The reduced
         # state of mode 1 has the single occupation pair {ν, 1−ν} with

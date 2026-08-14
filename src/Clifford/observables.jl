@@ -10,9 +10,8 @@
 # `src/Observables/{string_order,domain_wall}.jl` and crashes with a raw
 # field-access error (`type CliffordBackend has no field mps` for
 # StringOrder; `... has no field sites` for DomainWall, via
-# `compute_projector_product_expectation`) — see
-# `.sisyphus/notepads/v04-findings.md` (T9 findings) for the exact observed
-# messages. These typed overrides intercept the call before the generic
+# `compute_projector_product_expectation`). These typed overrides
+# intercept the call before the generic
 # runs, mirroring the informative-error style used for unsupported gates in
 # `src/Clifford/Clifford.jl:162-168`.
 #

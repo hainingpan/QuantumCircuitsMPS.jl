@@ -1,4 +1,4 @@
-# === RNG hygiene tests (v0.1, Task 5) ===
+# === RNG hygiene tests (v0.1) ===
 #
 # Covers:
 # 1. `draw(state_or_registry, stream)` replacing the pirated Base.rand(state, stream)
@@ -215,7 +215,7 @@ end
 
         # Multi-outcome EQUAL-K compound op: the NEW rule says K coins
         # (one per element), NOT the current engine's sum over outcomes (2K).
-        # Task 9 aligns the engine to this count.
+        # This aligns the engine to this count.
         two = Circuit(L = L, bc = :periodic) do c
             apply_with_prob!(c;
                 outcomes = [
@@ -227,7 +227,7 @@ end
         @test expected_draws(two, 1) == K_even   # NOT 2 * K_even
 
         # Unequal K across outcomes → ArgumentError printing each K.
-        # Since Task 9 the builder already rejects this at build time, so
+        # The builder already rejects this at build time, so
         # exercise expected_draws directly on a hand-built circuit.
         bad = Circuit(L = 4,
             bc = :periodic,

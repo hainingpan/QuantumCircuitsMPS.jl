@@ -7,9 +7,9 @@
 #
 #     @isdefined(reference_select) || include("testutils.jl")
 #
-# reference_select — reference implementation of the unified stochastic rule
-# (Task 7). This is the semantic ORACLE for the engine (Task 9) and migration
-# audits (Task 16); its own self-tests live in test/reference_rule.jl.
+# reference_select — reference implementation of the unified stochastic rule.
+# This is the semantic ORACLE for the engine and migration
+# audits; its own self-tests live in test/reference_rule.jl.
 #
 # RNG contract (plan "Oracle Review" refinements):
 #   - Per element k = 1..K: exactly ONE scalar rand(rng). Never rand(rng, K).
@@ -44,7 +44,7 @@ function reference_select(rng, probs::Vector{Float64}, K::Int)::Vector{Int}
 end
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Shared cross-validation state builders (T28 DRY extraction)
+# Shared cross-validation state builders
 # ═══════════════════════════════════════════════════════════════════════════
 # Single-sourced here from their former duplicated homes:
 #   - make_pair                        (ex test/statevector/cross_validation.jl)

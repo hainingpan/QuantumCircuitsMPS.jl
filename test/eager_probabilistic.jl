@@ -1,4 +1,4 @@
-# === Eager-mode apply_with_prob! (Task 12: v0.1 unified rule alignment) ===
+# === Eager-mode apply_with_prob! (v0.1 unified rule alignment) ===
 # The eager form apply_with_prob!(state; outcomes) must be the SAME engine as
 # the lazy Circuit + simulate! path: same select_outcome_index selection, same
 # validation (at call time instead of build time), same coin consumption.
@@ -6,7 +6,7 @@
 using Test
 using QuantumCircuitsMPS
 using QuantumCircuitsMPS: events, measurements
-using QuantumCircuitsMPS: GateApplied  # internal since Task 14 (not in manifest)
+using QuantumCircuitsMPS: GateApplied  # internal (not in manifest)
 using Random
 
 # Fresh scrambled state helper (identical seeds across lazy/eager twins)

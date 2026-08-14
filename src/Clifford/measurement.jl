@@ -8,8 +8,7 @@
 # itself, using QuantumClifford.jl's `projectZ!`, which determines
 # determinism and updates the tableau in one step.
 #
-# NAMESPACE NOTE (see .sisyphus/notepads/clifford-backend/learnings.md,
-# Task 6/9 precedent): bare `import QuantumClifford` + fully-qualified calls
+# NAMESPACE NOTE: bare `import QuantumClifford` + fully-qualified calls
 # (`QuantumClifford.projectZ!`, `QuantumClifford.phases`,
 # `QuantumClifford.stabilizerview`) — avoids any risk of colliding with this
 # module's own exported names (e.g. `apply!`) via a selective `using`.
@@ -65,11 +64,11 @@ unconditionally — matching the generic MPS/SV `_measure_single_site!`
 
 This deliberate redundant draw is what guarantees ABSOLUTE cross-backend
 reproducibility: same seeds ⇒ same measurement record on MPS, state-vector,
-and Clifford alike (audit T7 + T11, `test/audit/cross_backend.jl` (b),
+and Clifford alike (`test/audit/cross_backend.jl` (b),
 `test/audit/born_measurement.jl` (e)).
 
 !!! note "History"
-    Before v0.4.0's release audit, this override consumed ZERO draws for
+    Prior to v0.4.0, this override consumed ZERO draws for
     deterministic outcomes, so Clifford trajectories diverged from MPS/SV
     under the same seed after the first deterministic measurement
     (entropies still agreed — Pauli-frame invariant). The contract was

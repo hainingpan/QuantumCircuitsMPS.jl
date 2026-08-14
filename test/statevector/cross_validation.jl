@@ -7,7 +7,7 @@ using QuantumCircuitsMPS
 using LinearAlgebra
 using Random
 
-# Shared state builders (make_pair) live in test/testutils.jl (T28 DRY).
+# Shared state builders (make_pair) live in test/testutils.jl.
 @isdefined(make_backend_state) || include(joinpath(@__DIR__, "..", "testutils.jl"))
 
 # ─── Helper: extract MPS state as a dense vector ───────────────────────────

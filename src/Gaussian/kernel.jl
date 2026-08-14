@@ -4,7 +4,7 @@
 # purify (L1131-1136), correlation_matrix (L29-55, non-op branch), kraus
 # (L105-118). No SimulationState dependency — pure functions on matrices.
 #
-# Conventions (verified empirically against Python get_C_f, GTN.py:1518-1523):
+# Conventions (matching the reference Python implementation get_C_f, GTN.py:1518-1523):
 # - Mode i (1-based) ↔ Majorana indices (2i−1, 2i).
 # - 2×2 block [[0,1],[−1,0]] on a mode ⇒ ⟨c†c⟩ = 0 (unoccupied / vacuum).
 # - 2×2 block [[0,−1],[1,0]] on a mode ⇒ ⟨c†c⟩ = 1 (occupied).
@@ -61,8 +61,8 @@ end
     parity_projection_upsilon(s::Int) -> Matrix{Float64}
 
 4×4 Υ projecting a Majorana pair `(i,j)` onto parity outcome ``s \in \{+1,-1\}``,
-i.e. `_kraus((s,0,0))`. Post-measurement state has ``\Gamma[i,j] = -s`` (verified
-against Python: vacuum `Γ[2i−1,2i] = +1` is the `s = −1` outcome; contracting
+i.e. `_kraus((s,0,0))`. Post-measurement state has ``\Gamma[i,j] = -s`` (matching the
+Python reference: vacuum `Γ[2i−1,2i] = +1` is the `s = −1` outcome; contracting
 the vacuum pair with `s = +1` is the probability-zero outcome and throws).
 """
 function parity_projection_upsilon(s::Int)
@@ -75,7 +75,7 @@ end
 
 `2L×2L` Majorana covariance matrix ``\Gamma_0 = \bigoplus_i \begin{pmatrix}0&1\\-1&0\end{pmatrix}`` of the all-modes-
 unoccupied vacuum (port of `correlation_matrix`, `GTN.py:29-55`, non-op
-branch). Verified via Python `get_C_f`: every mode has ``\langle c^\dagger c\rangle = 0``.
+branch). Matches the Python reference `get_C_f`: every mode has ``\langle c^\dagger c\rangle = 0``.
 """
 function vacuum_covariance(L::Int)
     Γ = zeros(Float64, 2L, 2L)
@@ -92,7 +92,7 @@ end
 
 Product-state covariance matrix for occupations `bits`: mode `i` gets block
 [[0,1],[−1,0]] when `bits[i] == false` (``\langle c^\dagger c\rangle = 0``) and the sign-flipped block ``\begin{pmatrix}0&-1\\1&0\end{pmatrix}`` when `bits[i] == true` (``\langle c^\dagger c\rangle = 1``). Sign ↔ occupation mapping
-verified empirically against Python `get_C_f` (`GTN.py:1518-1523`).
+matches the Python reference `get_C_f` (`GTN.py:1518-1523`).
 """
 function occupation_covariance(bits::AbstractVector{Bool})
     L = length(bits)

@@ -54,10 +54,8 @@ mutable struct SimulationState{B <: AbstractBackend}
 end
 
 # === MPS-backend property forwarding: state.mps/sites/cutoff/maxdim ===
-# SUPPORTED API (v0.4.0 decision, T19): a usage census found 42 call sites
-# (36 `.mps` + 6 `.sites`, all in test/) against the plan's ≤25 retirement
-# threshold, so the forwarding layer is KEPT and declared supported rather
-# than retired. src/ internals use `state.backend.<field>` directly.
+# SUPPORTED API (since v0.4.0): this forwarding layer is widely used and is
+# declared supported rather than retired. src/ internals use `state.backend.<field>` directly.
 const _MPS_BACKEND_COMPAT_FIELDS = (:mps, :sites, :cutoff, :maxdim)
 
 """

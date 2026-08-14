@@ -9,9 +9,7 @@
 # Tier 1's `apply_gate_sv!` (src/StateVector/StateVector.jl) is the GROUND
 # TRUTH. Every function here has been numerically verified to reproduce
 # Tier 1's output bitwise/to <1e-13 across many (gate, site) combinations
-# and multiple L / local_dim values — see
-# `.sisyphus/notepads/statevector-backend/learnings.md` (Task 14) and
-# `.sisyphus/evidence/task-14-*.txt` for the verification record.
+# and multiple L / local_dim values.
 
 """
     apply_gate_sv_optimized_1site!(ψ, U, site, L, d) -> ψ
@@ -60,10 +58,10 @@ Tier 1's `apply_gate_sv!` (guaranteeing bitwise-identical results by
 construction), but mutating `ψ` IN PLACE via `ψ .= vec(new_A)` rather than
 allocating and returning a fresh vector. A hand-written stride-loop
 generalization to arbitrary n-site arity did not prove measurably beneficial
-over this approach (per plan Task 14 guidance: "the 1-site stride-loop
-alone... can deliver the bulk of the speedup" for the dominant gate types —
-Pauli, Hadamard, Rz, single-qubit Haar — so a hand-optimized kernel for
-every n-site arity is not required).
+over this approach: the 1-site stride-loop alone delivers the bulk of the
+speedup for the dominant gate types (Pauli, Hadamard, Rz, single-qubit
+Haar), so a hand-optimized kernel for every n-site arity is not
+required.
 """
 function apply_gate_sv_optimized_nsite!(ψ::Vector{ComplexF64}, U::Matrix{ComplexF64},
         target_sites::Vector{Int}, L::Int, d::Int)

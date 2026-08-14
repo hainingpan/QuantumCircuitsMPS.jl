@@ -1,4 +1,4 @@
-# === Unified stochastic engine tests (Task 9, plan api-refactor-v0.1.md) ===
+# === Unified stochastic engine tests (plan api-refactor-v0.1.md) ===
 # THE core-task test file: builder validation (equal-K, Σp, staircase guard,
 # removed rng= kwarg) + engine semantics (reference_select equivalence,
 # fixed draws, structural step boundary, counters, event-log real indices).
@@ -6,7 +6,7 @@ using Test
 using Random
 using QuantumCircuitsMPS
 using QuantumCircuitsMPS: events, measurements
-using QuantumCircuitsMPS: GateApplied  # internal since Task 14 (not in manifest)
+using QuantumCircuitsMPS: GateApplied  # internal (not in manifest)
 
 # reference_select — the semantic oracle — is provided by test/testutils.jl,
 # which runtests.jl includes unconditionally before any test file.

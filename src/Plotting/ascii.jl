@@ -87,7 +87,7 @@ matching what `expand_circuit(circuit; seed=gates_spacetime)` produces.
 
 # Character Sets
 - Unicode mode (default): Uses `─` (wire), `┤` (left box), `├` (right box)
-- ASCII mode: Uses `-' (wire), `|` (both box edges)
+- ASCII mode: Uses `-` (wire), `|` (both box edges)
 
 # Record Markers
 `record!(c[, names...])` markers appear as their own row with the marker

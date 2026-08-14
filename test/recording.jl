@@ -1,5 +1,5 @@
 # test/recording.jl
-# Recording API tests — merged from two former files (T28 file reorg):
+# Recording API tests — merged from two former files:
 #   Section 1 (the original recording suite): record_when policies in simulate!()
 #   Section 2 (ex "recording v0.1" suite):   record!(c) markers, :marks policy,
 #                                          RecordingContext, record_value hook
@@ -133,11 +133,11 @@ using QuantumCircuitsMPS
 end
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Section 2 (merged from the former v0.1 recording suite — T28 file reorg;
+# Section 2 (merged from the former v0.1 recording suite;
 # all assertions preserved verbatim)
 # ═══════════════════════════════════════════════════════════════════════════
 
-# === Task 13: Recording rework (v0.1) ===
+# === Recording rework (v0.1) ===
 # record!(c[, names...]) markers, record_when=:marks policy, conflict rules,
 # RecordingContext extension (op_idx/element_idx/at_mark/mark_index),
 # record_value uniform observable hook (DomainWall special case removed).

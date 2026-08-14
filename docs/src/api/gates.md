@@ -41,7 +41,7 @@ SpinSectorMeasurement
 
 ## Arbitrary Spin-S Support
 
-New in v0.4.0 (T39): `SimulationState(...; site_type="S=k/2")` for any
+New in v0.4.0: `SimulationState(...; site_type="S=k/2")` for any
 half-integer or integer spin `S` up to `S=10`, on the MPS and state-vector
 backends (`local_dim = 2S+1`). The Clifford backend remains qubit-only.
 

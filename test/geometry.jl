@@ -1,9 +1,9 @@
-# === Geometry v0.1 API tests (Task 3) ===
+# === Geometry v0.1 API tests ===
 # Canonical elements(), broadcast/set traits, EachSite, Sites, element_count,
 # validate_support, and delegate behavior preservation.
 #
 # The hardcoded enumerations below were captured from the PRE-refactor
-# get_compound_elements() output (commit on refactor/api-v0.1 before Task 3).
+# get_compound_elements() output (commit on refactor/api-v0.1).
 # They are the bit-for-bit API contract for element enumeration order.
 
 using Test
