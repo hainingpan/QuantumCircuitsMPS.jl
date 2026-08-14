@@ -1,4 +1,4 @@
-# === Regression: Luxor extension NNN / non-adjacent gate rendering (v0.4 T15) ===
+# === Regression: Luxor extension NNN / non-adjacent gate rendering (v0.4) ===
 # Non-adjacent two-site gates (e.g. Bricklayer(:nnn)) must render as labeled
 # boxes at BOTH endpoint qubits connected the SHORT way around:
 #   - non-wrap pairs (e.g. (1,3)): solid connector between the inner box edges,

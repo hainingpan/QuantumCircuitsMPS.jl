@@ -1,4 +1,4 @@
-# === T39: Arbitrary spin-S support (init + ops + projectors, MPS & SV) ===
+# === Arbitrary spin-S support (init + ops + projectors, MPS & SV) ===
 #
 # Covers:
 #   (a) S=3/2 and S=2 init at every Z-level; Magnetization eigenvalues −S..S
@@ -30,7 +30,7 @@ function _rand_unitary(N::Int, seed::Int)
     return Q
 end
 
-@testset "T39 arbitrary spin-S" begin
+@testset "arbitrary spin-S" begin
 
     # ------------------------------------------------------------------
     # (a) init at every Z-level + Magnetization eigenvalues, MPS + SV
@@ -64,7 +64,7 @@ end
         @test Magnetization(:Z)(state1)≈-Float64(s) atol=1e-12
     end
 
-    @testset "(a) S=1 Magnetization fixed on MPS (T9 bug)" begin
+    @testset "(a) S=1 Magnetization fixed on MPS (bug)" begin
         s1 = SimulationState(L = 4, bc = :open, site_type = "S=1", maxdim = 32,
             rng = _spin_rng())
         initialize!(s1, ProductState(spin_state = "Z0"))
@@ -224,7 +224,7 @@ end
         @test outs[1] == outs[2]
     end
 
-    @testset "(e) Measure(:Z) on S=1 now works (was impossible pre-T39)" begin
+    @testset "(e) Measure(:Z) on S=1 now works (was impossible)" begin
         for backend in (:mps, :statevector)
             st = SimulationState(L = 3, bc = :open, site_type = "S=1",
                 backend = backend, maxdim = 16, rng = _spin_rng(), log_events = true)

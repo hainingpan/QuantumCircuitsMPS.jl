@@ -9,7 +9,7 @@ quantum circuit simulation package for MIPT/CIPT research.
 
 **"PyTorch for Quantum Circuits"** — a pure Julia library for simulating **one-dimensional (1D)**
 quantum circuits with four interchangeable backends: Matrix Product States (MPS, via ITensors.jl,
-`L=100+`), an exact dense state vector (`L≲25`, for cross-validation), a stabilizer tableau
+`L=100+`), an exact dense state vector (``L \lesssim 25``, for cross-validation), a stabilizer tableau
 (Clifford-only gates, `L=100-1000+`), and a fermionic Gaussian (free-fermion
 Majorana-covariance-matrix) backend for Gaussian-preserving circuits, exact and polynomial-time.
 It's purpose-built for researchers studying Measurement-Induced (MIPT) and Control-Induced (CIPT)

@@ -7,27 +7,26 @@
 # TMI-specific backend code: any backend that implements MutualInformation
 # — the fermionic Gaussian backend included — gets I₃ by composition.
 
-"""
+@doc raw"""
     TripartiteMutualInformation(A, B, C; renyi_index=1, threshold=1e-16, base=ℯ)
 
-Tripartite mutual information I₃ = I(A:B) + I(A:C) − I(A:BC) between three
+Tripartite mutual information ``I_3 = I(A\!:\!B) + I(A\!:\!C) - I(A\!:\!BC)`` between three
 site regions (Gullans–Huse MIPT convention).
 
 Each region must be a CONTIGUOUS, non-empty range of physical sites, the
-three regions must be pairwise DISJOINT, and `B ∪ C` must itself be
+three regions must be pairwise DISJOINT, and ``B \cup C`` must itself be
 contiguous (i.e. B and C adjacent) — inherited from `MutualInformation`'s
 contiguous-region constraint on the I(A:BC) term. Note that A and C need NOT
 be adjacent: I(A:C) uses `MutualInformation`'s two disjoint blocks.
 
 # Sign convention (MIPT usage)
 The standard diagnostic partitions the chain into four QUARTERS A, B, C, D
-and computes I₃(A:B:C) with D traced out — NOT equal thirds of the whole
-system: for ANY pure state, a full tripartition (A∪B∪C = everything) gives
-I₃ ≡ 0 identically, so it carries no information (useful only as a
+and computes ``I_3(A\!:\!B\!:\!C)`` with `D` traced out — NOT equal thirds of the whole
+system: for ANY pure state, a full tripartition (``A\cup B\cup C = \text{everything}``) gives ``I_3 \equiv 0`` identically, so it carries no information (useful only as a
 consistency check). With a fourth region traced out, scrambled volume-law
-states give I₃ ≤ 0 (the MIPT scrambling diagnostic), while e.g. GHZ-type
-global correlations give I₃ > 0: GHZ(L=8) with A=1:2, B=3:4, C=5:6
-(D=7:8 traced) gives I₃ = +log 2.
+states give ``I_3 \leq 0`` (the MIPT scrambling diagnostic), while e.g. GHZ-type
+global correlations give ``I_3 > 0``: GHZ(L=8) with `A=1:2, B=3:4, C=5:6`
+(`D=7:8` traced) gives ``I_3 = +\log 2``.
 
 # Arguments
 - `A`, `B`, `C`: the three site regions (contiguous, pairwise disjoint,
@@ -36,14 +35,14 @@ global correlations give I₃ > 0: GHZ(L=8) with A=1:2, B=3:4, C=5:6
   forwarded UNVALIDATED to all three `MutualInformation` terms, which perform
   the normalize-then-validate check (any `Real`, normalized to `Float64`, and
   the normalized value must be finite and > 0; `Bool` rejected). See
-  `MutualInformation`'s docstring; Rényi-n I₃ for real n ≠ 1 is a diagnostic,
+  `MutualInformation`'s docstring; Rényi-n I₃ for real ``n \neq 1`` is a diagnostic,
   not a proper mutual information.
 
 # Backend cost
 Inherits `MutualInformation`: on the MPS backend the largest term I(A:BC)
-requires d^(|A|+|B|+|C|) ≤ 256 (e.g. ≤ 8 qubits combined); state vector is
+requires ``d^{|A|+|B|+|C|} \leq 256`` (e.g. ``\leq 8`` qubits combined); state vector is
 exact dense (L ≲ 20); Clifford is poly-time; Gaussian is three
-covariance-submatrix eigendecompositions per term, O((|A|+|B|+|C|)³).
+covariance-submatrix eigendecompositions per term, ``O((|A|+|B|+|C|)^3)``.
 
 Under `bc = :periodic` every backend reads the three regions as PHYSICAL
 sites (inherited from `MutualInformation`), so I₃ is cross-backend

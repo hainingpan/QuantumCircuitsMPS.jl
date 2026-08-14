@@ -1,10 +1,10 @@
-# === Typed event log tests (Task 4, plan api-refactor-v0.1.md) ===
+# === Typed event log tests (plan api-refactor-v0.1.md) ===
 using Test
 using QuantumCircuitsMPS
 # Explicit imports: ITensorMPS (loaded by other test files) also exports
 # `measurements`, which makes the bare name ambiguous inside Pkg.test.
 using QuantumCircuitsMPS: events, measurements
-# Event types + log_event! are internal since Task 14 (not in manifest KEEP/ADD)
+# Event types + log_event! are internal (not in manifest KEEP/ADD)
 using QuantumCircuitsMPS: CircuitEvent, GateApplied, MeasurementOutcome, log_event!
 
 # Helper: standard MIPT-style circuit for event-log tests

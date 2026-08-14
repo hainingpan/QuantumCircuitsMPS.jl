@@ -1,9 +1,9 @@
 # === MutualInformation — Clifford (stabilizer-tableau) Backend ===
 #
-# GENERALIZATION DECISION (T25): implemented. QuantumClifford's
+# GENERALIZATION NOTE: QuantumClifford's
 # `entanglement_entropy(tableau, subsystem, Val(:rref))` — the same GF(2)
 # rank routine already used by `src/Clifford/entanglement.jl` for prefix
-# cuts — natively accepts ARBITRARY site subsets (verified empirically:
+# cuts — natively accepts ARBITRARY site subsets (e.g.
 # GHZ(4) gives S({1}) = S({4}) = S({1,4}) = S({1,3}) = 1 bit, S(all) = 0),
 # so the three subsystem entropies of I(A:B) need no new rank code at all.
 #

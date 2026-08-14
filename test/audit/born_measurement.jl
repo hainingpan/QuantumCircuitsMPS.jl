@@ -1,4 +1,4 @@
-# === AUDIT T7: Born rule / measurement / feedback cross-checks (v0.4.0) ===
+# === AUDIT: Born rule / measurement / feedback cross-checks (v0.4.0) ===
 #
 # Executable audit of the measurement core, reviewed against:
 #   src/Core/apply.jl        (_measure_single_site!, execute! for Measure/Reset)
@@ -34,7 +34,7 @@
 #      was a one-time break, see CHANGELOG 0.4.0).
 #  (f) S=1 measurement sanity: single-site Measure(:Z)/born_probability are
 #      qubit-only today (Projection is 0/1-only; "Proj0" op undefined for
-#      "S=1" sites) — KNOWN limitation, T39 scope, pinned with @test_throws.
+#      "S=1" sites) — KNOWN limitation, pinned with @test_throws.
 #      The supported S=1 measurement path, SpinSectorMeasurement, is audited
 #      quantitatively: |Z0,Z0⟩ = √(2/3)|S=2,m=0⟩ − √(1/3)|S=0⟩, so
 #      P(0)=1/3, P(1)=0, P(2)=2/3; sector sampled from :born_measurement
@@ -86,7 +86,7 @@ end
 
 const _BM_BACKENDS = (:mps, :statevector, :clifford)
 
-@testset "AUDIT T7: Born rule / measurement / feedback" begin
+@testset "AUDIT: Born rule / measurement / feedback" begin
 
     # --- (a) Born normalization: Σ_outcomes P(site, o) = 1 -------------------
     @testset "(a) Born normalization Σ P(outcome) = 1 [$backend]" for backend in _BM_BACKENDS
@@ -243,8 +243,8 @@ const _BM_BACKENDS = (:mps, :statevector, :clifford)
     end
 
     # --- (f) S=1 spin measurement sanity --------------------------------------
-    @testset "(f) S=1: single-site Measure works (categorical, T39)" begin
-        # T39 resolved the former qubit-only limitation: per-level "Proj<k>"
+    @testset "(f) S=1: single-site Measure works (categorical)" begin
+        # This resolved the former qubit-only limitation: per-level "Proj<k>"
         # ops now exist for spin site types, Projection accepts any level
         # index, and _measure_single_site! draws one categorical outcome.
         st = SimulationState(L = 4, bc = :open, site_type = "S=1", maxdim = 32,

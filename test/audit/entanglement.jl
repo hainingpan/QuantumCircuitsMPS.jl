@@ -1,6 +1,6 @@
 # test/audit/entanglement.jl
 #
-# AUDIT (T6): Entanglement entropy — analytic cross-checks on all 3 backends.
+# AUDIT: Entanglement entropy — analytic cross-checks on all 3 backends.
 #
 # What was reviewed (line-by-line, v0.4.0 audit):
 #   - src/Observables/entanglement.jl (_von_neumann_entropy): Rényi formula
@@ -29,10 +29,9 @@
 #   Only cut = L÷2 is fold-aligned with the physical {1..L÷2} bipartition.
 #   This is documented intended behavior of the MPS implementation, but it makes
 #   `EntanglementEntropy(cut=k)` mean DIFFERENT physical bipartitions across
-#   backends for PBC + k ≠ L÷2 — recorded as an audit finding (see
-#   .sisyphus/notepads/v04-findings.md, "T6 Entanglement"); each backend's
+#   backends for PBC + k ≠ L÷2 — recorded as an audit finding; each backend's
 #   value is pinned EXACTLY in testset (f) below (cross-backend equality is
-#   intentionally not asserted there). Relevant for T38 (EntropyProfile).
+#   intentionally not asserted there). Relevant for EntropyProfile.
 
 using Test
 using QuantumCircuitsMPS
@@ -65,7 +64,7 @@ function _audit_ee_scramble!(state, L::Int)
     return state
 end
 
-@testset "AUDIT T6: entanglement entropy analytic cross-checks" begin
+@testset "AUDIT: entanglement entropy analytic cross-checks" begin
     backends = (:mps, :statevector, :clifford)
 
     # ------------------------------------------------------------------
@@ -250,7 +249,7 @@ end
 end
 
 # ======================================================================
-# AUDIT (T6, region extension): EntanglementEntropy with a SITE REGION
+# AUDIT (region extension): EntanglementEntropy with a SITE REGION
 # (`cut::Vector{Int}` / `cut::UnitRange`) on the three non-MPS backends.
 #
 # What is asserted here, and why it is the right analytic check:
@@ -274,7 +273,7 @@ end
 #     regression pin so the MPS backend never silently starts accepting
 #     regions (its bond-SVD `cut` has no region generalization).
 # ======================================================================
-@testset "AUDIT T6: region entanglement entropy (non-MPS backends)" begin
+@testset "AUDIT: region entanglement entropy (non-MPS backends)" begin
     region_backends = (:statevector, :clifford)
 
     # Same all-Clifford circuit on SV and Clifford, OBC and PBC.
@@ -435,7 +434,7 @@ end
 end
 
 # ======================================================================
-# AUDIT (T4 follow-up): Gaussian Rényi-n entanglement entropy.
+# AUDIT (follow-up): Gaussian Rényi-n entanglement entropy.
 #
 # What was reviewed:
 #   - src/Gaussian/entanglement.jl (subsystem_entropy): the general-n branches
@@ -455,7 +454,7 @@ end
 #     (DimensionMismatch or a wrong value) if odd-dimensional Γ_A is special-
 #     cased instead of being handled by the per-eigenvalue sum.
 # ======================================================================
-@testset "AUDIT T6: (h) gaussian renyi" begin
+@testset "AUDIT: (h) gaussian renyi" begin
     @testset "(h) Gaussian prefix equivalence at n=2 [bc=$bc]" for bc in (:open, :periodic)
         L = 8
         st = _audit_ee_state(:gaussian; L = L, bc = bc)

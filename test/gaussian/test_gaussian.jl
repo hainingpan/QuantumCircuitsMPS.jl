@@ -14,7 +14,7 @@
 using Test
 using QuantumCircuitsMPS
 
-# ED/Pfaffian test oracle (T5) — dependency, NOT a testset.
+# ED/Pfaffian test oracle — dependency, NOT a testset.
 include(joinpath(@__DIR__, "oracle.jl"))
 
 @testset "Gaussian Backend" begin

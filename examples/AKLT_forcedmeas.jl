@@ -53,7 +53,6 @@ end
 # golden.  For 0 < p_nn < 1 the new semantics is the physically intended model:
 # each bond slot receives exactly one projection type per layer.
 #
-# Full audit: v0.1 migration notes, "Case B findings" (dev-branch git history).
 
 println("Circuit built successfully")
 println("  System size: $(circuit.L) sites")

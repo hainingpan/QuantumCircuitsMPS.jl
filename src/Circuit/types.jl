@@ -31,7 +31,7 @@ Operations are stored as NamedTuples with different formats:
 (type = :deterministic, gate = gate, geometry = geometry)
 ```
 
-**Stochastic outcomes (apply_with_prob!):**
+**Stochastic outcomes (`apply_with_prob!`):**
 ```julia
 (type = :stochastic, rng = :gates_spacetime, outcomes = [(probability=p, gate=g, geometry=geo), ...])
 ```

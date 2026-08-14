@@ -12,7 +12,7 @@ const QCM = QuantumCircuitsMPS
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
 # _mps_state/_sv_state/_mps_state_bin/_sv_state_bin (matching the gates_api.jl
-# convention) live in test/testutils.jl (T28 DRY).
+# convention) live in test/testutils.jl.
 @isdefined(make_backend_state) || include(joinpath(@__DIR__, "..", "testutils.jl"))
 
 @testset "New gates (CNOT, PhaseGate, SWAP, RandomClifford)" begin

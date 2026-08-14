@@ -55,7 +55,7 @@ println("Final entropy: $(entropies[end])")
 # See examples/mipt_example.ipynb for the full tutorial
 ```
 
-**Physics**: The competition between entangling Haar gates and disentangling measurements creates a phase transition at critical measurement rate p_c ≈ 0.16. Below p_c, the system exhibits volume-law entanglement; above p_c, area-law entanglement emerges.
+**Physics**: The competition between entangling Haar gates and disentangling measurements creates a phase transition at critical measurement rate ``p_c \approx 0.16``. Below ``p_c``, the system exhibits volume-law entanglement; above ``p_c``, area-law entanglement emerges.
 
 ## CIPT Example: Control-Induced Phase Transition
 
@@ -93,9 +93,9 @@ println("Final Mz: $(mz_vals[end])")
 # See examples/cipt_example.ipynb for the full tutorial
 ```
 
-**Physics**: The competition between Reset gates (which project qubits to |0⟩) and Haar random unitaries (which entangle qubits) drives a phase transition at p_c ≈ 0.5. In the reset-dominated phase (p_ctrl > 0.5), the magnetization Mz → +1 as qubits are repeatedly reset to |0⟩. In the unitary-dominated phase (p_ctrl < 0.5), Mz → 0 as random unitaries scramble the state. The staircase geometries sweep in opposite directions, creating the spatial competition that drives the transition.
+**Physics**: The competition between Reset gates (which project qubits to ``\lvert 0\rangle``) and Haar random unitaries (which entangle qubits) drives a phase transition at ``p_c \approx 0.5``. In the reset-dominated phase (``p_\mathrm{ctrl} > 0.5``), the magnetization ``M_z \to +1`` as qubits are repeatedly reset to ``\lvert 0\rangle``. In the unitary-dominated phase (``p_\mathrm{ctrl} < 0.5``), ``M_z \to 0`` as random unitaries scramble the state. The staircase geometries sweep in opposite directions, creating the spatial competition that drives the transition.
 
-`Reset()` above is sugar: it's exactly `Measure(:Z; feedback=OnOutcome(1 => PauliX()))` (measure, then flip back to |0⟩ if the outcome was 1) — see [Feedback & Custom Gates](@ref) below for the general form, which lets you swap the flip for any gate, or for an arbitrary closure.
+`Reset()` above is sugar: it's exactly `Measure(:Z; feedback=OnOutcome(1 => PauliX()))` (measure, then flip back to ``\lvert 0\rangle`` if the outcome was 1) — see [Feedback & Custom Gates](@ref) below for the general form, which lets you swap the flip for any gate, or for an arbitrary closure.
 
 ## AKLT Example: Forced Measurement Protocol
 
@@ -137,7 +137,7 @@ println("|String Order|: $(abs(state.observables[:string_order][end]))")
 # See examples/AKLT_forcedmeas.ipynb for the full tutorial with NNN support
 ```
 
-**Physics**: The AKLT (Affleck-Kennedy-Lieb-Tasaki) state is a paradigmatic example of symmetry-protected topological order. By projecting out the S=2 quintet sector from adjacent spin-1 pairs, the protocol converges to the AKLT ground state characterized by string order parameter |O| ≈ 4/9. See [Arbitrary Spin-S Support](@ref) for running the same protocol at higher spin.
+**Physics**: The AKLT (Affleck-Kennedy-Lieb-Tasaki) state is a paradigmatic example of symmetry-protected topological order. By projecting out the ``S=2`` quintet sector from adjacent spin-1 pairs, the protocol converges to the AKLT ground state characterized by string order parameter ``\lvert O\rvert \approx 4/9``. See [Arbitrary Spin-S Support](@ref) for running the same protocol at higher spin.
 
 ## Gaussian Example: Class-DIII Monitored Majorana Chain
 
@@ -189,7 +189,7 @@ println("Antipodal MI at p=$(p): $(state.observables[:mi][end])")
 # See examples/gaussian_example.ipynb for the full tutorial
 ```
 
-**Physics**: Each time step staggers two competing operations across the ring — on odd links, `BondParity()` parity measurements of `iγᵢγᵢ₊₁` fire with probability `p` while `GaussianHaar()` rotations `exp(θγᵢγᵢ₊₁)` fire with probability `1 - p`; on even links the two probabilities are swapped. As `p → 0` the even links are measurement-dominated and as `p → 1` the odd links are, so in both limits the chain dimerizes into an area-law phase whose antipodal mutual information vanishes. Near the self-dual point `p = 0.5` neither sublattice wins, the circuit is critical, and the antipodal MI peaks. This single-trajectory, fixed-seed snippet illustrates behavior consistent with Fig. 1b of [pan2025topological](@cite). See the [Gaussian Backend](@ref) page for the covariance-matrix formalism and `site_type="Majorana"` details, and `examples/gaussian_example.ipynb` for the full averaged sweep over `p`.
+**Physics**: Each time step staggers two competing operations across the ring — on odd links, `BondParity()` parity measurements of ``i\gamma_i\gamma_{i+1}`` fire with probability `p` while `GaussianHaar()` rotations ``\exp(\theta\gamma_i\gamma_{i+1})`` fire with probability `1 - p`; on even links the two probabilities are swapped. As ``p \to 0`` the even links are measurement-dominated and as ``p \to 1`` the odd links are, so in both limits the chain dimerizes into an area-law phase whose antipodal mutual information vanishes. Near the self-dual point ``p = 0.5`` neither sublattice wins, the circuit is critical, and the antipodal MI peaks. This single-trajectory, fixed-seed snippet illustrates behavior consistent with Fig. 1b of [pan2025topological](@cite). See the [Gaussian Backend](@ref) page for the covariance-matrix formalism and `site_type="Majorana"` details, and `examples/gaussian_example.ipynb` for the full averaged sweep over `p`.
 
 ## Feedback & Custom Gates
 

@@ -9,11 +9,11 @@
 # implementation at /Users/hainingpan/GTN (GTN.GTN, GTN.P_contraction_2).
 #
 # NOTE — goldens already embedded by earlier tasks (NOT duplicated here):
-#   - test_kernel.jl (T2):        P_contraction_2 on the L=4 VACUUM,
+#   - test_kernel.jl:        P_contraction_2 on the L=4 VACUUM,
 #                                 kraus([0.6,0.8,0.0]), ix=[1,2] 0-based.
-#   - test_oracle.jl (T5):        GTN.density_matrix of a Givens(0.7)-rotated
+#   - test_oracle.jl:        GTN.density_matrix of a Givens(0.7)-rotated
 #                                 L=2 vacuum (ED-oracle golden).
-#   - test_majorana_chain.jl (T15): kraus((0,cos φ,sin φ)) SO(2) unitary
+#   - test_majorana_chain.jl: kraus((0,cos φ,sin φ)) SO(2) unitary
 #                                 branch, φ=0.7, 4×4 vacuum.
 # This file adds NEW cases: a contraction from a NON-vacuum (occupied-pattern)
 # initial Γ, and a von_Neumann_entropy_m golden with an analytic closed form.

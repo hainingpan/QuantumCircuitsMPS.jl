@@ -3,7 +3,7 @@
 
 Random Haar-random unit-norm state-vector initialization for the state-vector
 backend. Mirrors `RandomMPS`'s simplicity (no fields). Requires RNGRegistry
-with :state_init stream attached to the SimulationState.
+with `:state_init` stream attached to the SimulationState.
 """
 struct RandomStateVector <: AbstractInitialState end
 
@@ -45,8 +45,8 @@ end
     initialize!(state::SimulationState{StateVectorBackend}, init::ProductState)
 
 Initialize a state-vector-backend `SimulationState` with a product state,
-based on the specified initialization method (binary_int, binary_decimal,
-bitstring, or spin_state). Reuses the EXACT SAME `state_names_physical`
+based on the specified initialization method (`binary_int`, `binary_decimal`,
+bitstring, or `spin_state`). Reuses the EXACT SAME `state_names_physical`
 computation logic as the MPS path (`src/State/initialization.jl`), but builds
 a dense `Vector{ComplexF64}` directly instead of an `MPS`.
 

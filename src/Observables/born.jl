@@ -1,7 +1,7 @@
-"""
+@doc raw"""
     BornProbability(site::Int, outcome::Int)
 
-Observable for Born rule probability P(measurement outcome | state) at a physical site.
+Observable for Born rule probability ``P(\text{outcome} \mid \text{state})`` at a physical site.
 """
 struct BornProbability <: AbstractObservable
     site::Int      # Physical site index
@@ -19,13 +19,13 @@ function (bp::BornProbability)(state)
     return born_probability(state, bp.site, bp.outcome)
 end
 
-"""
+@doc raw"""
     born_probability(state::SimulationState{MPSBackend}, physical_site::Int, outcome::Int) -> Float64
 
 Compute the Born probability `P(outcome | state)` at a physical site:
 
-```
-P(k) = ⟨ψ|Pₖ|ψ⟩ / ⟨ψ|ψ⟩ ,   Pₖ = |k⟩⟨k| .
+```math
+P(k) = \frac{\langle\psi|P_k|\psi\rangle}{\langle\psi|\psi\rangle} \,, \qquad P_k = |k\rangle\langle k| .
 ```
 
 `physical_site` is converted to its RAM index via `state.phy_ram` (handles the
@@ -33,9 +33,9 @@ P(k) = ⟨ψ|Pₖ|ψ⟩ / ⟨ψ|ψ⟩ ,   Pₖ = |k⟩⟨k| .
 site types by `src/Core/spin_sites.jl`.
 
 Non-mutating (neither the tensors nor the orthogonality limits are touched), and
-correctly normalized even when `‖ψ‖² ≠ 1` — e.g. after a truncated unitary layer,
+correctly normalized even when ``\lVert\psi\rVert^2 \neq 1`` — e.g. after a truncated unitary layer,
 which is not renormalized. Evaluates only the requested site, but still pays the
-gauge walk to it, so this is a local query rather than an `O(1)` one. Throws on a
+gauge walk to it, so this is a local query rather than an ``O(1)`` one. Throws on a
 zero-norm MPS.
 
 This is the MPS-backend implementation. `SimulationState{StateVectorBackend}`

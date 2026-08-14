@@ -1,5 +1,5 @@
 # test/gaussian/test_measurement.jl
-# Unit tests for Gaussian measurement (T8):
+# Unit tests for Gaussian measurement:
 #   born_probability(SimulationState{GaussianBackend}, site, outcome) —
 #     non-destructive direct covariance read, P(0) = (1+Γ[2i−1,2i])/2;
 #   _measure_single_site!(...) — REDUNDANT-DRAW contract (exactly one
@@ -7,7 +7,7 @@
 #     FIRST) + parity-projection collapse via gaussian_contraction!;
 #   Measure(:Z) / Reset flowing through the generic execute! protocol.
 #
-# NOTE: not yet wired into test/runtests.jl (T13's job) — run directly:
+# NOTE: not yet wired into test/runtests.jl — run directly:
 #   julia --project=. -e 'include("test/gaussian/test_measurement.jl")'
 
 using Test

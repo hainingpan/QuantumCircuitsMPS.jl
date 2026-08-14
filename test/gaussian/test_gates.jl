@@ -1,5 +1,5 @@
 # test/gaussian/test_gates.jl
-# Unit tests for GaussianHaar/BondParity gate TYPES (T3): support(), the
+# Unit tests for GaussianHaar/BondParity gate TYPES: support(), the
 # is_measurement trait, and the generic MPS/state-vector rejection
 # `_apply_single!` fallback. Actual Gaussian-backend behavior for these
 # gates is implemented in a later task and is NOT tested here.

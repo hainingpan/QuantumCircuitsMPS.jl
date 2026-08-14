@@ -58,7 +58,7 @@ ordering (`src/Core/basis.jl`) so that periodic boundary conditions can be
 represented by a 1-D chain topology. All public geometry/gate/observable
 APIs speak *physical* site indices and translate transparently — except
 `EntanglementEntropy(cut=k)`, whose `cut` is the RAM bond index of the
-folded MPS, not the physical bipartition `{1..k}` (only `cut = L÷2` is
+folded MPS, not the physical bipartition ``\{1,\ldots,k\}`` (only `cut = L÷2` is
 fold-aligned). See the [Backend Interface Contract](@ref)'s PBC section and
 `EntropyProfile`'s docstring for the full detail; cross-backend entropy
 comparisons under PBC should use `cut = L÷2` or `bc=:open`.

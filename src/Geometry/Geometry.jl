@@ -9,7 +9,7 @@ Provides abstractions for:
   canonical element enumeration via `elements(geo, L, bc)`
 """
 
-"""
+@doc raw"""
     AbstractGeometry
 
 Abstract base type for all geometry specifications — the "where" of a gate
@@ -17,7 +17,7 @@ application (`apply!(state, gate, geometry)`).
 
 Geometries fall into two families, reported by the `is_broadcast(geo)` trait:
 
-- **Broadcast** ("distribution") geometries expand to `K ≥ 1` independent
+- **Broadcast** ("distribution") geometries expand to ``K \ge 1`` independent
   elements, each receiving its own gate application (and, inside
   `apply_with_prob!`, its own coin): `AllSites`, `Bricklayer`, `EachSite`.
 - **Set** ("region") geometries denote ONE region of sites, a single

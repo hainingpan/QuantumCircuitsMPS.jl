@@ -4,10 +4,10 @@ Alongside the default MPS backend, `QuantumCircuitsMPS.jl` also ships an exact, 
 
 **When to use it**:
 - Cross-validating MPS results against an exact reference with zero truncation error
-- Small systems (`L ≲ 25` qubits) where the dense wavefunction fits comfortably in RAM
+- Small systems (``L \lesssim 25`` qubits) where the dense wavefunction fits comfortably in RAM
 - Producing exact reference trajectories for debugging suspected MPS truncation artifacts
 
-**When not to use it**: anything beyond `L ≈ 25-27` qubits, or whenever you need the MPS backend's `L=100+` scalability (see [MPS Backend](@ref)). Memory grows as `local_dim^L`, exponentially, with no way around it for a dense representation.
+**When not to use it**: anything beyond ``L \approx 25\text{-}27`` qubits, or whenever you need the MPS backend's `L=100+` scalability (see [MPS Backend](@ref)). Memory grows as `local_dim^L`, exponentially, with no way around it for a dense representation.
 
 ## Quick Example
 

@@ -99,14 +99,14 @@ _is_static_geometry(::Sites) = true
 _is_static_geometry(::SingleSite) = true
 _is_static_geometry(::AdjacentPair) = true
 
-"""
+@doc raw"""
     elements(geo::AbstractGeometry, L::Int, bc::Symbol) -> Vector{Vector{Int}}
 
 Canonical element enumeration for a geometry: each inner vector is the sites
 for one gate application. This is the SINGLE source of truth consolidating
 the former `get_pairs` / `get_compound_elements` duplicates.
 
-Broadcast geometries return K ≥ 1 elements in their documented canonical
+Broadcast geometries return ``K \ge 1`` elements in their documented canonical
 order (API contract — RNG coin consumption follows this order):
 - `AllSites()` → `[[1], [2], ..., [L]]`
 - `EachSite(c)` → `[[i] for i in c]` (collection order)
@@ -149,7 +149,7 @@ function elements(geo::Bricklayer, L::Int, bc::Symbol)
         # For PBC with EVEN L, also include the wrap pair (L, 1).
         # At odd L the bulk pairs already end with (L-1, L), so adding
         # (L, 1) would touch site L twice within one layer — a brickwork
-        # layer must touch each site at most once (audit finding, T17).
+        # layer must touch each site at most once.
         # Odd L thus leaves site 1 unpaired in :even, mirroring :odd
         # leaving site L unpaired.
         if bc == :periodic && iseven(L)
@@ -277,11 +277,11 @@ function _check_sites_in_range(sites::Vector{Int}, L::Int, name::String)
     return nothing
 end
 
-"""
+@doc raw"""
     element_count(geo::AbstractGeometry, L::Int, bc::Symbol) -> Int
 
 Number of elements (K) that `geo` expands to via [`elements`](@ref).
-Broadcast geometries give K ≥ 1; set geometries always give 1.
+Broadcast geometries give ``K \ge 1``; set geometries always give 1.
 Used by builder validation (equal-K rule across stochastic outcomes).
 """
 element_count(geo::AbstractGeometry, L::Int, bc::Symbol) = length(elements(geo, L, bc))

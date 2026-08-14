@@ -141,7 +141,7 @@ function compute_sites_dispatch(
     end
 end
 
-"""
+@doc raw"""
     expand_circuit_grouped(circuit::Circuit; n_steps::Int=1, seed::Int=0) -> Vector{Vector{Vector{ExpandedOp}}}
 
 Expand a symbolic circuit to concrete gate operations, preserving operation groups.
@@ -154,8 +154,8 @@ by AllSites measurements) get separate rows.
 
 # Stochastic selection (v0.1 unified rule)
 Stochastic operations are expanded with the ENGINE's single-source selection
-function `select_outcome_index` — one scalar coin per element k = 1..K,
-categorical selection among the outcomes, remainder `1 - Σp` = identity
+function `select_outcome_index` — one scalar coin per element ``k = 1, \ldots, K``,
+categorical selection among the outcomes, remainder ``1 - \sum p`` = identity
 (element omitted). This is the exact rule `simulate!` executes: expanding
 with `seed=X` shows the same selections the engine makes when its
 `:gates_spacetime` stream is seeded with `X`.

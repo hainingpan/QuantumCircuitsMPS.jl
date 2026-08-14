@@ -21,12 +21,12 @@ asymmetric CNOT gate applied in both site-argument orders):
    is the FIRST dimension).
 2. Convert each target physical site `s` to its Julia array dimension via
    `L - s + 1`, then REVERSE the resulting list (required so the merged
-   multi-site index matches gate_matrix's "first site in the gate's
+   multi-site index matches `gate_matrix`'s "first site in the gate's
    argument list = slowest/most-significant digit" convention).
 3. Permute dimensions so the (reversed) target dims come first, followed by
    all other dims (in ascending order).
-4. Reshape the permuted tensor to 2D: (d^n, d^(L-n)) where n = length(target_sites).
-5. Left-multiply by U: new_mat = U * A_mat.
+4. Reshape the permuted tensor to 2D: (d^n, d^(L-n)) where `n = length(target_sites)`.
+5. Left-multiply by U: `new_mat = U * A_mat`.
 6. Reshape back to L dims (d,d,...,d), then permutedims with the INVERSE
    of the original permutation.
 7. `vec(...)` the result back to a flat Vector{ComplexF64}.
@@ -89,14 +89,14 @@ end
     _apply_single!(state::SimulationState{StateVectorBackend}, gate::AbstractGate, phy_sites::Vector{Int})
 
 Apply gate to specific physical sites on a dense state-vector backend.
-Internal workhorse (Tier 1 / vanilla engine — see apply_gate_sv!).
+Internal workhorse (Tier 1 / vanilla engine — see `apply_gate_sv!`).
 
 Steps:
 1. Validate support matches site count
 2. Convert physical sites to RAM indices (identity for SV, kept for
    code-path consistency with the MPS backend)
-3. Resolve the gate's dense matrix (HaarRandom needs rng + local_dim)
-4. Apply via apply_gate_sv! (Tier 1) or apply_gate_sv_optimized! (Tier 2,
+3. Resolve the gate's dense matrix (HaarRandom needs rng + `local_dim`)
+4. Apply via `apply_gate_sv!` (Tier 1) or `apply_gate_sv_optimized!` (Tier 2,
    selected via `state.backend.engine == :optimized` — see
    src/StateVector/optimized.jl), reassigning state.backend.ψ
 5. Normalize iff `needs_normalization(gate)` (trait, Contract 3.5) — there

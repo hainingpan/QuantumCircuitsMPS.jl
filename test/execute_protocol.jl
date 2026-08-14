@@ -1,4 +1,4 @@
-# === execute! Protocol + Trait System Tests (Task 8, v0.1) ===
+# === execute! Protocol + Trait System Tests (v0.1) ===
 #
 # Tests the uniform gate-execution protocol:
 #   execute!(state, gate, region::Vector{Int})

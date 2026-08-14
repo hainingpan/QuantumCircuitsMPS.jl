@@ -3,10 +3,10 @@
 # Rotation convention (API contract, standard quantum-computing convention):
 #   Rx(θ) = exp(-iθX/2), Ry(θ) = exp(-iθY/2), Rz(θ) = exp(-iθZ/2)
 
-"""
+@doc raw"""
     Rx(θ)
 
-Single-qubit rotation about the X axis, convention `Rx(θ) = exp(-iθX/2)`:
+Single-qubit rotation about the X axis, convention ``R_x(\theta) = \exp(-i\theta X/2)``:
 
     [ cos(θ/2)     -i·sin(θ/2) ]
     [ -i·sin(θ/2)   cos(θ/2)   ]
@@ -17,10 +17,10 @@ end
 support(::Rx) = 1
 gate_matrix(g::Rx) = ComplexF64[cos(g.θ/2) -im*sin(g.θ/2); -im*sin(g.θ/2) cos(g.θ/2)]
 
-"""
+@doc raw"""
     Ry(θ)
 
-Single-qubit rotation about the Y axis, convention `Ry(θ) = exp(-iθY/2)`:
+Single-qubit rotation about the Y axis, convention ``R_y(\theta) = \exp(-i\theta Y/2)``:
 
     [ cos(θ/2)  -sin(θ/2) ]
     [ sin(θ/2)   cos(θ/2) ]
@@ -31,10 +31,10 @@ end
 support(::Ry) = 1
 gate_matrix(g::Ry) = ComplexF64[cos(g.θ/2) -sin(g.θ/2); sin(g.θ/2) cos(g.θ/2)]
 
-"""
+@doc raw"""
     Rz(θ)
 
-Single-qubit rotation about the Z axis, convention `Rz(θ) = exp(-iθZ/2)`:
+Single-qubit rotation about the Z axis, convention ``R_z(\theta) = \exp(-i\theta Z/2)``:
 
     [ exp(-iθ/2)   0         ]
     [ 0            exp(iθ/2) ]
@@ -45,15 +45,15 @@ end
 support(::Rz) = 1
 gate_matrix(g::Rz) = ComplexF64[exp(-im*g.θ/2) 0; 0 exp(im*g.θ/2)]
 
-"""
+@doc raw"""
     Hadamard()
 
-Single-qubit Hadamard gate, `H = (X + Z)/√2`:
+Single-qubit Hadamard gate, ``H = (X + Z)/\sqrt{2}``:
 
     (1/√2) [ 1   1 ]
            [ 1  -1 ]
 
-Satisfies `H² = I`.
+Satisfies ``H^2 = I``.
 """
 struct Hadamard <: AbstractGate end
 support(::Hadamard) = 1

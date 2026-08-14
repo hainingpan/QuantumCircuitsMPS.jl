@@ -50,15 +50,20 @@ function _spin_m_label(m::Rational)
            string(numerator(m), "/", denominator(m))
 end
 
-"""
+@doc raw"""
     spin_operators(s) -> (Sz, Sp, Sm)
 
-Return the spin-`s` operators Sz, S+, S- as dense `(2s+1)×(2s+1)` matrices in
-the descending-m basis |s,s⟩, |s,s-1⟩, ..., |s,-s⟩ (matching ITensors' spin
+Return the spin-`s` operators Sz, S+, S- as dense ``(2s+1)\times(2s+1)`` matrices in
+the descending-m basis ``|s,s\rangle, |s,s-1\rangle, \ldots, |s,-s\rangle`` (matching ITensors' spin
 site conventions and `spin1_operators`).
 
-Standard ladder formulas: Sz|s,m⟩ = m|s,m⟩ and
-S±|s,m⟩ = √(s(s+1) − m(m±1)) |s,m±1⟩.
+Standard ladder formulas:
+```math
+\begin{aligned}
+S_z|s,m\rangle &= m|s,m\rangle \\
+S_\pm|s,m\rangle &= \sqrt{s(s+1) - m(m\pm1)}\,|s,m\pm1\rangle
+\end{aligned}
+```
 
 `s` may be any positive integer or half-integer (`3//2`, `1.5`, `2`, ...).
 """

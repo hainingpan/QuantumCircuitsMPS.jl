@@ -48,7 +48,7 @@ Next-nearest-neighbor (NNN) modes (4 sublayers covering all 12 NNN pairs for L=1
 
 apply! loops internally over all pairs.
 
-!!! warning "Odd `L` under periodic boundary conditions"
+!!! warning "Odd L under periodic boundary conditions"
     An odd-length ring cannot be tiled by disjoint NN pairs. At odd `L` with
     `bc = :periodic`, no wrap pair is added to either single layer: `:odd`
     leaves site `L` unpaired and `:even` leaves site 1 unpaired, and the wrap

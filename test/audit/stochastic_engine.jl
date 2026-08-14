@@ -1,4 +1,4 @@
-# === AUDIT (T10, plan industry-standard-v0.4.md): stochastic engine + RNG streams ===
+# === AUDIT (plan industry-standard-v0.4.md): stochastic engine + RNG streams ===
 #
 # Line-by-line review targets (audited 2026-07, release/v0.4.0):
 #   src/API/probabilistic.jl   — eager path: validation (Σp≤1, equal-K,

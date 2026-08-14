@@ -1,5 +1,5 @@
 # test/audit/gates.jl
-# T8 AUDIT — Gate definitions, projectors, Clifford semantics.
+# AUDIT — Gate definitions, projectors, Clifford semantics.
 #
 # Cross-checks that do NOT duplicate test/gates_api.jl (construction, matrix
 # element pinning, MatrixGate conventions) or test/gates/test_new_gates.jl
@@ -13,7 +13,7 @@
 #       eigenvalues; SpinSectorProjection(P0+P1) annihilates S=2 states
 #   (f) Clifford-vs-SV single-gate agreement (Born probabilities ± 1e-12)
 #
-# Findings recorded in .sisyphus/notepads/v04-findings.md (T8 section).
+# Findings recorded.
 
 using Test
 using QuantumCircuitsMPS
@@ -47,7 +47,7 @@ function _ag_compare_born(sv, cl, L; atol = 1e-12)
     end
 end
 
-@testset "AUDIT T8: gates / projectors / Clifford semantics" begin
+@testset "AUDIT: gates / projectors / Clifford semantics" begin
 
     # ═══════════════════════════════════════════════════════════════════
     # (a) Unitarity U†U = I ± 1e-14 for every fixed gate matrix
@@ -281,14 +281,14 @@ end
         end
 
         @testset "constructor validation (SpinSectorProjection / SpinSectorMeasurement)" begin
-            # T39: SpinSectorProjection now accepts any d²×d² matrix (4×4 =
+            # SpinSectorProjection now accepts any d²×d² matrix (4×4 =
             # two-qubit pairs is legal); non-square-of-a-square still rejected.
             @test_throws ArgumentError SpinSectorProjection(rand(5, 5))
             @test_throws ArgumentError total_spin_projector(3)  # S ≤ 2 for s=1
             @test_throws ArgumentError total_spin_projector(0; d = 2)  # d ≠ 2s+1 for s=1
             @test QCM.support(SpinSectorMeasurement([0, 1])) == 2
             @test QCM.is_measurement(SpinSectorMeasurement([0, 1]))
-            # T39: sector upper bound is now checked at apply time (depends on
+            # sector upper bound is now checked at apply time (depends on
             # the state's spin); construction rejects only negative sectors.
             @test_throws ArgumentError SpinSectorMeasurement([-1])
             @test_throws ArgumentError SpinSectorMeasurement(Int[])
@@ -405,16 +405,16 @@ end
     end
 
     # ═══════════════════════════════════════════════════════════════════
-    # FINDING (T8, FIXED in T17): CZ/CNOT/SWAP build_operator methods took a
+    # FINDING (FIXED): CZ/CNOT/SWAP build_operator methods took a
     # generic local_dim with NO local_dim == 2 guard (unlike Rx/Ry/Rz/
     # Hadamard, parametrized.jl:72-74) and silently built undocumented qudit
     # generalizations on S=1 sites (e.g. CNOT "flipped" the trit by reversal
-    # iff control was |m=−1⟩ — NOT the standard qudit CNOT). T17 decision:
+    # iff control was |m=−1⟩ — NOT the standard qudit CNOT). Decision:
     # reject non-qubit sites with the same informative ArgumentError as
-    # Rx/Ry/Rz (see _check_qubit_two_site, src/Gates/two_qubit.jl); T39 may
+    # Rx/Ry/Rz (see _check_qubit_two_site, src/Gates/two_qubit.jl); future work may
     # add principled qudit gates later.
     # ═══════════════════════════════════════════════════════════════════
-    @testset "qubit two-site gates on spin-1 sites rejected (T17 fix)" begin
+    @testset "qubit two-site gates on spin-1 sites rejected (fix)" begin
         s1_sites = siteinds("S=1", 2)
         for g in (CZ(), CNOT(), SWAP())
             @test try

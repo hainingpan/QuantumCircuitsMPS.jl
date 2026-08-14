@@ -1,12 +1,12 @@
 # test/gaussian/test_apply.jl
-# Unit tests for the Gaussian gate-application engine (T7):
+# Unit tests for the Gaussian gate-application engine:
 # _apply_single!(SimulationState{GaussianBackend}, ...) for GaussianHaar
 # (Haar-SO(4) Majorana conjugation, :gates_realization stream), PauliX
 # (fermionic occupation flip), and the rejecting AbstractGate fallback.
 #
 # NOTE: states are initialized by setting the covariance matrix directly via
-# the T2 kernel (`vacuum_covariance`) instead of `initialize!`, so this file
-# does not depend on the Gaussian `initialize!` task (T6, developed in
+# the kernel (`vacuum_covariance`) instead of `initialize!`, so this file
+# does not depend on the Gaussian `initialize!` task (developed in
 # parallel).
 #
 # NOTE: not yet wired into test/runtests.jl — run directly:
@@ -17,7 +17,7 @@ using LinearAlgebra
 using QuantumCircuitsMPS
 using Random: MersenneTwister
 
-# Vacuum-initialized Gaussian state without going through initialize! (T6).
+# Vacuum-initialized Gaussian state without going through initialize!.
 # Seed convention (notepad): RNG(k) = k / k+10 / k+20 / k+30 per stream.
 function make_vacuum_state(L::Int; bc::Symbol = :open, seed::Int = 1,
         gates_realization::Union{Int, Nothing} = nothing)

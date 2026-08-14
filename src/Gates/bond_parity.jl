@@ -1,18 +1,18 @@
 # === BondParity Gate (fermionic Gaussian backend) ===
 # Type definition + generic (MPS/state-vector) rejection ONLY. The actual
-# Gaussian-backend measurement behavior is added by a LATER task via a
+# Gaussian-backend measurement behavior is provided via a
 # Gaussian-specific `_apply_single!`/`execute!` override, which Julia's
 # method dispatch prefers over the generic fallback defined in this file.
 
-"""
+@doc raw"""
     BondParity()
 
-Projective measurement of the bond parity `iγ_{2i}γ_{2i+1}` between two
+Projective measurement of the bond parity ``i\gamma_{2i}\gamma_{2i+1}`` between two
 adjacent sites `(i, i+1)` — the parity operator built from the "inner" pair
 of Majoranas straddling the bond (site `i`'s second Majorana and site
 `i+1`'s first Majorana, in the `QuantumCircuitsMPS.majorana_indices`
 convention). This is the natural 2-site projective measurement in the
-Majorana-covariance-matrix (Γ) formalism used by the Gaussian backend (see
+Majorana-covariance-matrix (``\Gamma``) formalism used by the Gaussian backend (see
 `QuantumCircuitsMPS.parity_projection_upsilon`).
 
 Like `Measure`, `BondParity` Born-samples via the `:born_measurement` RNG
@@ -32,7 +32,7 @@ is_measurement(::BondParity) = true  # Born-samples via :born_measurement, like 
 
 Generic (MPS/state-vector-backend) rejection fallback: `BondParity` has no
 `gate_matrix`/`build_operator` representation and is only implemented on
-`backend=:gaussian`. A later task adds the Gaussian-specific
+`backend=:gaussian`. The Gaussian backend provides the Gaussian-specific
 `_apply_single!`/`execute!` override (more specific on `state`), which
 Julia's dispatch prefers whenever the state actually uses `GaussianBackend`.
 The `CliffordBackend`'s own `AbstractGate` fallback independently rejects

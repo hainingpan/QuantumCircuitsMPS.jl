@@ -20,20 +20,20 @@ function _reset_circuit_geometries!(circuit::Circuit)
     end
 end
 
-"""
+@doc raw"""
     select_outcome_index(rng::AbstractRNG, probs::AbstractVector{<:Real}) -> Int
 
 SINGLE SOURCE OF TRUTH for the v0.1 unified stochastic rule's categorical
 selection. Draws exactly ONE scalar coin from `rng` and returns the 1-based
 index of the selected outcome, or `0` for the identity remainder
-(`r >= Σp`).
+(``r \ge \sum p``).
 
 Semantics (bit-identical to `test/reference_rule.jl`'s `reference_select`
 for a single element):
 - one scalar `rand(rng)` per call — never vectorized draws
 - cumulative walk over `probs` with strict `<`
 - cumsum snapping: when `abs(sum(probs) - 1) <= 1e-10`, the LAST cumulative
-  boundary is snapped to exactly `1.0`, so float dust in Σp cannot leak
+  boundary is snapped to exactly `1.0`, so float dust in ``\sum p`` cannot leak
   spurious identity selections
 
 `probs` accepts any `AbstractVector{<:Real}` — including a `SubArray`/
@@ -60,7 +60,7 @@ function select_outcome_index(rng::AbstractRNG, probs::AbstractVector{<:Real})
     return 0   # identity remainder
 end
 
-"""
+@doc raw"""
     simulate!(circuit::Circuit, state::SimulationState; n_steps::Int=1, record_when::Union{Symbol,Function}=:every_step)
 
 Execute a circuit on a simulation state, applying gates and recording observables.
@@ -79,10 +79,10 @@ Every stochastic operation (`apply_with_prob!`) is executed as follows:
 1. All outcomes expand to the SAME number of elements K (validated at build
    time; broadcast geometries expand via `elements(geo, L, bc)`, set
    geometries are a single element).
-2. For each element k = 1..K: exactly ONE scalar coin is drawn from the
+2. For each element ``k = 1, \ldots, K``: exactly ONE scalar coin is drawn from the
    `:gates_spacetime` stream — unchanged whether probabilities are scalar
    or per-element vectors — and a categorical selection is made among the
-   outcomes via `select_outcome_index` (remainder `1 - Σp` = identity).
+   outcomes via `select_outcome_index` (remainder ``1 - \sum p`` = identity).
 3. The winning outcome's gate is executed at its k-th element; identity
    applies nothing (and does NOT advance staircases).
 
@@ -92,7 +92,7 @@ length K, indexed in the SAME canonical `elements(geo, L, bc)` order as
 element k above — see `apply_with_prob!(::CircuitBuilder; outcomes)` for
 the full per-element probability contract (canonical ordering including
 the `Bricklayer` PBC wrap-bond position, and `K = 1` vector support).
-Scalar and vector outcomes may be freely mixed; at element k, `Σp` is the
+Scalar and vector outcomes may be freely mixed; at element k, ``\sum p`` is the
 sum of every outcome's value at that element. Every stochastic op's
 schedule — scalar or vector alike — is validated once (length, range, and
 per-element totals) before geometry reset, RNG construction, or any gate
@@ -273,7 +273,7 @@ function simulate!(circuit::Circuit, state::SimulationState;
     # Reset staircase positions once at the start
     _reset_circuit_geometries!(circuit)
 
-    # === Per-call elements() caches (perf, T23) ===
+    # === Per-call elements() caches (performance) ===
     # `elements(geo, L, bc)` is recomputed every step in the hot loop; for
     # provably step-invariant geometries (see `_is_static_geometry`) the
     # result is cached here, keyed by op index. Scope is STRICTLY local to
@@ -296,7 +296,7 @@ function simulate!(circuit::Circuit, state::SimulationState;
                     # Broadcast geometry: one application per element, in
                     # canonical enumeration order (API contract).
                     # Step-invariant geometries are cached per op index for
-                    # the duration of this simulate! call (T23).
+                    # the duration of this simulate! call.
                     elems = if _is_static_geometry(geo)
                         get!(() -> elements(geo, circuit.L, circuit.bc),
                             det_elems_cache, op_idx)
@@ -348,8 +348,8 @@ function simulate!(circuit::Circuit, state::SimulationState;
                 outcomes = op.outcomes
 
                 # An op's elements() results may be cached across steps only
-                # when EVERY outcome geometry is provably step-invariant
-                # (T23). Any staircase/Pointer/unknown member disables
+                # when EVERY outcome geometry is provably step-invariant.
+                # Any staircase/Pointer/unknown member disables
                 # caching for the WHOLE op — conservative by design.
                 op_cacheable = all(o -> _is_static_geometry(o.geometry), outcomes)
 

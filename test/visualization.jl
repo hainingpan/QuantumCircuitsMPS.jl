@@ -1,4 +1,4 @@
-# === Task 15: Visualization rewire tests (v0.1) ===
+# === Visualization rewire tests (v0.1) ===
 # expand_circuit/expand_circuit_grouped delegate stochastic selection to the
 # ENGINE's select_outcome_index (single source of truth); validate_geometry
 # accepts the v0.1 geometries (EachSite, Sites); record!-marker pseudo-ops
@@ -24,7 +24,7 @@ function _expand_gate_sequence(circuit; seed, n_steps)
      for op in step_ops if !is_record_mark(op)]
 end
 
-@testset "Visualization rewire (Task 15)" begin
+@testset "Visualization rewire" begin
     @testset "SINGLE SOURCE: expand selections == engine selections (same seed)" begin
         @testset "multi-outcome compound (categorical per element, Σp=1)" begin
             L = 8
@@ -96,7 +96,7 @@ end
         @test_throws ArgumentError QuantumCircuitsMPS.validate_geometry(Pointer(1))
     end
 
-    @testset "Sites geometry visualizes (Task 11 flagged gap)" begin
+    @testset "Sites geometry visualizes (flagged gap)" begin
         circuit = Circuit(L = 6, bc = :open) do c
             apply!(c, HaarRandom(), Sites(2:3))
         end
@@ -137,8 +137,8 @@ end
             circuit; L = L, bc = :open, gates_spacetime = 5, n_steps = 2)
     end
 
-    @testset "record_mark pseudo-ops (Task 13 forward-compat)" begin
-        # Hand-built circuit: Task 13's builder is not required for these ops
+    @testset "record_mark pseudo-ops (forward-compat)" begin
+        # Hand-built circuit: the builder is not required for these ops
         # to render (markers are (type=:record_mark, ...) NamedTuples).
         operations = NamedTuple[
             (type = :deterministic, gate = PauliX(), geometry = SingleSite(1)),
@@ -193,7 +193,7 @@ end
                 plot_circuit(circuit; gates_spacetime = 0, filename = svg_path)
                 read(svg_path, String)
             finally
-                rm(svg_path; force = true)   # tempfile hygiene (T28)
+                rm(svg_path; force = true)   # tempfile hygiene
             end
             @test contains(svg, "<svg")
         catch e

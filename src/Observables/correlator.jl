@@ -6,14 +6,14 @@
 # The Clifford PauliString method already normalizes QuantumClifford.expect's
 # mixed Int/Complex {0, ±1, ±i} returns to a real Float64.
 
-"""
+@doc raw"""
     Correlator(pi::Pair{Int,Symbol}, pj::Pair{Int,Symbol})
 
-Connected two-point correlator C(i,j) = ⟨PᵢPⱼ⟩ − ⟨Pᵢ⟩⟨Pⱼ⟩.
+Connected two-point correlator ``C(i,j) = \langle P_iP_j\rangle - \langle P_i\rangle\langle P_j\rangle``.
 
 Each argument is a `site => pauli` pair with `pauli ∈ (:X, :Y, :Z)`, matching
 `PauliString`'s argument style. The two sites must be DISTINCT (the
-self-correlation C(i,i) with Pᵢ² = I is identically 1 − ⟨Pᵢ⟩² and is not
+self-correlation ``C(i,i)`` with ``P_i^2 = I`` is identically ``1 - \langle P_i\rangle^2`` and is not
 computed here — an `ArgumentError` is thrown for i == j).
 
 Supported on all three backends (composition of three `PauliString`
@@ -21,8 +21,8 @@ evaluations, which dispatch per backend). Qubit-only in v0.4.0 (inherited
 from `PauliString`).
 
 # Properties (analytic anchors)
-- Product state |0…0⟩: C(i,j) = 1 − 1·1 = 0 for Z operators
-- Bell pair, `Correlator(1 => :Z, 2 => :Z)` = 1 − 0·0 = 1
+- Product state |0…0⟩: ``C(i,j) = 1 - 1\cdot 1 = 0`` for Z operators
+- Bell pair, `Correlator(1 => :Z, 2 => :Z)` = ``1 - 0\cdot 0 = 1``
 
 # Examples
 ```julia

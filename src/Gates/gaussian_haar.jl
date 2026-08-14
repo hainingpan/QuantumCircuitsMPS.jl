@@ -1,23 +1,23 @@
 # === GaussianHaar Gate (fermionic Gaussian backend) ===
 # Type definition + generic (MPS/state-vector) rejection ONLY. The actual
 # Gaussian-backend behavior (Haar-random SO(4) rotation on the Majorana
-# covariance matrix) is added by a LATER task via a
+# covariance matrix) is provided via a
 # `_apply_single!(state::SimulationState{GaussianBackend}, gate::GaussianHaar, ...)`
 # override, which Julia's method dispatch prefers over the generic fallback
 # defined in this file (more specific on `state`'s type parameter).
 
-"""
+@doc raw"""
     GaussianHaar()
 
 2-site fermionic Gaussian unitary gate: a Haar-random orthogonal rotation
-`O ∈ SO(4)` acting on the 4 Majorana operators of the two sites (Majorana
+``O \in SO(4)`` acting on the 4 Majorana operators of the two sites (Majorana
 indices `(2i-1, 2i, 2i+1, 2i+2)` for adjacent sites `i, i+1` — see
 `QuantumCircuitsMPS.majorana_indices`), drawn from the `:gates_realization`
 RNG stream via `QuantumCircuitsMPS.haar_orthogonal`.
 
 This is the fermionic-Gaussian analog of a 2-qubit Haar-random unitary
 (`HaarRandom(2)`), restricted to the Gaussian (free-fermion) subgroup that
-preserves the Majorana-covariance-matrix (Γ) representation of the state —
+preserves the Majorana-covariance-matrix (``\Gamma``) representation of the state —
 see Jian, Bauer, Fisher (and related free-fermion measurement-induced-phase-
 transition literature) for the covariance-matrix formalism this gate acts on.
 
@@ -35,7 +35,7 @@ support(::GaussianHaar) = 2
 
 Generic (MPS/state-vector-backend) rejection fallback: `GaussianHaar` has no
 `gate_matrix`/`build_operator` representation and is only implemented on
-`backend=:gaussian`. A later task adds the Gaussian-specific
+`backend=:gaussian`. The Gaussian backend provides the Gaussian-specific
 `_apply_single!(state::SimulationState{GaussianBackend}, ::GaussianHaar, ...)`
 override; Julia's dispatch prefers that method (more specific on `state`)
 over this fallback whenever the state actually uses `GaussianBackend`. The

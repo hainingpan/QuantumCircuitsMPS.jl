@@ -1,17 +1,16 @@
 # test/gaussian/test_rejections.jl
-# Unit tests for T12: Gaussian-backend observable rejections
+# Unit tests for Gaussian-backend observable rejections
 # (src/Gaussian/observables.jl).
 #
 # Exhaustive observable inventory (11 types total, verified via grep against
-# src/Observables/*.jl, see .sisyphus/notepads/gaussian-backend/learnings.md
-# Task 12 for the full breakdown):
+# src/Observables/*.jl):
 #   - REJECTED here (this task): StringOrder, DomainWall, PauliString,
 #     Correlator, MagnetizationFluctuations
-#   - Handled elsewhere, NOT rejected: BornProbability (T8, landed),
-#     EntanglementEntropy / Magnetization (T10, pending as of this task),
-#     MutualInformation / TripartiteMutualInformation (T11, not started),
+#   - Handled elsewhere, NOT rejected: BornProbability (landed),
+#     EntanglementEntropy / Magnetization (pending as of this task),
+#     MutualInformation / TripartiteMutualInformation (not started),
 #     EntropyProfile (pure composition of EntanglementEntropy — will work
-#     automatically once T10 lands, no rejection needed)
+#     automatically once it lands, no rejection needed)
 #
 # NOTE: not yet wired into test/runtests.jl — run directly:
 #   julia --project=. -e 'include("test/gaussian/test_rejections.jl")'
@@ -27,7 +26,7 @@ function make_gaussian_state(L::Int; bc::Symbol = :open, seed::Int = 1)
     return state
 end
 
-@testset "Gaussian backend observable rejections (T12)" begin
+@testset "Gaussian backend observable rejections" begin
     state = make_gaussian_state(6)
 
     @testset "StringOrder rejected" begin
@@ -96,16 +95,16 @@ end
     end
 
     @testset "Supported observables do NOT throw on Gaussian" begin
-        # BornProbability: T8 landed (src/Gaussian/measurement.jl) — must work.
+        # BornProbability: landed (src/Gaussian/measurement.jl) — must work.
         @testset "BornProbability" begin
             val = BornProbability(1, 0)(state)
             @test val isa Real
             @test 0.0 <= val <= 1.0
         end
 
-        # EntanglementEntropy / Magnetization: T10's job, a PARALLEL task.
-        # If T10 has landed by the time this test runs, they must succeed
-        # (no ArgumentError, no field-access crash). If T10 has NOT landed
+        # EntanglementEntropy / Magnetization: that job, a PARALLEL task.
+        # If it has landed by the time this test runs, they must succeed
+        # (no ArgumentError, no field-access crash). If it has NOT landed
         # yet, calling them crashes with a raw field-access error (expected
         # transient state, not this task's responsibility to fix) — recorded
         # as a skip rather than a hard failure so this test file remains
@@ -121,7 +120,7 @@ end
                 catch e
                     if e isa ArgumentError
                         # Would indicate a bug: these must NEVER be rejected
-                        # by src/Gaussian/observables.jl (T12 scope).
+                        # by src/Gaussian/observables.jl.
                         @test false
                     else
                         @test_skip "$label not yet supported on Gaussian backend " *

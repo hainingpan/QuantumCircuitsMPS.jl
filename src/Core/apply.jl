@@ -88,7 +88,7 @@ end
 
 # === Internal helper for Born-sampled projection ===
 
-"""
+@doc raw"""
     _measure_single_site!(state::SimulationState, site::Int) -> Int
 
 Perform Born-sampled projective measurement on a single site.
@@ -96,9 +96,9 @@ Returns the measurement outcome (a level index `0 .. local_dim-1`;
 0 or 1 for qubits).
 
 This is the FUNDAMENTAL measurement operation:
-1. Compute Born probabilities P(k|ψ) for levels k = 0 .. local_dim-2
+1. Compute Born probabilities ``P(k \mid \psi)`` for levels `k = 0 .. local_dim-2`
 2. Sample ONE categorical outcome using a single scalar draw from the
-   :born_measurement RNG stream (at local_dim=2 this reduces EXACTLY to the
+   `:born_measurement` RNG stream (at `local_dim=2` this reduces EXACTLY to the
    historical binary draw `rand < P(0) ? 0 : 1` — same draw count, same
    float comparison, bitwise-identical qubit trajectories)
 3. Apply the per-level Projection operator
@@ -158,11 +158,11 @@ function execute!(state::SimulationState, gate::AbstractGate, region::Vector{Int
     _apply_single!(state, gate, region)
 end
 
-"""
+@doc raw"""
     execute!(state::SimulationState, gate::Reset, region::Vector{Int})
 
 Reset (DERIVED - measurement + conditional X): Born-sample the single site in
-`region`; if the outcome is 1, flip it back to |0⟩ with PauliX.
+`region`; if the outcome is 1, flip it back to ``|0\rangle`` with PauliX.
 """
 function execute!(state::SimulationState, gate::Reset, region::Vector{Int})
     if support(gate) != length(region)

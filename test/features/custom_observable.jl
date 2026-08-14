@@ -1,6 +1,6 @@
 # test/features/custom_observable.jl
 # ═══════════════════════════════════════════════════════════════════════════
-# T37 FEATURE: custom-observable callable contract
+# FEATURE: custom-observable callable contract
 # ═══════════════════════════════════════════════════════════════════════════
 #
 # The contract (see `track!` docstring / docs/src/custom_observables.md):
@@ -64,7 +64,7 @@ function QuantumCircuitsMPS.record_value(obs::T37RecordValueMarker, state;
     return 2.0
 end
 
-# Vector-returning AbstractObservable (T38 EntropyProfile forward-compat).
+# Vector-returning AbstractObservable (EntropyProfile forward-compat).
 struct T37ZProfile <: QuantumCircuitsMPS.AbstractObservable end
 (obs::T37ZProfile)(state) = [PauliString(i => :Z)(state) for i in 1:state.L]
 
@@ -78,7 +78,7 @@ function (obs::T37ScalarThenVector)(state)
     return obs.calls == 1 ? 1.5 : [1.0, 2.0]
 end
 
-@testset "custom-observable callable contract (T37)" begin
+@testset "custom-observable callable contract" begin
     @testset "plain closure through simulate! — all 3 backends" begin
         for backend in _CO_BACKENDS
             state = _co_state(backend)
@@ -166,7 +166,7 @@ end
         @test state.observables[:marker] == [2.0]
     end
 
-    @testset "vector-returning AbstractObservable widens storage (T38 forward-compat)" begin
+    @testset "vector-returning AbstractObservable widens storage (forward-compat)" begin
         state = _co_state(:statevector)
         track!(state, :prof => T37ZProfile())
         @test state.observables[:prof] isa Vector{Float64}  # scalar container pre-record

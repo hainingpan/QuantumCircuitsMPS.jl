@@ -1,6 +1,6 @@
 # test/features/pauli_string.jl
 # ═══════════════════════════════════════════════════════════════════════════
-# T24 FEATURE: PauliString expectation observable — all 3 backends
+# FEATURE: PauliString expectation observable — all 3 backends
 # ═══════════════════════════════════════════════════════════════════════════
 #
 # Analytic anchors (derived, not guessed):
@@ -30,7 +30,7 @@ end
 _PS_BACKENDS = (:mps, :statevector, :clifford)
 _ps_tol(backend) = backend == :mps ? 1e-10 : 1e-12
 
-@testset "PauliString observable (T24)" begin
+@testset "PauliString observable" begin
     @testset "constructor validation" begin
         @test PauliString(1 => :Z) isa PauliString
         @test PauliString(3 => :X, 1 => :Y).sites == [1, 3]    # canonical site order

@@ -1,4 +1,4 @@
-# === QUALITY GATE: Aqua.jl (Auto QUality Assurance) — Task 29 ===
+# === QUALITY GATE: Aqua.jl (Auto QUality Assurance) ===
 #
 # Runs the full Aqua battery. Three checks carry TARGETED exclusions, each
 # justified below; everything else runs at full strictness (method
@@ -7,13 +7,13 @@
 # other packages, compat bounds, piracy for all other methods, persistent
 # tasks).
 #
-# T2 baseline (pre-fix): 9 pass / 2 fail —
-# .sisyphus/evidence/v04/task-2-aqua-baseline.log. The two failures were
+# Baseline (pre-fix): 9 pass / 2 fail.
+# The two failures were
 # resolved as: JSON removed from root [deps] (genuinely unused in src/ and
 # ext/; it is a test-only dep and lives in test/Project.toml), and the two
 # documented exclusions below (SentinelRNG ambiguities, Luxor stale-dep
-# false positive). The piracy exclusion covers T39's spin-S SiteType
-# extension (added after the T2 baseline).
+# false positive). The piracy exclusion covers the spin-S SiteType
+# extension (added after the baseline).
 
 using Test
 using Aqua
@@ -21,7 +21,7 @@ using Random
 using ITensors
 using QuantumCircuitsMPS
 
-@testset "QUALITY Aqua.test_all (T29)" begin
+@testset "QUALITY Aqua.test_all" begin
     Aqua.test_all(QuantumCircuitsMPS;
         # --- ambiguities: exclude ONLY `rand`/`randn` ------------------------
         # SentinelRNG (src/Core/rng.jl, guarded-stream mechanism) deliberately

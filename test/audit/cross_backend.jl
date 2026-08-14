@@ -1,6 +1,6 @@
 # test/audit/cross_backend.jl
 # ═══════════════════════════════════════════════════════════════════════════
-# T11 AUDIT: Cross-backend trajectory equivalence suite
+# AUDIT: Cross-backend trajectory equivalence suite
 # ═══════════════════════════════════════════════════════════════════════════
 #
 # This suite is THE regression guard for all Wave-5 efficiency work: it pins
@@ -11,7 +11,7 @@
 #   - test/gates/test_new_gates.jl          — per-gate born_probability checks
 # by exercising the full Circuit-builder → simulate! → track!/record! path.
 #
-# Scenarios (per plan T11):
+# Scenarios:
 #   (a) MIPT circuit (Haar + stochastic measure), MPS vs SV trajectory parity
 #   (b) Clifford circuit (RandomClifford + Measure), Clifford vs SV vs MPS
 #   (c) S=1 AKLT projection protocol, MPS vs SV  [closes the known S=1 gap]
@@ -25,12 +25,12 @@
 #    — different contraction orders round differently), so the value contract
 #    is the tolerance assertion ≤ 1e-10. Bitwise `==` of cross-backend
 #    Float64 observables is a non-goal and is deliberately NOT asserted
-#    (the old README's "bit-identical" claim was corrected in T31).
+#    (the old README's "bit-identical" claim was corrected).
 #    (Same-BACKEND same-seed reruns ARE bitwise identical — scenario (e).)
-# 2. FINDING (FIXED in T17): SpinSectorProjection was BROKEN on the SV
+# 2. FINDING (FIXED): SpinSectorProjection was BROKEN on the SV
 #    backend — `gate_matrix(::SpinSectorProjection)` had no method, so the SV
 #    `_apply_single!` path (src/StateVector/StateVector.jl:59) threw a
-#    MethodError. T17 added the method (src/Gates/spin_measurement.jl); the
+#    MethodError. The fix added the method (src/Gates/spin_measurement.jl); the
 #    S=1 MPS-vs-SV cross-check below additionally validates the equivalent
 #    MatrixGate(P01) + renormalize route against MPS.
 # 3. FINDING (RESOLVED, v0.4.0 release audit): the Clifford backend used to
@@ -52,7 +52,7 @@ using LinearAlgebra
 
 const _CB_QCM = QuantumCircuitsMPS
 
-# Shared state builder (make_backend_state) lives in test/testutils.jl (T28 DRY).
+# Shared state builder (make_backend_state) lives in test/testutils.jl.
 @isdefined(make_backend_state) || include(joinpath(@__DIR__, "..", "testutils.jl"))
 
 # ── Shared circuit runners (prefixed _cb_ — runtests.jl includes all test
@@ -188,8 +188,8 @@ end
         # position is therefore in lockstep across all three backends, and
         # the outcome sequence + Mz trajectory match MPS/SV exactly under
         # the same seed. These were @test_broken while the contract was an
-        # open design question ("DECISION NEEDED" in
-        # .sisyphus/notepads/v04-findings.md); with these pinned seeds the
+        # open design question ("DECISION NEEDED");
+        # with these pinned seeds the
         # old behavior flipped measurements #6, #8, #9. Now hard guards.
         @test [m.outcome for m in m_mps] == [m.outcome for m in m_cl]
         @test maximum(abs.(Mz_mps .- Mz_cl)) ≤ 1e-10
@@ -221,10 +221,10 @@ end
             s
         end
 
-        # FINDING (fixed in T17): SpinSectorProjection had NO gate_matrix
+        # FINDING (fixed): SpinSectorProjection had NO gate_matrix
         # method, so the SV backend could not apply it —
         # `_resolve_gate_matrix_sv` (fallback `gate_matrix(gate)`,
-        # src/StateVector/StateVector.jl:59) threw a MethodError. T17 added
+        # src/StateVector/StateVector.jl:59) threw a MethodError. The fix added
         # `gate_matrix(::SpinSectorProjection)` (src/Gates/spin_measurement.jl),
         # so the README AKLT Quick Start now runs on backend=:statevector.
         sv_ssp_works = try

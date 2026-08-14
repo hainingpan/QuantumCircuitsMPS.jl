@@ -1,8 +1,8 @@
 # test/reference_rule.jl
 #
 # Oracle self-tests for `reference_select` (defined in test/testutils.jl) —
-# the reference implementation of the unified stochastic rule (Task 7) and
-# the semantic oracle for the engine (Task 9) and migration audits (Task 16).
+# the reference implementation of the unified stochastic rule and
+# the semantic oracle for the engine and migration audits.
 # Include-able from test/runtests.jl (which loads testutils.jl first) or
 # runnable standalone via `julia --project=. test/reference_rule.jl`.
 

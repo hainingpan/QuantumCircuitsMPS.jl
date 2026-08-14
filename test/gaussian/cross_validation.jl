@@ -1,6 +1,6 @@
 # test/gaussian/cross_validation.jl
 # Cross-validation of the Gaussian (covariance-matrix) backend against the
-# EXACT many-body ED/Pfaffian oracle (test/gaussian/oracle.jl, T5), plus a
+# EXACT many-body ED/Pfaffian oracle (test/gaussian/oracle.jl), plus a
 # full simulate!/track!/record! circuit-integration test.
 #
 # Unlike test/clifford/cross_validation.jl (which compares backends against
@@ -17,7 +17,7 @@
 #     the SAME outcome s the backend sampled; many-body γ̂ operator for
 #     PauliX) and must equal oracle_density_matrix(Γ) after each such step.
 #     After GaussianHaar steps ρ_ind is resynchronized from Γ (unitary steps
-#     are independently validated by T2's Python golden contraction values +
+#     are independently validated by the Python golden contraction values +
 #     purity invariants).
 #
 # Standalone: julia --project=. -e 'include("test/gaussian/cross_validation.jl")'
@@ -133,7 +133,7 @@ end
         # Step 1 — GaussianHaar on bond (1,2)
         apply!(state, GaussianHaar(), AdjacentPair(1))
         ρ = _cv_consistency(state, L, γ)
-        ρ_ind = ρ  # resync after unitary (validated by T2 goldens + purity)
+        ρ_ind = ρ  # resync after unitary (validated by goldens + purity)
 
         # Step 2 — GaussianHaar on bond (L−1, L)
         apply!(state, GaussianHaar(), AdjacentPair(max(L - 1, 1)))

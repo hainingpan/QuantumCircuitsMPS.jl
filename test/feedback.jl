@@ -1,4 +1,4 @@
-# === Task 10: Feedback system tests ===
+# === Feedback system tests ===
 # Measure(:Z; feedback=...), OnOutcome, CallbackFeedback auto-wrap, Reset sugar
 # equivalence, sentinel guard on :gates_spacetime during feedback.
 
@@ -6,7 +6,7 @@ using Test
 using Random
 using QuantumCircuitsMPS
 using QuantumCircuitsMPS: events, measurements  # ITensorMPS also exports `measurements`
-using QuantumCircuitsMPS: GateApplied  # internal since Task 14 (not in manifest)
+using QuantumCircuitsMPS: GateApplied  # internal (not in manifest)
 using ITensorMPS: norm
 
 # Fresh state helper: L sites, |0...0>, independent streams

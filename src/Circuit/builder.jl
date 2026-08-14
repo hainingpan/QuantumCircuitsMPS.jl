@@ -63,7 +63,7 @@ function apply!(builder::CircuitBuilder, gate, geometry)
     return nothing
 end
 
-"""
+@doc raw"""
     apply_with_prob!(builder::CircuitBuilder; outcomes)
 
 Record a stochastic operation in the circuit builder (v0.1 unified rule).
@@ -86,13 +86,13 @@ with a migration message).
 
 # Semantics (v0.1 unified stochastic rule)
 Each outcome's geometry expands to elements (`elements(geo, L, bc)`); all
-outcomes must expand to the SAME element count K. At element k, `Σp` is the
+outcomes must expand to the SAME element count K. At element k, ``\sum p`` is the
 sum of every outcome's probability value AT THAT ELEMENT — a scalar
 outcome contributes the same value to every element, a vector outcome
-contributes its `k`-th entry. Per element k = 1..K, the engine draws ONE
+contributes its `k`-th entry. Per element ``k = 1, \ldots, K``, the engine draws ONE
 `:gates_spacetime` coin — unchanged whether probabilities are scalar or
 per-element vectors — and makes a categorical selection among the
-outcomes; the remainder `1 - Σp` selects identity (nothing applied).
+outcomes; the remainder ``1 - \sum p`` selects identity (nothing applied).
 
 # Build-time validations (all `ArgumentError`)
 All of the following are checked — and any violation is thrown — before
@@ -106,9 +106,9 @@ any RNG draw or state mutation; the builder never touches
   (tolerance `1e-10`) — via the shared `resolve_probability_schedule`
   resolver (`src/Circuit/probabilities.jl`)
 - Staircase/Pointer physics guard: if any outcome uses a staircase or
-  `Pointer` geometry, Σp at that element must equal 1 (tolerance `1e-10`).
+  `Pointer` geometry, ``\sum p`` at that element must equal ``1`` (tolerance `1e-10`).
   The CIPT random walk advances via the selected staircase every step; an
-  identity remainder (`Σp < 1`) would silently stall the walk.
+  identity remainder (``\sum p < 1``) would silently stall the walk.
 - The removed `rng=` keyword (or any other keyword) throws with a migration
   message
 

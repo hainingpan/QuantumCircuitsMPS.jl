@@ -5,7 +5,7 @@
 #
 # For AKLT ground state: |O_string| ≈ 4/9 ≈ 0.444
 
-"""
+@doc raw"""
     StringOrder(i::Int, j::Int; order::Int=1)
 
 String order parameter observable for spin-1 chains.
@@ -13,16 +13,16 @@ String order parameter observable for spin-1 chains.
 # Formulas
 
 **order=1** (nearest-neighbor AKLT):
+```math
+O^1(i,j) = \big\langle S_z[i]\, \exp\!\big(i\pi \textstyle\sum_{k=i+1}^{j-1} S_z[k]\big)\, S_z[j]\big\rangle
 ```
-O¹(i,j) = ⟨Sz[i] * exp(iπ Σ_{k=i+1}^{j-1} Sz[k]) * Sz[j]⟩
-```
-Expected: |O¹| ≈ 4/9 ≈ 0.444 for NN AKLT ground state
+Expected: ``|O^1| \approx 4/9 \approx 0.444`` for NN AKLT ground state
 
 **order=2** (next-nearest-neighbor AKLT):
+```math
+O^2(n,m) = \big\langle S_z[n]\cdot S_z[n+1]\, \exp\!\big(i\pi \textstyle\sum_{k=n+2}^{m-2} S_z[k]\big)\, S_z[m-1]\cdot S_z[m]\big\rangle
 ```
-O²(n,m) = ⟨Sz[n]·Sz[n+1] * exp(iπ Σ_{k=n+2}^{m-2} Sz[k]) * Sz[m-1]·Sz[m]⟩
-```
-Expected: |O²| ≈ (4/9)² ≈ 0.198 for NNN AKLT ground state
+Expected: ``|O^2| \approx (4/9)^2 \approx 0.198`` for NNN AKLT ground state
 
 # Arguments
 - `i`: First site index (physical indexing)
@@ -145,12 +145,15 @@ end
 
 # === Define custom ITensor operator for exp(iπ Sz) ===
 
-"""
-Define exp(iπ Sz) operator for S=1 sites.
+@doc raw"""
+Define ``\exp(i\pi S_z)`` operator for ``S=1`` sites.
 
-For spin-1: Sz = diag(+1, 0, -1) in basis |+1⟩, |0⟩, |-1⟩
-exp(iπ Sz) = diag(exp(iπ), exp(0), exp(-iπ))
-           = diag(-1, 1, -1)
+```math
+S_z = \operatorname{diag}(+1, 0, -1) \text{ in basis } |{+1}\rangle, |0\rangle, |{-1}\rangle
+```
+```math
+\exp(i\pi S_z) = \operatorname{diag}(e^{i\pi}, e^{0}, e^{-i\pi}) = \operatorname{diag}(-1, 1, -1)
+```
 
 This is a diagonal operator in the Sz basis.
 """

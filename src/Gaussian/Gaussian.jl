@@ -4,13 +4,12 @@
 #   - GaussianHaar: Haar-random O ∈ SO(4) conjugation on the 4 Majoranas of
 #     the two target sites (DIRECT conjugation — exact for unitaries; the
 #     Choi/contraction kernel `gaussian_contraction!` is reserved for
-#     measurements, which a later task wires up).
+#     measurements).
 #   - PauliX: fermionic occupation flip (single-Majorana reflection).
 #   - AbstractGate fallback: informative ArgumentError (mirrors the Clifford
 #     backend's rejecting fallback in src/Clifford/Clifford.jl).
 #
-# DISPATCH NOTE (see .sisyphus/notepads/gaussian-backend/learnings.md, Task 3
-# follow-up fix): the AbstractGate catch-all below (specializing on `state`'s
+# DISPATCH NOTE: the AbstractGate catch-all below (specializing on `state`'s
 # type parameter only) is AMBIGUOUS against any un-parameterized
 # `_apply_single!(state::SimulationState, gate::SpecificGate, ...)` method
 # (specializing on `gate`'s type only) — exactly the bug class previously hit
@@ -21,7 +20,7 @@
 # disambiguating method below. Verified via
 # `Test.detect_ambiguities(QuantumCircuitsMPS; recursive=true)`.
 
-"""
+@doc raw"""
     _apply_single!(state::SimulationState{GaussianBackend}, gate::GaussianHaar, phy_sites::Vector{Int})
 
 Apply a Haar-random SO(n) Majorana rotation to the two sites in `phy_sites`,
@@ -29,18 +28,18 @@ where `n` is the total number of Majorana indices carried by the two sites
 (resolved granularity-aware via [`site_majoranas`](@ref)):
 
 - fermionic-mode granularity (default, `majoranas_per_site == 2`): the two
-  sites carry 4 Majoranas `ix = [2a-1, 2a, 2b-1, 2b]` → Haar-SO(4).
+  sites carry 4 Majoranas `ix = [2a-1, 2a, 2b-1, 2b]` → Haar-``SO(4)``.
 - Majorana-chain granularity (`site_type="Majorana"`,
   `majoranas_per_site == 1`): the two sites ARE two Majoranas `ix = [a, b]`
-  → Haar-SO(2). Haar on SO(2) is EXACTLY the uniform-angle rotation
-  `exp(θ γ_a γ_b)` with θ ~ U[0, 2π) (SO(2) ≅ U(1), Haar = uniform angle) —
+  → Haar-``SO(2)``. Haar on SO(2) is EXACTLY the uniform-angle rotation
+  ``\exp(\theta\,\gamma_a\gamma_b)`` with ``\theta \sim U[0,2\pi)`` (``SO(2)\cong U(1)``, Haar = uniform angle) —
   the class-DIII unitary `K_U` of Pan, Shapourian, Jian, arXiv:2411.04191 (Eq. S-III.1; Python reference
   `GTN.measure_all_tri_op`'s `Υ = kraus((0, cos φ, sin φ))` branch). The
-  φ ↔ rotation convention, DERIVED EMPIRICALLY from the Python golden
-  cross-check (test/gaussian/test_majorana_chain.jl): contracting
+  φ ↔ rotation convention, matching the reference Python implementation
+  (cross-checked in `test/gaussian/test_majorana_chain.jl`): contracting
   `kraus((0, cos φ, sin φ))` on the Majorana pair `(a, b)` equals direct
-  conjugation `Γ ← R Γ Rᵀ` with `R = [[cos φ, −sin φ], [sin φ, cos φ]]` on
-  rows/columns `(a, b)` (exact to machine precision). Since φ ~ U[0, 2π)
+  conjugation ``\Gamma \leftarrow R\,\Gamma\,R^T`` with ``R = \begin{pmatrix}\cos\varphi & -\sin\varphi\\ \sin\varphi & \cos\varphi\end{pmatrix}`` on
+  rows/columns `(a, b)` (exact to machine precision). Since ``\varphi \sim U[0,2\pi)``
   makes R uniform over SO(2), the two parameterizations define the SAME
   ensemble.
 
@@ -49,12 +48,14 @@ The orthogonal matrix `O = haar_orthogonal(rng, n)` is drawn from the
 `RandomClifford` on the Clifford backend) and conjugated DIRECTLY onto the
 covariance matrix at the Majorana rows/columns `ix`:
 
-    Γ[ix, :] = O · Γ[ix, :]
-    Γ[:, ix] = Γ[:, ix] · Oᵀ
+```math
+\Gamma[\mathrm{ix},:] = O\,\Gamma[\mathrm{ix},:] \\
+\Gamma[:,\mathrm{ix}] = \Gamma[:,\mathrm{ix}]\,O^T
+```
 
-i.e. `Γ ← R Γ Rᵀ` with `R = O ⊕ I` — exact for Gaussian unitaries (no
+i.e. ``\Gamma \leftarrow R\,\Gamma\,R^T`` with ``R = O \oplus I`` — exact for Gaussian unitaries (no
 contraction kernel involved). The result is re-antisymmetrized and, if the
-purity diagnostic `max |diag(Γ²) + 1|` exceeds `state.backend.purify_tol`,
+purity diagnostic ``\max\lvert\mathrm{diag}(\Gamma^2)+1\rvert`` exceeds `state.backend.purify_tol`,
 re-purified via [`purify!`](@ref).
 """
 function _apply_single!(state::SimulationState{GaussianBackend}, gate::GaussianHaar, phy_sites::Vector{Int})
@@ -83,16 +84,16 @@ function _apply_single!(state::SimulationState{GaussianBackend}, gate::GaussianH
     return nothing
 end
 
-"""
+@doc raw"""
     _apply_single!(state::SimulationState{GaussianBackend}, gate::PauliX, phy_sites::Vector{Int})
 
 Fermionic OCCUPATION FLIP on the single site in `phy_sites` — NOT the
 Jordan-Wigner qubit Pauli-X. Implemented as the reflection of one on-site
 Majorana: the sign of row and column `2i` of Γ is flipped (`i` = RAM index
-of the site), which negates the on-site element `Γ[2i-1, 2i] = ⟨iγ_{2i-1}γ_{2i}⟩`
-and therefore flips the occupation `⟨c†c⟩ = (1 - Γ[2i-1,2i])/2` between 0
-and 1. A reflection `Γ ← RΓR` with `R = diag(1,…,-1,…,1)` is exactly
-orthogonal, so the pure-state invariant `Γ² = -I` is preserved to machine
+of the site), which negates the on-site element ``\Gamma[2i-1,2i] = \langle i\gamma_{2i-1}\gamma_{2i}\rangle``
+and therefore flips the occupation ``\langle c^\dagger c\rangle = (1-\Gamma[2i-1,2i])/2`` between 0
+and 1. A reflection ``\Gamma \leftarrow R\Gamma R`` with ``R = \mathrm{diag}(1,\dots,-1,\dots,1)`` is exactly
+orthogonal, so the pure-state invariant ``\Gamma^2 = -I`` is preserved to machine
 precision (no re-purification needed).
 
 This is the operation that lets the generic `Reset` gate (measure, then
@@ -126,8 +127,7 @@ end
 
 Dispatch disambiguator (always throws). `BondParity` is a projective
 measurement: on the Gaussian backend it is executed through the `execute!`
-measurement protocol (Gaussian `execute!` override, added by the measurement
-task), never through the `_apply_single!` gate path. This method exists so
+measurement protocol (Gaussian `execute!` override), never through the `_apply_single!` gate path. This method exists so
 the `AbstractGate` catch-all below (specializing on `state`'s type
 parameter) is not ambiguous against the un-parameterized
 `_apply_single!(state::SimulationState, gate::BondParity, ...)` rejection

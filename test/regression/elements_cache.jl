@@ -1,4 +1,4 @@
-# === T23 regression: elements() caching in simulate! (static geometries only) ===
+# === regression: elements() caching in simulate! (static geometries only) ===
 #
 # simulate! caches `elements(geo, L, bc)` per op index, LOCAL to one
 # simulate! call, ONLY for geometries with `_is_static_geometry(geo) == true`
@@ -6,7 +6,7 @@
 # Mutable geometries (StaircaseLeft/Right, Pointer) and any unknown geometry
 # type bypass the cache and are recomputed every step.
 #
-# Safety proof (plan T23):
+# Safety proof:
 #   (a) CIPT staircase (mutable geometry) trajectory bitwise-identical to the
 #       cache-free eager reference under the same seeds
 #   (b) Pointer+move! workflow unaffected (Pointer is eager-only today —
@@ -14,8 +14,7 @@
 #   (c) Bricklayer/AllSites MIPT trajectory bitwise-identical to the
 #       cache-free eager reference; repeat simulate! runs bitwise-identical
 #   (d) allocation reduction for the MIPT simulate! benchmark is measured
-#       out-of-suite (Bash @allocated before/after) — evidence:
-#       .sisyphus/evidence/v04/task-23-alloc.log
+#       out-of-suite (Bash @allocated before/after).
 #
 # The eager path (`apply_with_prob!(state; ...)` / `apply!(state, ...)`)
 # shares the selection engine with simulate! but has NO elements cache, so
@@ -41,7 +40,7 @@ function _cache_test_state(; L = 8, bc = :periodic, backend = :mps,
     return st
 end
 
-@testset "T23 elements() caching in simulate!" begin
+@testset "elements() caching in simulate!" begin
     @testset "_is_static_geometry trait (explicit + conservative)" begin
         # Static (cacheable): step-invariant immutable geometries
         @test _is_static_geometry(Bricklayer(:even))
@@ -254,8 +253,7 @@ end
 
     @testset "(d) allocation note" begin
         # Allocation reduction for the MIPT simulate! benchmark entry is
-        # measured out-of-suite (@allocated before/after via git, evidence
-        # in .sisyphus/evidence/v04/task-23-alloc.log and the v04 notepad).
+        # measured out-of-suite (@allocated before/after via git).
         # In-suite we only sanity-check that a multi-step run completes and
         # records the expected number of observations (cache plumbing sound).
         L = 6

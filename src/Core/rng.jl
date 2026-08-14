@@ -6,10 +6,10 @@ using Random
 Container for named RNG streams for reproducible randomness.
 
 Streams:
-- :gates_spacetime - decisions about whether to apply control operations (p_ctrl)
-- :gates_realization - Haar random unitary generation
-- :born_measurement - Born rule measurement outcomes
-- :state_init - random initial state generation (optional)
+- `:gates_spacetime` - decisions about whether to apply control operations (`p_ctrl`)
+- `:gates_realization` - Haar random unitary generation
+- `:born_measurement` - Born rule measurement outcomes
+- `:state_init` - random initial state generation (optional)
 
 # Fixed-draw contract (v0.1)
 The `:gates_spacetime` stream has a FIXED, data-independent consumption: each
@@ -19,7 +19,7 @@ draws are SCALAR (`rand(rng)`, never `rand(rng, K)` — array fast paths may
 diverge from K scalar draws). See [`expected_draws`](@ref) for the invariant
 helper and [`with_guarded_stream`](@ref) for the feedback-time guard.
 
-# ct_compat exemption
+# `ct_compat` exemption
 `RNGRegistry(Val(:ct_compat); ...)` aliases `:gates_spacetime` ≡
 `:gates_realization` (the SAME RNG object, matching CT.jl's single-RNG
 design). Under aliasing, Haar-realization draws interleave with coin draws,
@@ -40,7 +40,7 @@ end
     RNGRegistry(; gates_spacetime, gates_realization, born_measurement, state_init=0)
 
 Create RNG registry with seeds for each stream.
-First 3 arguments (gates_spacetime, gates_realization, born_measurement) are REQUIRED.
+First 3 arguments (`gates_spacetime`, `gates_realization`, `born_measurement`) are REQUIRED.
 """
 function RNGRegistry(;
         gates_spacetime::Int,
@@ -60,10 +60,10 @@ end
 """
     RNGRegistry(::Val{:ct_compat}; circuit, measurement)
 
-Create CT.jl-compatible RNG registry where :gates_spacetime, :gates_realization share the SAME RNG.
+Create CT.jl-compatible RNG registry where `:gates_spacetime`, `:gates_realization` share the SAME RNG.
 This matches CT.jl's interleaved consumption pattern for verification.
 
-Used ONLY for Task 8 CT.jl verification with p_proj=0.
+Used ONLY for Task 8 CT.jl verification with `p_proj=0`.
 
 !!! note "Invariant exemption"
     Because the two gate streams are the SAME object, the fixed-draw
@@ -141,6 +141,7 @@ All engine coin draws are scalar — see the SCALAR-DRAW CONTRACT note in the
 `RNGRegistry` docstring.
 
 Example:
+
     if draw(state, :gates_spacetime) < p_ctrl
         # control branch
     end

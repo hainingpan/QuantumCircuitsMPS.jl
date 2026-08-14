@@ -50,7 +50,7 @@ whose numerical payload starts as `nothing` and is populated by
 | `MPSBackend` | `mps::Union{MPS, Nothing}` | `sites::Vector{Index}`, `cutoff::Float64`, `maxdim::Int` | ITensorMPS.jl matrix product state |
 | `StateVectorBackend` | `ψ::Union{Vector{ComplexF64}, Nothing}` | `engine::Symbol` (`:builtin` or `:optimized`) | dense state vector, `local_dim^L` amplitudes |
 | `CliffordBackend` | `tableau::Union{MixedDestabilizer, Nothing}` | — | QuantumClifford.jl stabilizer tableau |
-| `GaussianBackend` | `corr::Union{Matrix{Float64}, Nothing}` | `scratch::Union{Matrix{Float64}, Nothing}`, `purify_tol::Float64`, `majoranas_per_site::Int` | dense `N×N` real antisymmetric Majorana covariance matrix Γ (`N = L·majoranas_per_site`; `Γ² = -I`) |
+| `GaussianBackend` | `corr::Union{Matrix{Float64}, Nothing}` | `scratch::Union{Matrix{Float64}, Nothing}`, `purify_tol::Float64`, `majoranas_per_site::Int` | dense ``N \times N`` real antisymmetric Majorana covariance matrix ``\Gamma`` (``N = L \cdot \text{majoranas\_per\_site}``; ``\Gamma^2 = -I``) |
 
 ### Constructor wiring
 
@@ -144,9 +144,8 @@ and `CliffordBackend` each already have their own
 12), which is neither more nor less specific than an un-parameterized
 `(::SimulationState, ::GaussianHaar)`/`::BondParity` rejection — an ambiguous
 pair Julia cannot resolve. The disambiguating methods specialize on *both*
-`state`'s type parameter and the gate's type, so they win outright. See
-`.sisyphus/notepads/gaussian-backend/learnings.md` (Task 3 follow-up) for the
-discovery/fix history; any future backend adding its own
+`state`'s type parameter and the gate's type, so they win outright. Any
+future backend adding its own
 `(::SimulationState{ItsBackend}, ::AbstractGate)` catch-all alongside a
 gate-specific rejection defined elsewhere must repeat this pattern.
 
@@ -163,7 +162,7 @@ Contract obligations (every implementation):
    MPS → `normalize!` + `truncate!(; cutoff)`; StateVector → `normalize!`;
    Clifford → not applicable (all supported operations preserve stabilizer
    states); Gaussian → not applicable (`GaussianHaar`/`PauliX` are exact
-   orthogonal conjugations that preserve `Γ² = -I` to machine precision; the
+   orthogonal conjugations that preserve ``\Gamma^2 = -I`` to machine precision; the
    backend instead self-monitors purity via `purify_tol` and calls
    `purify!` when floating-point drift exceeds it, independent of the
    normalization trait).
@@ -175,7 +174,7 @@ Contract obligations (every implementation):
 | MPS | `build_operator(gate, site_index(es), local_dim; rng, mps, ram_sites) -> ITensor` | `apply_op_internal!` (contract + SVD chain, respects `cutoff`/`maxdim`) |
 | StateVector | `gate_matrix(gate) -> Matrix{ComplexF64}`; random gates via `gate_matrix(gate, rng; local_dim)` (dispatch in `_resolve_gate_matrix_sv`) | `apply_gate_sv!` (`:builtin`) or `apply_gate_sv_optimized!` (`:optimized`) |
 | Clifford | none — symbolic ops (`QuantumClifford.sX`, `sCPHASE`, `sCNOT`, ..., `random_clifford`) | `QuantumClifford.apply!(tableau, op[, indices])` |
-| Gaussian | **none — direct covariance-matrix update, no shared protocol.** `GaussianHaar` conjugates a Haar-`SO(n)` block directly onto rows/columns of `state.backend.corr` (`Γ ← RΓRᵀ`, `n=4` fermionic-mode / `n=2` Majorana-chain granularity); `PauliX` is a single-row/column sign flip. Measurement gates (`Measure(:Z)`, `BondParity`) go through the separate fermionic-linear-optics contraction kernel `gaussian_contraction!` instead (see §3). | in-place mutation of `state.backend.corr` (no ITensor, no dense matrix, no tableau) |
+| Gaussian | **none — direct covariance-matrix update, no shared protocol.** `GaussianHaar` conjugates a Haar-`SO(n)` block directly onto rows/columns of `state.backend.corr` (``\Gamma \leftarrow R\Gamma R^{\mathsf T}``, `n=4` fermionic-mode / `n=2` Majorana-chain granularity); `PauliX` is a single-row/column sign flip. Measurement gates (`Measure(:Z)`, `BondParity`) go through the separate fermionic-linear-optics contraction kernel `gaussian_contraction!` instead (see §3). | in-place mutation of `state.backend.corr` (no ITensor, no dense matrix, no tableau) |
 
 ### 3. `_measure_single_site!(state, site) -> Int` — the measurement primitive
 

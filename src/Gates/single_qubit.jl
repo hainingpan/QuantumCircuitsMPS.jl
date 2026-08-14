@@ -15,12 +15,12 @@ struct PauliZ <: AbstractGate end
 support(::PauliZ) = 1
 gate_matrix(::PauliZ) = ComplexF64[1 0; 0 -1]
 
-"""
+@doc raw"""
     Projection(outcome::Int)
 
-Projector onto computational basis state |outcome⟩ (level index, 0-based).
-outcome=0 projects onto |0⟩, outcome=1 onto |1⟩; on spin sites of local
-dimension d, any level `0 ≤ outcome ≤ d-1` is valid (level k ↔ m = S-k).
+Projector onto computational basis state ``\lvert \text{outcome} \rangle`` (level index, 0-based).
+outcome=0 projects onto ``\lvert 0 \rangle``, outcome=1 onto ``\lvert 1 \rangle``; on spin sites of local
+dimension d, any level `0 ≤ outcome ≤ d-1` is valid (level ``k \leftrightarrow m = S-k``).
 The outcome is validated against the state's local dimension at apply time.
 """
 struct Projection <: AbstractGate
@@ -36,10 +36,10 @@ support(::Projection) = 1
 needs_normalization(::Projection) = true  # projector shrinks the norm
 gate_matrix(g::Projection) = _projection_matrix(g.outcome, 2)
 
-"""
+@doc raw"""
     _projection_matrix(outcome::Int, d::Int) -> Matrix{ComplexF64}
 
-Dense d×d projector |outcome⟩⟨outcome| (0-based level index), validated
+Dense d×d projector ``\lvert \text{outcome} \rangle\langle \text{outcome} \rvert`` (0-based level index), validated
 against the local dimension `d`.
 """
 function _projection_matrix(outcome::Int, d::Int)
@@ -80,10 +80,10 @@ function build_operator(gate::PauliZ, site::Index, local_dim::Int; kwargs...)
     return op("Z", site)
 end
 
-"""
+@doc raw"""
     build_operator(gate::Projection, site::Index, local_dim::Int) -> ITensor
 
-Build projection operator |outcome⟩⟨outcome| via the site type's per-level
+Build projection operator ``\lvert \text{outcome} \rangle\langle \text{outcome} \rvert`` via the site type's per-level
 `"Proj<k>"` op string (defined for Qubit/"S=1/2" by ITensors and for all
 spin site types by `src/Core/spin_sites.jl`).
 """
@@ -93,7 +93,7 @@ function build_operator(gate::Projection, site::Index, local_dim::Int; kwargs...
     return op("Proj$(gate.outcome)", site)
 end
 
-"""Phase gate (S gate, √Z), diag(1, i)."""
+@doc raw"""Phase gate (S gate, ``\sqrt{Z}``), ``\mathrm{diag}(1, i)``."""
 struct PhaseGate <: AbstractGate end
 support(::PhaseGate) = 1
 gate_matrix(::PhaseGate) = ComplexF64[1 0; 0 im]

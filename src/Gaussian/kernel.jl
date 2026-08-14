@@ -4,7 +4,7 @@
 # purify (L1131-1136), correlation_matrix (L29-55, non-op branch), kraus
 # (L105-118). No SimulationState dependency — pure functions on matrices.
 #
-# Conventions (verified empirically against Python get_C_f, GTN.py:1518-1523):
+# Conventions (matching the reference Python implementation get_C_f, GTN.py:1518-1523):
 # - Mode i (1-based) ↔ Majorana indices (2i−1, 2i).
 # - 2×2 block [[0,1],[−1,0]] on a mode ⇒ ⟨c†c⟩ = 0 (unoccupied / vacuum).
 # - 2×2 block [[0,−1],[1,0]] on a mode ⇒ ⟨c†c⟩ = 1 (occupied).
@@ -43,12 +43,11 @@ function site_majoranas(state, site::Int)
     return state.backend.majoranas_per_site == 1 ? (r,) : (2r - 1, 2r)
 end
 
-"""
+@doc raw"""
     _kraus(n::NTuple{3,<:Real}) -> Matrix{Float64}
 
-4×4 Gaussian gate tensor Υ parameterized by `n = (n₁,n₂,n₃)` — port of
-`GTN.kraus` (`GTN.py:105-118`) with `c = [1,1,1]`. Unitary 2-Majorana
-rotation for ‖n‖ = 1; parity projection for `n = (±1,0,0)`.
+``4\times4`` Gaussian gate tensor ``\Upsilon`` parameterized by ``n = (n_1,n_2,n_3)`` — port of
+`GTN.kraus` (`GTN.py:105-118`) with `c = [1,1,1]`. Unitary 2-Majorana rotation for ``\|n\| = 1``; parity projection for ``n = (\pm1,0,0)``.
 """
 function _kraus(n::NTuple{3, <:Real})
     n1, n2, n3 = float.(n)
@@ -58,12 +57,12 @@ function _kraus(n::NTuple{3, <:Real})
             -n3 -n2 n1 0.0]
 end
 
-"""
+@doc raw"""
     parity_projection_upsilon(s::Int) -> Matrix{Float64}
 
-4×4 Υ projecting a Majorana pair `(i,j)` onto parity outcome `s ∈ {+1,−1}`,
-i.e. `_kraus((s,0,0))`. Post-measurement state has `Γ[i,j] = −s` (verified
-against Python: vacuum `Γ[2i−1,2i] = +1` is the `s = −1` outcome; contracting
+4×4 Υ projecting a Majorana pair `(i,j)` onto parity outcome ``s \in \{+1,-1\}``,
+i.e. `_kraus((s,0,0))`. Post-measurement state has ``\Gamma[i,j] = -s`` (matching the
+Python reference: vacuum `Γ[2i−1,2i] = +1` is the `s = −1` outcome; contracting
 the vacuum pair with `s = +1` is the probability-zero outcome and throws).
 """
 function parity_projection_upsilon(s::Int)
@@ -71,12 +70,12 @@ function parity_projection_upsilon(s::Int)
     return _kraus((s, 0, 0))
 end
 
-"""
+@doc raw"""
     vacuum_covariance(L::Int) -> Matrix{Float64}
 
-`2L×2L` Majorana covariance matrix Γ₀ = ⊕ᵢ [[0,1],[−1,0]] of the all-modes-
+`2L×2L` Majorana covariance matrix ``\Gamma_0 = \bigoplus_i \begin{pmatrix}0&1\\-1&0\end{pmatrix}`` of the all-modes-
 unoccupied vacuum (port of `correlation_matrix`, `GTN.py:29-55`, non-op
-branch). Verified via Python `get_C_f`: every mode has ⟨c†c⟩ = 0.
+branch). Matches the Python reference `get_C_f`: every mode has ``\langle c^\dagger c\rangle = 0``.
 """
 function vacuum_covariance(L::Int)
     Γ = zeros(Float64, 2L, 2L)
@@ -88,13 +87,12 @@ function vacuum_covariance(L::Int)
     return Γ
 end
 
-"""
+@doc raw"""
     occupation_covariance(bits::AbstractVector{Bool}) -> Matrix{Float64}
 
 Product-state covariance matrix for occupations `bits`: mode `i` gets block
-[[0,1],[−1,0]] when `bits[i] == false` (⟨c†c⟩ = 0) and the sign-flipped block
-[[0,−1],[1,0]] when `bits[i] == true` (⟨c†c⟩ = 1). Sign ↔ occupation mapping
-verified empirically against Python `get_C_f` (`GTN.py:1518-1523`).
+[[0,1],[−1,0]] when `bits[i] == false` (``\langle c^\dagger c\rangle = 0``) and the sign-flipped block ``\begin{pmatrix}0&-1\\1&0\end{pmatrix}`` when `bits[i] == true` (``\langle c^\dagger c\rangle = 1``). Sign ↔ occupation mapping
+matches the Python reference `get_C_f` (`GTN.py:1518-1523`).
 """
 function occupation_covariance(bits::AbstractVector{Bool})
     L = length(bits)
@@ -108,13 +106,13 @@ function occupation_covariance(bits::AbstractVector{Bool})
     return Γ
 end
 
-"""
+@doc raw"""
     purify!(Γ::Matrix{Float64}) -> Matrix{Float64}
 
 Project a (numerically drifted) covariance matrix back onto the manifold of
-pure Gaussian states (Γ² = −I) — port of `purify` (`GTN.py:1131-1136`, see
+pure Gaussian states (``\Gamma^2 = -I``) — port of `purify` (`GTN.py:1131-1136`, see
 App. B2 of PhysRevB.106.134206). Eigendecomposes the Hermitian matrix Γ/i,
-clamps eigenvalues to ±1, reconstructs `−Im(V·diag(vals)·V†)`, then
+clamps eigenvalues to ±1, reconstructs ``-\mathrm{Im}(V\,\mathrm{diag}(\mathrm{vals})\,V^\dagger)``, then
 antisymmetrizes. In-place; returns `Γ`.
 """
 function purify!(Γ::Matrix{Float64})
@@ -125,22 +123,24 @@ function purify!(Γ::Matrix{Float64})
     return Γ
 end
 
-"""
+@doc raw"""
     gaussian_contraction!(Γ, Υ, ix; scratch=nothing, purify_tol=1e-10) -> Γ
 
 Contract the Gaussian gate tensor `Υ` (2m×2m for m = length(ix) Majorana
 legs) into the covariance matrix `Γ` at Majorana indices `ix` (1-based),
 in place — line-by-line port of `P_contraction_2` (`GTN.py:1063-1102`):
 
-    C = (Γ_RR·Υ_LL + I)⁻¹
-    Γ[ix̄,ix̄] += Γ_LR·(Υ_LL·C)·Γ_LRᵀ
-    Γ[ix,ix̄]  = Υ_RL·C·Γ_LRᵀ
-    Γ[ix,ix]  = Υ_RR + Υ_RL·(Γ_RR·Cᵀ)·Υ_RLᵀ
-    Γ[ix̄,ix]  = −Γ[ix,ix̄]ᵀ
+```math
+C = (\Gamma_{RR}\Upsilon_{LL}+I)^{-1}\\
+\Gamma[\bar{ix},\bar{ix}] \mathrel{+}= \Gamma_{LR}(\Upsilon_{LL}C)\Gamma_{LR}^T\\
+\Gamma[ix,\bar{ix}] = \Upsilon_{RL}C\Gamma_{LR}^T\\
+\Gamma[ix,ix] = \Upsilon_{RR}+\Upsilon_{RL}(\Gamma_{RR}C^T)\Upsilon_{RL}^T\\
+\Gamma[\bar{ix},ix] = -\Gamma[ix,\bar{ix}]^T
+```
 
-Throws `ArgumentError` when `Γ_RR·Υ_LL + I` is singular (a probability-zero
+Throws `ArgumentError` when ``\Gamma_{RR}\Upsilon_{LL}+I`` is singular (a probability-zero
 measurement outcome) — no least-squares fallback. If the result drifts off
-the pure-state manifold beyond `purify_tol` (max |diag(Γ²) + 1|), calls
+the pure-state manifold beyond `purify_tol` (``\max\lvert\mathrm{diag}(\Gamma^2)+1\rvert``), calls
 [`purify!`](@ref) and re-antisymmetrizes. `scratch` (same size as Γ) is an
 optional preallocated buffer for the ix̄-block update.
 """
@@ -189,11 +189,11 @@ function gaussian_contraction!(Γ::Matrix{Float64}, Υ::AbstractMatrix,
     return Γ
 end
 
-"""
+@doc raw"""
     haar_orthogonal(rng::AbstractRNG, n::Int) -> Matrix{Float64}
 
-Exact Haar-random special-orthogonal matrix `Q ∈ SO(n)`: QR-decompose a
-Ginibre matrix, fix the R-diagonal sign ambiguity (`Q ← Q·diag(sign(diag(R)))`,
+Exact Haar-random special-orthogonal matrix ``Q \in SO(n)``: QR-decompose a
+Ginibre matrix, fix the R-diagonal sign ambiguity (``Q \leftarrow Q\,\mathrm{diag}(\mathrm{sign}(\mathrm{diag}(R)))``,
 required for Haar on O(n)), then flip the first column if `det(Q) < 0` to
 land in SO(n).
 """

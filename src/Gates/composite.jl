@@ -2,10 +2,10 @@
 # NOTE: the legacy `Measurement` gate (a feedback-less strict subset of
 # `Measure`) was removed in v0.4.0 — use `Measure(:Z)` (src/Gates/feedback.jl).
 
-"""
+@doc raw"""
     Reset
 
-Reset gate: projects to |0⟩ or |1⟩ based on Born probability, then flips to |0⟩ if needed.
+Reset gate: projects to ``\lvert 0 \rangle`` or ``\lvert 1 \rangle`` based on Born probability, then flips to ``\lvert 0 \rangle`` if needed.
 Equivalent to measure + conditional X.
 """
 struct Reset <: AbstractGate end

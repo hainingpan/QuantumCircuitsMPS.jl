@@ -10,7 +10,7 @@ using Test
 using QuantumCircuitsMPS
 using LinearAlgebra
 
-# QA shorthand (see .sisyphus/notepads/gaussian-backend/learnings.md):
+# QA shorthand:
 # RNGRegistry has NO seed kwarg.
 function _rng(k)
     RNGRegistry(gates_spacetime = k, gates_realization = k + 10,

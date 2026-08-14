@@ -1,4 +1,4 @@
-# === QUALITY GATE: JET.jl static analysis — Task 29 (env-gated) ===
+# === QUALITY GATE: JET.jl static analysis (env-gated) ===
 #
 # NON-BLOCKING BY DEFAULT: JET's whole-package analysis is expensive
 # (minutes) and its report count is sensitive to Julia/JET versions, so it
@@ -7,11 +7,9 @@
 #     JET_TEST=true julia --project=. -e 'using Pkg; Pkg.test()'
 #
 # RATCHETING THRESHOLD (lower it when reports are fixed; NEVER raise it):
-#   - T2 baseline (pre-Wave-5 code, JET 0.11.5, Julia 1.12.6): 36 reports
-#     (.sisyphus/evidence/v04/task-2-jet-baseline.log)
-#   - T29 current (post Waves 5-7 feature code: PauliString,
+#   - baseline (pre-Wave-5 code, JET 0.11.5, Julia 1.12.6): 36 reports
+#   - current (post Waves 5-7 feature code: PauliString,
 #     MutualInformation, common observables, spin-S): 57 reports
-#     (.sisyphus/evidence/v04/task-29-jet-probe.log)
 # Effectively ONE root cause across all reports: `Union{Nothing, T}` backend
 # fields (ψ/mps/tableau, set to `nothing` at construction and populated by
 # `initialize!`) are dereferenced without a `nothing` guard. The `Nothing`
@@ -26,7 +24,7 @@ if get(ENV, "JET_TEST", "") == "true"
     using JET
     using QuantumCircuitsMPS
 
-    @testset "QUALITY JET report_package (T29, env-gated)" begin
+    @testset "QUALITY JET report_package (env-gated)" begin
         # Ratchet: current count 57 (see header). Lower when reports are
         # fixed; a count above this means NEW type instabilities/errors.
         jet_ratchet_threshold = 57

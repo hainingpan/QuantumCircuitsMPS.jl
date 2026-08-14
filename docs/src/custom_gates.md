@@ -48,7 +48,7 @@ registered; each method you define is simply found by dispatch.
    `ram_sites=`; a signature without `kwargs...` is a `MethodError`.
 3. **State-vector backend** —
    `QuantumCircuitsMPS.gate_matrix(gate) -> Matrix{ComplexF64}`: the dense
-   matrix, `U[out, in] = ⟨out|U|in⟩`, in Kronecker (row-major site) ordering
+   matrix, ``U[\text{out},\text{in}] = \langle \text{out} \rvert U \lvert \text{in} \rangle``, in Kronecker (row-major site) ordering
    — the FIRST site of the region is the slowest basis digit, so
    `kron(A, B)` acts with `A` on the first site.
 4. **Opt-in traits** (both default to `false`, so unitaries need neither) —
@@ -72,8 +72,8 @@ Which of these you need depends on where the gate must run:
 
 ## Example (a): a custom unitary gate
 
-`SqrtX` is the "square root of NOT": `U² = X`, and `U|0⟩` has equal weight
-on `|0⟩` and `|1⟩`. Defining `build_operator` **and** `gate_matrix` makes
+`SqrtX` is the "square root of NOT": ``U^2 = X``, and ``U\lvert 0\rangle`` has equal weight
+on ``\lvert 0\rangle`` and ``\lvert 1\rangle``. Defining `build_operator` **and** `gate_matrix` makes
 one type run unchanged on both dense backends.
 
 ```julia
@@ -119,7 +119,7 @@ skip renormalization.
 
 Non-unitary gates shrink the norm, so they must opt into renormalization
 with the `needs_normalization` trait. `MyProjection` is the projector
-`|0⟩⟨0|` on one site — here `build_operator` *can* use `op("Proj0", site)`,
+``\lvert 0\rangle\langle 0\rvert`` on one site — here `build_operator` *can* use `op("Proj0", site)`,
 because `"Proj0"` is a name the qubit site type already defines. (It is
 written `ITensors.op` below because `ITensors` does not export `op` at top
 level; `ITensor`, `Index`, and `prime` in example (a) are exported.)
@@ -148,8 +148,8 @@ apply!(state, MyProjection(), SingleSite(1))
 println("P0_proj = ", born_probability(state, 1, 0))
 ```
 
-This prints `1.0`: applying `|0⟩⟨0|` to `|+⟩` leaves a state of norm
-`1/√2`, and the trait tells the backend to fix that. Concretely, the MPS
+This prints `1.0`: applying ``\lvert 0\rangle\langle 0\rvert`` to ``\lvert +\rangle`` leaves a state of norm
+``1/\sqrt{2}``, and the trait tells the backend to fix that. Concretely, the MPS
 backend renormalizes **and** truncates at the state's `cutoff` after such a
 gate, while the state-vector backend only renormalizes (a state vector has
 no bond dimension to truncate). The trait is the only difference between a

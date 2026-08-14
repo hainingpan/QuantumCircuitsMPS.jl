@@ -1,6 +1,6 @@
-# === Gaussian backend: BondParity measurement (T9) ===
+# === Gaussian backend: BondParity measurement ===
 # Standalone: julia --project=. -e 'include("test/gaussian/test_bond_parity.jl")'
-# NOT wired into runtests.jl (T13's job).
+# NOT wired into runtests.jl.
 
 using Test
 using QuantumCircuitsMPS

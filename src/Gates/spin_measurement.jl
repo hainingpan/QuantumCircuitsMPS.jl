@@ -4,13 +4,13 @@
 # 1. SpinSectorProjection: Coherent projection preserving superposition
 # 2. SpinSectorMeasurement: Born rule measurement with outcome collapse
 
-"""
+@doc raw"""
     SpinSectorProjection(projector::Matrix{Float64})
 
 Coherent projection onto specified spin sectors (no measurement/collapse).
 
 Applies projector operator P to two adjacent spin sites, then renormalizes:
-    |ψ⟩ → P|ψ⟩ / ||P|ψ⟩||
+    ``\lvert \psi \rangle \to P\lvert \psi \rangle / \lVert P \lvert \psi \rangle \rVert``
 
 The projector must be d²×d² for two sites of local dimension d (9×9 for the
 historical spin-1 case; 16×16 for spin-3/2 pairs, etc.). The matrix size is
@@ -29,7 +29,7 @@ gate32 = SpinSectorProjection(P012)
 
 # Physics
 This is a coherent operation that preserves quantum superposition.
-For AKLT: Repeated application of P₀+P₁ should converge to ground state.
+For AKLT: Repeated application of ``P_0+P_1`` should converge to ground state.
 """
 struct SpinSectorProjection <: AbstractGate
     projector::Matrix{Float64}
@@ -54,7 +54,7 @@ needs_normalization(::SpinSectorProjection) = true  # coherent projection shrink
     gate_matrix(gate::SpinSectorProjection) -> Matrix{ComplexF64}
 
 State-vector-path equivalent of `build_operator(gate::SpinSectorProjection, ...)`:
-the 9×9 projector as a dense complex matrix (audit fix, T17 — this method was
+the 9×9 projector as a dense complex matrix (this method was previously
 missing, so `apply!` on `backend=:statevector` threw `MethodError` and the
 README AKLT protocol could not run on the SV backend).
 
@@ -66,13 +66,13 @@ second site (fast). Renormalization after application is provided by the
 """
 gate_matrix(gate::SpinSectorProjection) = ComplexF64.(gate.projector)
 
-"""
+@doc raw"""
     SpinSectorMeasurement(sectors::Vector{Int}=)
 
 True Born measurement of total spin sector for two adjacent spin-1 sites.
 
 Performs projective measurement that collapses the state to a definite spin sector.
-Outcome probabilities follow Born rule: P(S) = ⟨ψ|Pₛ|ψ⟩
+Outcome probabilities follow Born rule: ``P(S) = \langle \psi \rvert P_S \lvert \psi \rangle``
 
 # Arguments
 - `sectors`: Which sectors to measure (default: [0, 1, 2] for all sectors)
@@ -87,7 +87,7 @@ gate = SpinSectorMeasurement([0, 1])
 ```
 
 # Physics
-This is the research question: Does forced measurement to S∈{0,1} produce
+This is the research question: Does forced measurement to ``S \in \{0,1\}`` produce
 different physics than coherent projection? Unknown behavior to explore.
 
 # Returns
@@ -167,15 +167,15 @@ function build_operator(gate::SpinSectorProjection, sites::Vector{<:Index}, loca
     return op_tensor
 end
 
-"""
+@doc raw"""
     compute_two_site_born_probability(mps::MPS, projector::Matrix{Float64}, ram_sites::Vector{Int}, local_dim::Int) -> Float64
 
-Compute the Born probability ⟨ψ|P|ψ⟩ for a two-site projector.
+Compute the Born probability ``\langle \psi \rvert P \lvert \psi \rangle`` for a two-site projector.
 
-Computes ⟨ψ|P|ψ⟩ by:
+Computes ``\langle \psi \rvert P \lvert \psi \rangle`` by:
 1. Orthogonalizing MPS to the target region
 2. Contracting the two-site block into a local tensor
-3. Computing ⟨T|P|T⟩ using proper index contraction
+3. Computing ``\langle T \rvert P \lvert T \rangle`` using proper index contraction
 
 # Arguments
 - `mps`: Current MPS state  
@@ -184,7 +184,7 @@ Computes ⟨ψ|P|ψ⟩ by:
 - `local_dim`: Local Hilbert space dimension (3 for spin-1)
 
 # Returns
-- Probability p = ⟨ψ|P|ψ⟩ (real, non-negative)
+- Probability ``p = \langle \psi \rvert P \lvert \psi \rangle`` (real, non-negative)
 """
 function compute_two_site_born_probability(
         mps::MPS, projector::Matrix{Float64}, ram_sites::Vector{Int}, local_dim::Int)
@@ -245,13 +245,13 @@ function compute_two_site_born_probability(
     return max(real(result), 0.0)
 end
 
-"""
+@doc raw"""
     build_operator(gate::SpinSectorMeasurement, sites::Vector{Index}, local_dim::Int; rng, mps, ram_sites) -> ITensor
 
 Build measurement operator for two spin-1 sites with proper Born sampling.
 
 Implements the Born rule measurement:
-1. Compute Born probabilities p(S) = ⟨ψ|P_S|ψ⟩ for each allowed sector S
+1. Compute Born probabilities ``p(S) = \langle \psi \rvert P_S \lvert \psi \rangle`` for each allowed sector S
 2. Normalize probabilities over allowed sectors
 3. Sample outcome S with probability p(S) using the provided RNG
 4. Return the projector P_S onto the sampled sector
