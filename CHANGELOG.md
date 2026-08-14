@@ -8,6 +8,18 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
 
 ## [Unreleased]
 
+## [0.5.5] - 2026-08-14
+
+### Changed
+
+- Documentation: mathematical expressions in docstrings and on the Documenter
+  site are now written as LaTeX — fenced `math` blocks for display equations
+  and double-backtick inline math — instead of Unicode approximations, so
+  formulas render as real typeset math on the docs site. Docstrings that
+  carry TeX now use `@doc raw"""` where escaping would otherwise be needed.
+  Runtime error messages and internal code comments keep their plain-text
+  Unicode form. No API, numerical, or behavioral changes.
+
 ## [0.5.4] - 2026-08-13
 
 ### Added
@@ -439,7 +451,8 @@ documentation.
 
 Initial clean release, with CIPT and MIPT example notebooks.
 
-[Unreleased]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.4...HEAD
+[Unreleased]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.5...HEAD
+[0.5.5]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.2...v0.5.3
 [0.5.2]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.1...v0.5.2
