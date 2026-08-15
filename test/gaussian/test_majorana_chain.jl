@@ -192,12 +192,10 @@ end
         (() -> Magnetization(:Z)(s), "Majorana"),
         (() -> born_probability(s, 2, 0), "BondParity"))
         err = try
-            ;
-            f();
-            nothing;
+            f()
+            nothing
         catch e
-            ;
-            e;
+            e
         end
         @test err isa ArgumentError
         @test occursin(needle, err.msg)

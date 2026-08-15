@@ -25,7 +25,10 @@ jobs:
         run: |
           using Pkg
           Pkg.activate(temp=true)
-          Pkg.add(Pkg.PackageSpec(name="JuliaFormatter", version="2"))
+          # Pinned to an exact version on purpose. A floating "2" silently adopts
+          # new 2.x formatting rules, which can turn this check red with no code
+          # change. Bump this deliberately, and reformat in the same commit.
+          Pkg.add(Pkg.PackageSpec(name="JuliaFormatter", version="2.12.4"))
           using JuliaFormatter
           # format(...; overwrite=false) returns true iff the code is already
           # correctly formatted, false iff changes would be required.

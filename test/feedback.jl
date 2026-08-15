@@ -214,9 +214,9 @@ end
                 (probability = 1.0, gate = Measure(:Z), geometry = EachSite(1:4))
             ])
         end
-        st_a = mkstate();
+        st_a = mkstate()
         simulate!(build(), st_a; n_steps = 3, record_when = :final_only)
-        st_b = mkstate();
+        st_b = mkstate()
         simulate!(build_nofb(), st_b; n_steps = 3, record_when = :final_only)
         @test rand(copy(get_rng(st_a.rng_registry, :gates_spacetime))) ==
               rand(copy(get_rng(st_b.rng_registry, :gates_spacetime)))

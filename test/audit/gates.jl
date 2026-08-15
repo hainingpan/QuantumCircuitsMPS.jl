@@ -258,12 +258,12 @@ end
             @test QCM.needs_normalization(g)
             @test norm(g.projector * P2) < 1e-12   # kills EVERY S=2 state
             # stretched state |m=1, m=1⟩ (basis index 1) is pure S=2:
-            e11 = zeros(9);
+            e11 = zeros(9)
             e11[1] = 1.0
             @test norm(P01 * e11) < 1e-12
             @test P2 * e11 ≈ e11 atol=1e-12
             # |m=0, m=0⟩ (basis index 5) has NO S=1 component (CG zero):
-            e00 = zeros(9);
+            e00 = zeros(9)
             e00[5] = 1.0
             @test norm(P1 * e00) < 1e-12
             @test e00' * P0 * e00 ≈ 1 / 3 atol=1e-12
@@ -319,7 +319,7 @@ end
             (pname, prep!) in preps
 
             sv, cl = _ag_pair(L)
-            prep!(sv);
+            prep!(sv)
             prep!(cl)
             apply!(sv, gate, SingleSite(1))
             apply!(cl, gate, SingleSite(1))
@@ -332,7 +332,7 @@ end
             (pname, prep!) in preps
 
             sv, cl = _ag_pair(L)
-            prep!(sv);
+            prep!(sv)
             prep!(cl)
             apply!(sv, gate, AdjacentPair(1))
             apply!(cl, gate, AdjacentPair(1))

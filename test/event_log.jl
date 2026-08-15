@@ -73,11 +73,9 @@ end
         @test_throws ArgumentError events(state_off)
         @test_throws ArgumentError measurements(state_off)
         err = try
-            ;
-            events(state_off);
+            events(state_off)
         catch e
-            ;
-            e;
+            e
         end
         @test occursin("log_events=true", sprint(showerror, err))
     end

@@ -270,8 +270,7 @@ end
     # fingerprint draw. (Old engine: 12 × ΣKᵢ=24 = 288 draws → 0.6539347077753881.)
     burn = MersenneTwister(42)
     for _ in 1:144
-        ;
-        rand(burn);
+        rand(burn)
     end
     expected_fp = rand(burn)
     fp_new = produced["rng_fingerprints"]["gates_spacetime"]

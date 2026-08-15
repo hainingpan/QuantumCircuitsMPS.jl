@@ -109,7 +109,7 @@ end
         reg_a = _fresh_registry()
         reg_b = _fresh_registry()  # unguarded twin
         # advance both identically before the guard
-        draw(reg_a, :gates_spacetime);
+        draw(reg_a, :gates_spacetime)
         draw(reg_b, :gates_spacetime)
         original = get_rng(reg_a, :gates_spacetime)
         with_guarded_stream(reg_a, :gates_spacetime) do

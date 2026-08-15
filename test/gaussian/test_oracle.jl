@@ -82,9 +82,9 @@ include(joinpath(@__DIR__, "oracle.jl"))
         # Γ' = R Γ_vac Rᵀ, R = Givens(θ=0.7) on Majoranas 2,3 (1-based)
         th = 0.7
         R = Matrix{Float64}(I, 4, 4)
-        R[2, 2] = cos(th);
+        R[2, 2] = cos(th)
         R[2, 3] = -sin(th)
-        R[3, 2] = sin(th);
+        R[3, 2] = sin(th)
         R[3, 3] = cos(th)
         Γ = R * oracle_vacuum_covariance(2) * transpose(R)
         ρ = oracle_density_matrix(Γ)
@@ -105,9 +105,9 @@ include(joinpath(@__DIR__, "oracle.jl"))
         γ = majorana_matrices(2)
         th = 0.7
         R = Matrix{Float64}(I, 4, 4)
-        R[2, 2] = cos(th);
+        R[2, 2] = cos(th)
         R[2, 3] = -sin(th)
-        R[3, 2] = sin(th);
+        R[3, 2] = sin(th)
         R[3, 3] = cos(th)
         ρ = oracle_density_matrix(R * oracle_vacuum_covariance(2) * transpose(R))
         P = (Matrix{ComplexF64}(I, 4, 4) + im * γ[1] * γ[2]) / 2

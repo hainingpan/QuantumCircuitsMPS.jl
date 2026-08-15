@@ -58,9 +58,9 @@ const GOLDEN_ENTROPY_GIVENS_PI3 = 0.56233514461880829
     @testset "von Neumann entropy matches von_Neumann_entropy_m + analytic" begin
         θ = π / 3
         O = Matrix{Float64}(I, 4, 4)
-        O[2, 2] = cos(θ);
+        O[2, 2] = cos(θ)
         O[2, 3] = -sin(θ)
-        O[3, 2] = sin(θ);
+        O[3, 2] = sin(θ)
         O[3, 3] = cos(θ)
         Γ = O * QCM_GOLD.vacuum_covariance(2) * transpose(O)
         Γ .= (Γ .- transpose(Γ)) ./ 2
