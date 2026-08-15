@@ -36,8 +36,8 @@
 # fingerprints match the golden exactly. Only the :gates_spacetime stream is
 # consumed at a different rate, so its post-run fingerprint LEGITIMATELY
 # changes from the golden 0.6539347077753881 to the re-goldened value below.
-# This is the sanctioned Case B consumption change (plan §Oracle review,
-# verified by twin-burn proof in Task 9); it is NOT a failure, and the pristine
+# This is the sanctioned Case B consumption change, verified by a twin-burn
+# proof; it is NOT a failure, and the pristine
 # pre-refactor JSON is intentionally left untouched as the historical baseline.
 # The officially accepted (re-goldened) v0.1 value is pinned HERE:
 const AKLT_GATES_SPACETIME_FINGERPRINT_V01 = 0.10031542999150234

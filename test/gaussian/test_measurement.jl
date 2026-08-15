@@ -15,7 +15,7 @@ using LinearAlgebra
 using QuantumCircuitsMPS
 using Random: MersenneTwister
 
-# Vacuum-initialized Gaussian state. Seed convention (notepad):
+# Vacuum-initialized Gaussian state. Seed convention:
 # RNG(k) = k / k+10 / k+20 / k+30 per stream; born seed overridable.
 function make_state(L::Int; bc::Symbol = :open, seed::Int = 1,
         born_measurement::Union{Int, Nothing} = nothing,

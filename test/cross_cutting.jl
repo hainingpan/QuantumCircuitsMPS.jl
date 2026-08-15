@@ -1,6 +1,6 @@
 # === cross-cutting invariant + integration tests ===
-# Fills the gaps NOT owned by earlier task test files (see plan §17 and the
-# Metis acceptance-criteria inventory). Grep markers for the Metis audit:
+# Fills the invariant gaps not owned by the per-feature test files.
+# Grep markers for the cross-cutting audit:
 #   THREAD-SAFETY, DRAW-COUNT, EVENT-LOG, EQUAL-K, SENTINEL
 # (STUB lives in test/legacy_removal.jl; the golden gate in golden_compare.jl.)
 #

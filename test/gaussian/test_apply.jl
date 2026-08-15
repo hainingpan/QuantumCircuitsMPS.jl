@@ -18,7 +18,7 @@ using QuantumCircuitsMPS
 using Random: MersenneTwister
 
 # Vacuum-initialized Gaussian state without going through initialize!.
-# Seed convention (notepad): RNG(k) = k / k+10 / k+20 / k+30 per stream.
+# Seed convention: RNG(k) = k / k+10 / k+20 / k+30 per stream.
 function make_vacuum_state(L::Int; bc::Symbol = :open, seed::Int = 1,
         gates_realization::Union{Int, Nothing} = nothing)
     state = SimulationState(L = L, bc = bc, backend = :gaussian,
