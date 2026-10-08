@@ -293,10 +293,16 @@ function build_operator(gate::SpinSectorMeasurement, sites::Vector{<:Index},
     end
 
     # === Step 2: Normalize probabilities over allowed sectors ===
+    # The total is the Born probability of the allowed branch (= ‖Pψ‖² for
+    # the projector onto the union of the sectors): below the shared
+    # postselection threshold there is no outcome to sample, so reject with
+    # the state untouched — same contract as _check_postselection.
     total_prob = sum(probs)
-    if total_prob < 1e-14
-        error("SpinSectorMeasurement: State has zero overlap with all allowed sectors $(gate.sectors). " *
-              "Probabilities: $probs. The state may already be in an orthogonal sector.")
+    if total_prob < POSTSELECTION_PROB_TOL
+        throw(ArgumentError(
+            "SpinSectorMeasurement: state has zero overlap with all allowed sectors $(gate.sectors) " *
+            "(sector probabilities $probs sum to $total_prob < $POSTSELECTION_PROB_TOL): no outcome " *
+            "can be sampled. The state is unchanged."))
     end
     probs ./= total_prob
 

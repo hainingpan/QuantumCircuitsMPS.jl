@@ -100,7 +100,10 @@ Steps:
    selected via `state.backend.engine == :optimized` — see
    src/StateVector/optimized.jl), reassigning state.backend.ψ
 5. Normalize iff `needs_normalization(gate)` (trait, Contract 3.5) — there
-   is NO truncate! equivalent for state vectors (no bond dimension)
+   is NO truncate! equivalent for state vectors (no bond dimension). Such a
+   gate is rejected with an `ArgumentError` before the new vector is stored
+   (so the state is unchanged) when it annihilates the state — postselection
+   onto a zero-probability outcome, see `_check_postselection`.
 """
 function _apply_single!(state::SimulationState{StateVectorBackend}, gate::AbstractGate, phy_sites::Vector{Int})
     if support(gate) != length(phy_sites)
@@ -110,16 +113,20 @@ function _apply_single!(state::SimulationState{StateVectorBackend}, gate::Abstra
     ram_sites = [state.phy_ram[ps] for ps in phy_sites]   # identity for SV, but keep the lookup for code-path consistency
 
     U = _resolve_gate_matrix_sv(gate, state)
+    ψ = state.backend.ψ
     if state.backend.engine == :optimized
-        state.backend.ψ = apply_gate_sv_optimized!(
-            state.backend.ψ, U, ram_sites, state.L, state.local_dim)
+        # Tier 2 mutates in place; projective gates work on a copy so that a
+        # rejected (zero-probability) postselection leaves state.backend.ψ untouched.
+        needs_normalization(gate) && (ψ = copy(ψ))
+        ψ = apply_gate_sv_optimized!(ψ, U, ram_sites, state.L, state.local_dim)
     else
-        state.backend.ψ = apply_gate_sv!(
-            state.backend.ψ, U, ram_sites, state.L, state.local_dim)
+        ψ = apply_gate_sv!(ψ, U, ram_sites, state.L, state.local_dim)   # returns a fresh vector
     end
 
     if needs_normalization(gate)
-        normalize!(state.backend.ψ)
+        _check_postselection(norm(ψ)^2, gate, phy_sites)   # throws before the store below
+        normalize!(ψ)
     end
+    state.backend.ψ = ψ
     return nothing
 end
