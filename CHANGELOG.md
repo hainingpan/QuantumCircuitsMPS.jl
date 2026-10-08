@@ -8,6 +8,23 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
 
 ## [Unreleased]
 
+### Fixed
+
+- `StaircaseRight(p; range=r)` / `StaircaseLeft(p; range=r)` ignored `range`
+  during execution: the resolver behind every gate-application path (eager
+  `apply!`, `apply_with_prob!`, `simulate!`, `expand_circuit`) used a
+  nearest-neighbor shortcut, so a two-site gate on `StaircaseRight(1; range=2)`
+  acted on sites `(1, 2)` instead of the documented `(1, 3)` on all backends.
+  Two-site gates now target `(pos, pos+range)`, exactly the region
+  `elements(geo, L, bc)` reports (periodic wrap via `mod1`; open-boundary
+  overflow throws `ArgumentError`). Single-site gates on a staircase still
+  act at the current position. The default `range=1` is unaffected.
+- Open-boundary staircase advancement assumed `range=1` and cycled over
+  `1:L-1`, which for `range>1` walked the pair off the end of the chain; it
+  now cycles over `1:L-range` so `(pos, pos+range)` always fits. A staircase
+  whose `range` does not fit at all (`range >= L`) under open boundaries is
+  rejected with an `ArgumentError`. Periodic advancement is unchanged.
+
 ## [0.5.5] - 2026-08-14
 
 ### Changed
