@@ -8,6 +8,27 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
 
 ## [Unreleased]
 
+### Fixed
+
+- MPS `PauliString`, `StringOrder`, and `DomainWall` (and, by composition,
+  `Correlator` and `MagnetizationFluctuations`) returned the raw contraction
+  ``\langle\psi|O|\psi\rangle`` instead of the expectation value
+  ``\langle\psi|O|\psi\rangle / \langle\psi|\psi\rangle``. The MPS backend does
+  not renormalize after unitary gates, so once a layer truncated
+  (``\lVert\psi\rVert^2 < 1``) every value from these observables was scaled by
+  the retained norm — e.g. ``0.6|00\rangle + 0.8|11\rangle`` at `maxdim=1`
+  retains ``0.8|11\rangle`` and reported ``\langle Z_1\rangle = -0.64``,
+  ``\langle Z_1Z_2\rangle = 0.64``, a connected ZZ correlation of ``0.2304`` and
+  ``\mathrm{Var}(Z_1+Z_2) = 1.6416`` for what is a product state, while
+  `born_probability`, `Magnetization`, `EntanglementEntropy` and
+  `MutualInformation` (which already divide the norm out) reported the
+  consistent ``-1``, ``1``, ``0``, ``0``. All MPS observables now share the
+  same contract: values refer to the normalized retained state. Results on
+  normalized states (no truncation, or right after a measurement) are
+  unchanged; results in an actively truncating regime differ from earlier
+  versions. A zero-norm MPS now throws an informative `ArgumentError` from
+  these observables instead of returning `0`/`NaN`.
+
 ## [0.5.5] - 2026-08-14
 
 ### Changed
