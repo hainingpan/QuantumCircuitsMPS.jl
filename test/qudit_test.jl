@@ -28,9 +28,44 @@ using ITensorMPS
         @test state.local_dim == 5
         @test length(state.sites) == 3
 
-        # Test 2: Initialization works after calling initialize!
+        # Test 2: bit b at physical site i prepares Qudit level b. ITensor
+        # "Qudit" state labels "0".."d-1" are zero-based, so the bit is the
+        # label as-is. Regression test: the labels used to be shifted by +1,
+        # so binary_int=0 prepared |11…1⟩ instead of |00…0⟩.
+        # (bc=:open, so ram_phy is the identity and MPS(state.sites, labels)
+        # is in physical order.)
         initialize!(state, ProductState(binary_int = 0))
         @test state.mps isa MPS
+        @test abs(inner(MPS(state.sites, ["0", "0", "0"]), state.mps)) ≈ 1 atol = 1e-12
+        @test abs(inner(MPS(state.sites, ["1", "1", "1"]), state.mps)) < 1e-12
+
+        initialize!(state, ProductState(binary_int = 5))  # 0b101 → sites 1,3 at level 1
+        @test abs(inner(MPS(state.sites, ["1", "0", "1"]), state.mps)) ≈ 1 atol = 1e-12
+
+        initialize!(state, ProductState(bitstring = "011"))
+        @test abs(inner(MPS(state.sites, ["0", "1", "1"]), state.mps)) ≈ 1 atol = 1e-12
+
+        # Test 3: state-vector backend agrees (site 1 = MSB = slowest index)
+        sv = SimulationState(L = 2, bc = :open, site_type = "Qudit", local_dim = 3,
+            backend = :statevector)
+        initialize!(sv, ProductState(binary_int = 0))
+        @test sv.backend.ψ ≈ kron([1, 0, 0], [1, 0, 0])
+        initialize!(sv, ProductState(binary_int = 1))  # "01" → site 2 at level 1
+        @test sv.backend.ψ ≈ kron([1, 0, 0], [0, 1, 0])
+        initialize!(sv, ProductState(binary_int = 2))  # "10" → site 1 at level 1
+        @test sv.backend.ψ ≈ kron([0, 1, 0], [1, 0, 0])
+
+        # Test 4: a d=2 Qudit is a qubit — identical state vector for every label
+        # (before the fix, binary_int=1 asked for the nonexistent level 2 and
+        # threw a BoundsError)
+        for n in 0:3
+            qd = SimulationState(L = 2, bc = :open, site_type = "Qudit", local_dim = 2,
+                backend = :statevector)
+            qb = SimulationState(L = 2, bc = :open, backend = :statevector)
+            initialize!(qd, ProductState(binary_int = n))
+            initialize!(qb, ProductState(binary_int = n))
+            @test qd.backend.ψ == qb.backend.ψ
+        end
     end
 
     @testset "ProductState API" begin

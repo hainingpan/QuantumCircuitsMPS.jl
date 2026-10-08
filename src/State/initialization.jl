@@ -221,9 +221,12 @@ function initialize!(state::SimulationState, init::ProductState)
         # levels; use ProductState(spin_state="Z<m>") for intermediate levels.
         [b == "0" ? "Up" : "Dn" for b in vec_int_pos]
     elseif site_type == "Qudit"
-        # Generic qudit: "0" → "1", "1" → "2", etc. (1-indexed states)
-        # For binary qudits, "0" → "1", "1" → "2"
-        [string(parse(Int, b) + 1) for b in vec_int_pos]
+        # Generic qudit: ITensor "Qudit" state names are zero-based level
+        # labels ("0", "1", ..., "d-1"), so the bit is the label as-is:
+        # "0" → level 0, "1" → level 1. (Earlier versions added 1 here, which
+        # double-shifted because ITensors.state already maps label n to
+        # basis index n+1, so binary_int=0 prepared |11…1⟩.)
+        vec_int_pos
     else
         throw(ArgumentError("Unknown site_type: $site_type"))
     end
