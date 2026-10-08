@@ -28,6 +28,12 @@ on the roadmap).
 # Sign convention
 Matches `Magnetization`: ``\langle Z_i\rangle = +1`` on ``|0\rangle`` and ``-1`` on ``|1\rangle`` at site `i`.
 
+# Normalization
+The value is always ``\langle\psi|P|\psi\rangle / \langle\psi|\psi\rangle``. On the MPS backend a
+truncating unitary layer leaves the stored MPS with ``\langle\psi|\psi\rangle < 1`` (unitaries
+are not renormalized); the division makes the result the expectation value of
+the retained state, consistent with `born_probability` and `Magnetization`.
+
 # Examples
 ```julia
 state = SimulationState(L=4, bc=:open,
@@ -80,12 +86,16 @@ function _validate_pauli_string(obs::PauliString, state)
     return nothing
 end
 
-"""
+@doc raw"""
     (obs::PauliString)(state::SimulationState) -> Float64
 
 MPS implementation: apply each Pauli `op` to a copy of the MPS at its
-RAM-mapped site, then contract ⟨ψ|Pψ⟩ via `inner`. The imaginary part is
-asserted ≤ 1e-12 (Pauli strings are Hermitian) and the real part returned.
+RAM-mapped site, contract ``\langle\psi|P|\psi\rangle`` via `inner`, and
+divide by ``\langle\psi|\psi\rangle`` (see `_mps_norm2`) — the MPS is not
+renormalized after truncating unitary layers, so the raw contraction alone
+would scale with the retained norm instead of being the expectation value
+of the retained state. The imaginary part is asserted ``\le 10^{-12}`` (Pauli
+strings are Hermitian) and the real part returned.
 """
 function (obs::PauliString)(state::SimulationState)
     _validate_pauli_string(obs, state)
@@ -98,9 +108,9 @@ function (obs::PauliString)(state::SimulationState)
     end
     noprime!(psi_copy)
 
-    val = inner(state.backend.mps, psi_copy)
+    val = inner(state.backend.mps, psi_copy) / _mps_norm2(state)
     abs(imag(val)) <= 1e-12 ||
         error("PauliString expectation has non-negligible imaginary part $(imag(val)); " *
-              "Pauli strings are Hermitian — this indicates a bug or an unnormalized state")
+              "Pauli strings are Hermitian — this indicates a bug")
     return real(val)
 end

@@ -41,7 +41,7 @@ function (dw::DomainWall)(state, i1::Union{Int, Nothing} = nothing)
     return domain_wall(state, actual_i1, dw.order)
 end
 
-"""
+@doc raw"""
     domain_wall(state::SimulationState, i1::Int, order::Int) -> Float64
 
 Compute domain wall observable at sampling site i1 with given order.
@@ -49,6 +49,12 @@ Ports CT.jl's `dw_FM` algorithm for xj=Set([0]) case.
 
 The domain wall measures where the first "1" appears in the bit string
 when scanning cyclically from position i1.
+
+Each probability is
+``\langle\psi| \big(\textstyle\prod_{k<j} P_{0,k}\big) P_{1,j} |\psi\rangle / \langle\psi|\psi\rangle``:
+the MPS is not renormalized after truncating unitary layers, so the norm
+(computed once per call, see `_mps_norm2`) is divided out to keep the
+weights true probabilities of the retained state.
 """
 function domain_wall(state, i1::Int, order::Int)
     L = state.L
@@ -57,6 +63,9 @@ function domain_wall(state, i1::Int, order::Int)
     # phy_list[j] = the j-th physical site in scanning order
     # CT.jl line 595: phy_list = [mod(i1+j-2, L)+1 for j in 1:L]
     phy_list = [mod(i1 + j - 2, L) + 1 for j in 1:L]
+
+    # ⟨ψ|ψ⟩, shared by all L projector expectations below
+    norm2 = _mps_norm2(state)
 
     dw_value = 0.0
 
@@ -74,9 +83,9 @@ function domain_wall(state, i1::Int, order::Int)
         site_one = phy_list[j]         # Should be "1"
 
         # Build the probability using projector products
-        # P = ⟨ψ| (∏_{k<j} P0_k) P1_j |ψ⟩
+        # P = ⟨ψ| (∏_{k<j} P0_k) P1_j |ψ⟩ / ⟨ψ|ψ⟩
 
-        prob = compute_projector_product_expectation(state, sites_zero, site_one)
+        prob = compute_projector_product_expectation(state, sites_zero, site_one) / norm2
         dw_value += weight * prob
     end
 
@@ -90,7 +99,9 @@ Compute ``\langle\psi| \big(\textstyle\prod_k P_{0,k}\big) P_1 |\psi\rangle`` wh
 `sites_zero`: physical sites that should be "0"
 `site_one`: physical site that should be "1"
 
-This uses MPO construction for the projector product.
+This uses MPO construction for the projector product. The returned matrix
+element is NOT divided by ``\langle\psi|\psi\rangle``; `domain_wall` computes the norm once
+and divides every projector expectation by it.
 """
 function compute_projector_product_expectation(state, sites_zero::Vector{Int}, site_one::Int)
     L = state.L
