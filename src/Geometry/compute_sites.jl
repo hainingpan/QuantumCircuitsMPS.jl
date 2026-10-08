@@ -201,53 +201,33 @@ function compute_sites(geo::AdjacentPair, step::Int, L::Int, bc::Symbol)
 end
 
 """
-    compute_sites(geo::StaircaseRight, step::Int, L::Int, bc::Symbol, gate::AbstractGate) -> Vector{Int}
+    compute_sites(geo::AbstractStaircase, step::Int, L::Int, bc::Symbol, gate::AbstractGate) -> Vector{Int}
 
-Compute sites for StaircaseRight geometry based on gate support.
+Compute sites for a `StaircaseRight`/`StaircaseLeft` geometry based on gate
+support, at the staircase's CURRENT position (`step` is ignored; `advance!`
+manages progression).
 
 # Arguments
-- `geo`: StaircaseRight geometry
-- `step`: Step number
+- `geo`: StaircaseRight or StaircaseLeft geometry
+- `step`: Step number (unused)
 - `L`: System size
 - `bc`: Boundary condition (`:periodic` or `:open`)
 - `gate`: Gate to determine support (1-site or 2-site)
 
 # Returns
 - For single-site gates (support == 1): `[pos]`
-- For two-site gates (support == 2): `[pos, pos+1]` with PBC wrapping
+- For two-site gates (support == 2): `[pos, pos+range]` — the same region
+  [`elements`](@ref) reports (PBC wrap via `mod1`; OBC out-of-bounds throws
+  `ArgumentError`)
 """
 function compute_sites(
-        geo::StaircaseRight, step::Int, L::Int, bc::Symbol, gate::AbstractGate)
-    pos = geo._position  # Read current position directly (step ignored; advance! manages progression)
+        geo::AbstractStaircase, step::Int, L::Int, bc::Symbol, gate::AbstractGate)
     if support(gate) == 1
-        return [pos]
+        return [geo._position]
     else  # support(gate) == 2
-        return compute_pair_staircase(pos, L, bc)
-    end
-end
-
-"""
-    compute_sites(geo::StaircaseLeft, step::Int, L::Int, bc::Symbol, gate::AbstractGate) -> Vector{Int}
-
-Compute sites for StaircaseLeft geometry based on gate support.
-
-# Arguments
-- `geo`: StaircaseLeft geometry
-- `step`: Step number
-- `L`: System size
-- `bc`: Boundary condition (`:periodic` or `:open`)
-- `gate`: Gate to determine support (1-site or 2-site)
-
-# Returns
-- For single-site gates (support == 1): `[pos]`
-- For two-site gates (support == 2): `[pos, pos+1]` with PBC wrapping
-"""
-function compute_sites(
-        geo::StaircaseLeft, step::Int, L::Int, bc::Symbol, gate::AbstractGate)
-    pos = geo._position  # Read current position directly (step ignored; advance! manages progression)
-    if support(gate) == 1
-        return [pos]
-    else  # support(gate) == 2
-        return compute_pair_staircase(pos, L, bc)
+        # Single source of truth for the (pos, pos+range) region: never
+        # re-derive it here (a former nearest-neighbor shortcut ignored
+        # `geo.range`, so range=2 staircases executed on (pos, pos+1)).
+        return elements(geo, L, bc)[1]
     end
 end

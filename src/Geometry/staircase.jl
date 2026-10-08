@@ -45,8 +45,8 @@ Staircase that moves left: applies at (pos, pos+range), then decrements pos.
 
 # Examples
 ```julia
-StaircaseLeft(1)           # NN: (1,2), (2,3), ...
-StaircaseLeft(1; range=2)  # NNN: (1,3), (2,4), ...
+StaircaseLeft(4)           # NN: (4,5), (3,4), (2,3), ...
+StaircaseLeft(4; range=2)  # NNN: (4,6), (3,5), (2,4), ...
 ```
 """
 mutable struct StaircaseLeft <: AbstractStaircase
@@ -95,18 +95,35 @@ function get_sites(geo::AbstractStaircase, state)
 end
 
 """
+    _staircase_max_position(geo::AbstractStaircase, L::Int) -> Int
+
+Largest position an open-boundary staircase may occupy: `L - range`, so the
+pair `(pos, pos+range)` always fits inside `1:L`. Throws `ArgumentError`
+when no position fits (`range >= L`).
+"""
+function _staircase_max_position(geo::AbstractStaircase, L::Int)
+    max_pos = L - geo.range
+    max_pos >= 1 || throw(ArgumentError(
+        "Staircase range=$(geo.range) does not fit in a system of size L=$L " *
+        "with open boundary conditions (need range < L)"
+    ))
+    return max_pos
+end
+
+"""
     advance!(geo::StaircaseRight, L::Int, bc::Symbol)
 
 Advance staircase right by one position. Internal use by apply!.
-- StaircaseRight: pos += 1, wraps L → 1 (PBC) or L-1 → 1 (OBC)
+- StaircaseRight: pos += 1, wraps L → 1 (PBC) or L-range → 1 (OBC)
 """
 function advance!(geo::StaircaseRight, L::Int, bc::Symbol)
     if bc == :periodic
         # PBC: position cycles 1 → 2 → ... → L → 1
         geo._position = (geo._position % L) + 1
     else
-        # OBC: position cycles 1 → 2 → ... → L-1 → 1 (can't apply at L since no L+1)
-        max_pos = L - 1
+        # OBC: position cycles 1 → 2 → ... → L-range → 1 (the pair
+        # (pos, pos+range) must stay inside the chain; range=1 gives L-1)
+        max_pos = _staircase_max_position(geo, L)
         geo._position = (geo._position % max_pos) + 1
     end
 end
@@ -115,15 +132,16 @@ end
     advance!(geo::StaircaseLeft, L::Int, bc::Symbol)
 
 Advance staircase left by one position. Internal use by apply!.
-- StaircaseLeft: pos -= 1, wraps 1 → L (PBC) or 1 → L-1 (OBC)
+- StaircaseLeft: pos -= 1, wraps 1 → L (PBC) or 1 → L-range (OBC)
 """
 function advance!(geo::StaircaseLeft, L::Int, bc::Symbol)
     if bc == :periodic
         # PBC: position cycles L → L-1 → ... → 1 → L
         geo._position = geo._position == 1 ? L : geo._position - 1
     else
-        # OBC: position cycles L-1 → L-2 → ... → 1 → L-1
-        max_pos = L - 1
+        # OBC: position cycles L-range → ... → 2 → 1 → L-range (the pair
+        # (pos, pos+range) must stay inside the chain; range=1 gives L-1)
+        max_pos = _staircase_max_position(geo, L)
         geo._position = geo._position == 1 ? max_pos : geo._position - 1
     end
 end
