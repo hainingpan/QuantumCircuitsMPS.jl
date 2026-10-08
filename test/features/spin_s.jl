@@ -12,7 +12,8 @@
 #       draw at d=2 (identical outcomes AND identical post-measurement states)
 #   (g) REGRESSION: s=10 projectors are exact in M_z (analytic singlet,
 #       exact zeros between M_z blocks, near-forbidden-sector postselection
-#       on MPS and SV)
+#       on MPS and SV, strictly forbidden input rejected with the state
+#       unchanged)
 
 using Test
 using QuantumCircuitsMPS
@@ -417,9 +418,10 @@ end
 
         # Near-forbidden postselection on both backends: start from
         # w ∝ ε|singlet⟩ + |k₁=10,k₂=8⟩ with ε = 1e-6 (singlet probability
-        # 1e-12, far below the old leakage) and project onto S=0. The exact
-        # projector keeps only the ε component, so the renormalized state must
-        # be the singlet. w is reached from |0,0⟩ by a Householder reflection.
+        # 1e-12: far below the old leakage, but above POSTSELECTION_PROB_TOL)
+        # and project onto S=0. The exact projector keeps only the ε
+        # component, so the renormalized state must be the singlet. w is
+        # reached from |0,0⟩ by a Householder reflection.
         ε = 1e-6
         w = ε * v0 + e_forbidden
         w ./= norm(w)
@@ -441,15 +443,27 @@ end
             @test Magnetization(:Z)(st)≈0.0 atol=1e-10
         end
 
-        # A strictly forbidden input (no singlet component at all) has zero
-        # Born weight in S=0, which SpinSectorMeasurement must report rather
-        # than silently collapse into leakage.
+        # A strictly forbidden input (no singlet component at all) is
+        # annihilated exactly, i.e. the S=0 branch has zero Born weight. Both
+        # SpinSectorProjection(P₀) (via the zero-probability postselection
+        # guard) and SpinSectorMeasurement([0]) must reject it with the state
+        # untouched, instead of normalizing leakage into a wrong-sector state.
+        U_f = Matrix{Float64}(I, d^2, d^2)
+        U_f[:, [1, 10d + 8 + 1]] = U_f[:, [10d + 8 + 1, 1]]     # swap |0,0⟩ ↔ |10,8⟩
+        for backend in (:mps, :statevector)
+            st = SimulationState(L = 2, bc = :open, site_type = "S=10",
+                backend = backend, maxdim = 32, cutoff = 0.0, rng = _spin_rng())
+            initialize!(st, ProductState(binary_int = 0))
+            apply!(st, MatrixGate(U_f; d = d), Sites([1, 2]))
+            @test_throws ArgumentError apply!(st, SpinSectorProjection(P0), Sites([1, 2]))
+            @test _dense2(st)≈U_f[:, 1] atol=1e-14                # state unchanged
+            @test Magnetization(:Z)(st)≈1.0 atol=1e-12
+        end
         st = SimulationState(L = 2, bc = :open, site_type = "S=10", maxdim = 32,
             cutoff = 0.0, rng = _spin_rng())
         initialize!(st, ProductState(binary_int = 0))
-        U_f = Matrix{Float64}(I, d^2, d^2)
-        U_f[:, [1, 10d + 8 + 1]] = U_f[:, [10d + 8 + 1, 1]]     # swap |0,0⟩ ↔ |10,8⟩
         apply!(st, MatrixGate(U_f; d = d), Sites([1, 2]))
         @test_throws ArgumentError apply!(st, SpinSectorMeasurement([0]), Sites([1, 2]))
+        @test _dense2(st)≈U_f[:, 1] atol=1e-14
     end
 end
