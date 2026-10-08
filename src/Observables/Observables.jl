@@ -31,6 +31,37 @@ and the ability to override `record_value`.
 """
 abstract type AbstractObservable end
 
+@doc raw"""
+    _mps_norm2(state::SimulationState{MPSBackend}) -> Float64
+
+Squared norm ``\langle\psi|\psi\rangle`` of the backend MPS, used by the
+MPS observables that contract ``\langle\psi|O|\psi\rangle`` with `inner`
+(`PauliString`, `StringOrder`, `DomainWall`) to return the physical
+expectation value ``\langle\psi|O|\psi\rangle / \langle\psi|\psi\rangle``.
+
+The MPS backend does NOT renormalize after unitary gates (only after gates
+with `needs_normalization(gate) == true`), so a truncating unitary layer
+leaves ``\langle\psi|\psi\rangle < 1``. The retained state is still a valid
+(unnormalized) representation, and every reported expectation must refer to
+its normalized version — `born_probability`, `Magnetization` (via
+`ITensorMPS.expect`), `EntanglementEntropy`, and `MutualInformation` already
+divide out the norm; this helper gives the `inner`-based observables the
+same contract.
+
+Non-mutating. Cheap when the MPS has a well-defined orthogonality center
+(the norm of a single tensor), a full ``\langle\psi|\psi\rangle`` contraction
+otherwise. Throws an `ArgumentError` on a zero-norm MPS, for which no
+expectation value is defined.
+"""
+function _mps_norm2(state::SimulationState{MPSBackend})
+    n2 = norm(state.backend.mps)^2
+    n2 > 0 ||
+        throw(ArgumentError(
+            "MPS has zero norm: no expectation value is defined for the zero vector " *
+            "(this arises e.g. from projecting onto a probability-zero outcome)"))
+    return n2
+end
+
 # Include implementations
 include("born.jl")
 include("domain_wall.jl")

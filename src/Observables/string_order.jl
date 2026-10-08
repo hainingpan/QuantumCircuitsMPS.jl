@@ -63,10 +63,13 @@ struct StringOrder <: AbstractObservable
     end
 end
 
-"""
+@doc raw"""
     (obs::StringOrder)(state::SimulationState) -> Float64
 
-Compute string order parameter via MPS contraction.
+Compute the string order parameter via MPS contraction as
+``\langle\psi|O|\psi\rangle / \langle\psi|\psi\rangle``, with the norm divided
+out (see `_mps_norm2`) so that the value refers to the retained state even
+when truncation has left the MPS un-normalized.
 """
 function (obs::StringOrder)(state::SimulationState)
     i_phys = obs.i
@@ -135,10 +138,10 @@ function (obs::StringOrder)(state::SimulationState)
         end
     end
 
-    # Compute expectation value: ⟨ψ|O|ψ⟩
+    # Compute expectation value: ⟨ψ|O|ψ⟩ / ⟨ψ|ψ⟩
     # Remove prime marks from site indices added by operator application
     noprime!(psi_copy)
-    result = real(inner(state.backend.mps, psi_copy))
+    result = real(inner(state.backend.mps, psi_copy)) / _mps_norm2(state)
 
     return result
 end

@@ -51,6 +51,25 @@ then contracts and truncates it back into the MPS via
 [Backend Interface Contract](@ref) for the developer-facing method table
 every backend (including this one) must implement.
 
+## Normalization After Truncation
+
+Unitary gates are **not** renormalized after application (only gates with
+`needs_normalization(gate) == true`, such as projections and measurements,
+trigger `normalize!` + `truncate!`). When a unitary layer is truncated by
+`cutoff`/`maxdim`, the discarded Schmidt weight is simply dropped, so the
+stored MPS has ``\langle\psi|\psi\rangle < 1``. This is a valid
+(unnormalized) representation of the retained state — the norm carries the
+accumulated truncation weight and can be read off with `norm(state.backend.mps)`.
+
+Every built-in observable divides the norm out, so reported values are
+expectation values of the *normalized* retained state: `born_probability`
+and `Magnetization` through `ITensorMPS.expect`, `EntanglementEntropy` and
+`MutualInformation` by normalizing the Schmidt/RDM spectrum, and
+`PauliString`, `StringOrder`, `DomainWall` (hence also `Correlator` and
+`MagnetizationFluctuations`) by dividing their `inner` contraction by
+``\langle\psi|\psi\rangle``. A custom observable that contracts the MPS
+directly (e.g. with `inner`) must do the same — see [Custom Observables](@ref).
+
 ## PBC Indexing Caveat
 
 Under `bc=:periodic`, the MPS backend stores sites in a **folded** RAM
