@@ -8,77 +8,32 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
 
 ## [Unreleased]
 
+## [0.5.6] - 2026-10-08
+
 ### Fixed
 
-- MPS `PauliString`, `StringOrder`, and `DomainWall` (and, by composition,
-  `Correlator` and `MagnetizationFluctuations`) returned the raw contraction
-  ``\langle\psi|O|\psi\rangle`` instead of the expectation value
-  ``\langle\psi|O|\psi\rangle / \langle\psi|\psi\rangle``. The MPS backend does
-  not renormalize after unitary gates, so once a layer truncated
-  (``\lVert\psi\rVert^2 < 1``) every value from these observables was scaled by
-  the retained norm — e.g. ``0.6|00\rangle + 0.8|11\rangle`` at `maxdim=1`
-  retains ``0.8|11\rangle`` and reported ``\langle Z_1\rangle = -0.64``,
-  ``\langle Z_1Z_2\rangle = 0.64``, a connected ZZ correlation of ``0.2304`` and
-  ``\mathrm{Var}(Z_1+Z_2) = 1.6416`` for what is a product state, while
-  `born_probability`, `Magnetization`, `EntanglementEntropy` and
-  `MutualInformation` (which already divide the norm out) reported the
-  consistent ``-1``, ``1``, ``0``, ``0``. All MPS observables now share the
-  same contract: values refer to the normalized retained state. Results on
-  normalized states (no truncation, or right after a measurement) are
-  unchanged; results in an actively truncating regime differ from earlier
-  versions. A zero-norm MPS now throws an informative `ArgumentError` from
-  these observables instead of returning `0`/`NaN`.
-- `StaircaseRight(p; range=r)` / `StaircaseLeft(p; range=r)` ignored `range`
-  during execution: the resolver behind every gate-application path (eager
-  `apply!`, `apply_with_prob!`, `simulate!`, `expand_circuit`) used a
-  nearest-neighbor shortcut, so a two-site gate on `StaircaseRight(1; range=2)`
-  acted on sites `(1, 2)` instead of the documented `(1, 3)` on all backends.
-  Two-site gates now target `(pos, pos+range)`, exactly the region
-  `elements(geo, L, bc)` reports (periodic wrap via `mod1`; open-boundary
-  overflow throws `ArgumentError`). Single-site gates on a staircase still
-  act at the current position. The default `range=1` is unaffected.
-- Open-boundary staircase advancement assumed `range=1` and cycled over
-  `1:L-1`, which for `range>1` walked the pair off the end of the chain; it
-  now cycles over `1:L-range` so `(pos, pos+range)` always fits. A staircase
-  whose `range` does not fit at all (`range >= L`) under open boundaries is
-  rejected with an `ArgumentError`. Periodic advancement is unchanged.
-- Postselecting onto an outcome of zero Born probability "succeeded":
-  starting from ``|00\rangle``, `apply!(state, Projection(1), SingleSite(1))`
-  returned normally with a zero MPS (entanglement entropy then reported
-  ``0``) on the MPS backend and with a `NaN` vector on the state-vector
-  backend, where every later calculation failed. There is no normalized
-  conditional state for such an event, so every gate with
-  `needs_normalization(gate) == true` (`Projection`, `SpinSectorProjection`,
-  `SpinSectorMeasurement`, user projectors) is now rejected with an
-  `ArgumentError` naming the gate, the physical sites and
-  ``\lVert P\psi\rVert^2`` when ``\lVert P\psi\rVert^2 <`` `POSTSELECTION_PROB_TOL`
-  (``10^{-14}``, the cutoff `SpinSectorMeasurement` already used for "no
-  allowed sector has weight"). The check runs before the new tensors/vector
-  are committed, so the state is left unchanged on both backends and both
-  state-vector engines. Born-sampled measurements (`Measure`, `Reset`) are
-  unaffected: they only ever project onto the outcome they just drew.
-  `SpinSectorMeasurement`'s zero-overlap rejection is now an `ArgumentError`
-  (previously a bare `ErrorException`).
-- `total_spin_projector(S; s)` for ``s \neq 1`` evaluated the Lagrange
-  polynomial ``\prod_{S' \neq S} (S_1\cdot S_2 - \lambda_{S'}) / (\lambda_S -
-  \lambda_{S'})`` in `Float64`, which is numerically unstable for large spins:
-  at the documented maximum ``s = 10`` the projectors were off by about
-  ``10^{-3}`` (idempotence error ``\sim 10^{-3}``, eigenvalues down to
-  ``-3\times 10^{-4}``) and ``P_0`` carried ``\sim 10^{-4}`` of weight on
-  basis states with total ``M_z = 2``, which cannot belong to the singlet.
-  Renormalization amplified that leakage, so `SpinSectorProjection(P_0)` and
-  `SpinSectorMeasurement([0])` applied to an ``M_z = 2`` input returned a
-  normalized state with zero singlet overlap and ``M_z = 2``. The projectors
-  are now assembled from the eigenvectors of ``S_1 \cdot S_2`` one total-``M_z``
-  block at a time (the block at fixed ``M`` holds one state of each multiplet
-  ``S = \lvert M \rvert, \ldots, 2s`` with distinct eigenvalues
-  ``\lambda_S = \tfrac{1}{2}[S(S+1) - 2s(s+1)]``), which is accurate to machine
-  precision for every supported spin and exactly zero between different
-  ``M_z`` blocks. The ``s = 1`` projectors keep their hardcoded polynomials and
-  are byte-identical to before; ``s = 3/2`` and ``s = 2`` results change only
-  at the ``10^{-14}`` level. With the exact projector, a strictly forbidden
-  input (no weight at all in the requested sector) is annihilated exactly and
-  is therefore rejected by the zero-probability postselection guard above.
+- MPS `PauliString`, `StringOrder`, and `DomainWall` (and hence `Correlator`
+  and `MagnetizationFluctuations`) returned the unnormalized contraction
+  ``\langle\psi|O|\psi\rangle`` instead of the expectation value, so their
+  values were scaled by the retained norm whenever truncation had occurred.
+  Results on normalized states are unchanged; a zero-norm MPS now throws an
+  `ArgumentError`.
+- `StaircaseRight`/`StaircaseLeft` ignored `range` during execution: two-site
+  gates acted on `(pos, pos+1)` instead of the documented `(pos, pos+range)`,
+  and open-boundary advancement walked the pair off the end of the chain for
+  `range > 1`. `range >= L` under open boundaries is now rejected with an
+  `ArgumentError`. The default `range=1` is unaffected.
+- Postselecting onto an outcome of zero Born probability (`Projection`,
+  `SpinSectorProjection`, `SpinSectorMeasurement`, user projectors) silently
+  produced a zero MPS or a `NaN` state vector. It now throws an
+  `ArgumentError` and leaves the state unchanged. Born-sampled `Measure` and
+  `Reset` are unaffected.
+- `total_spin_projector(S; s)` was numerically inaccurate for large spins
+  (errors of order ``10^{-3}`` at ``s = 10``), so `SpinSectorProjection` and
+  `SpinSectorMeasurement` could leak weight outside the requested sector.
+  Projectors are now accurate to machine precision for every supported spin;
+  ``s = 1`` results are byte-identical, ``s = 3/2`` and ``s = 2`` change only
+  at the ``10^{-14}`` level.
 
 ## [0.5.5] - 2026-08-14
 
@@ -523,7 +478,8 @@ documentation.
 
 Initial clean release, with CIPT and MIPT example notebooks.
 
-[Unreleased]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.5...HEAD
+[Unreleased]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.6...HEAD
+[0.5.6]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.5...v0.5.6
 [0.5.5]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.3...v0.5.4
 [0.5.3]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.2...v0.5.3
