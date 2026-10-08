@@ -8,6 +8,16 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
 
 ## [Unreleased]
 
+### Fixed
+
+- `initialize!(state, ProductState(...))` on `site_type="Qudit"` prepared the
+  wrong product state on both the MPS and state-vector backends: each bit was
+  shifted up by one level, so `binary_int=0` gave ``|11\cdots1\rangle``
+  instead of ``|00\cdots0\rangle`` (and `local_dim=2` with a `1` bit threw a
+  `BoundsError`). ITensor `"Qudit"` state labels are zero-based, so a bit `b`
+  now prepares level `b`, making a `local_dim=2` Qudit identical to a Qubit.
+  `"Qubit"` and spin-``S`` site types were never affected.
+
 ## [0.5.6] - 2026-10-08
 
 ### Fixed
