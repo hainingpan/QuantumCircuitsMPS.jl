@@ -45,6 +45,15 @@ Storage: generic callables record into a `Vector{Any}`; built-in
 container (transparently widened to `Vector{Any}` if such an observable
 returns a vector).
 
+!!! warning "MPS states are not renormalized after truncation"
+    On the MPS backend, truncated unitary layers leave the stored MPS with
+    ``\langle\psi|\psi\rangle < 1`` (see [Normalization After Truncation](@ref)).
+    The public building blocks below all divide the norm out, so anything
+    composed from them is safe. A custom observable that contracts
+    `state.backend.mps` directly must divide its ``\langle\psi|O|\psi\rangle``
+    by ``\langle\psi|\psi\rangle`` (e.g. `norm(state.backend.mps)^2`) to
+    return the expectation value of the retained state.
+
 ## Public building blocks
 
 Custom observables are compositions of the same public pieces the built-ins
