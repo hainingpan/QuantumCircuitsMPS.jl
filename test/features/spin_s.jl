@@ -450,6 +450,6 @@ end
         U_f = Matrix{Float64}(I, d^2, d^2)
         U_f[:, [1, 10d + 8 + 1]] = U_f[:, [10d + 8 + 1, 1]]     # swap |0,0⟩ ↔ |10,8⟩
         apply!(st, MatrixGate(U_f; d = d), Sites([1, 2]))
-        @test_throws ErrorException apply!(st, SpinSectorMeasurement([0]), Sites([1, 2]))
+        @test_throws ArgumentError apply!(st, SpinSectorMeasurement([0]), Sites([1, 2]))
     end
 end

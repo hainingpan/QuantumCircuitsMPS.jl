@@ -218,7 +218,10 @@ Steps:
 2. Convert physical sites to RAM indices
 3. Build operator with physical site indices
 4. Apply operator to MPS
-5. Normalize + truncate iff `needs_normalization(gate)` (trait, Contract 3.5)
+5. Normalize + truncate iff `needs_normalization(gate)` (trait, Contract 3.5).
+   Such a gate is rejected with an `ArgumentError` — before any tensor is
+   written back, so the state is unchanged — when it annihilates the state
+   (postselection onto a zero-probability outcome; see `_check_postselection`).
 """
 function _apply_single!(state::SimulationState, gate::AbstractGate, phy_sites::Vector{Int})
     # Contract 2.1: Support validation
@@ -232,17 +235,26 @@ function _apply_single!(state::SimulationState, gate::AbstractGate, phy_sites::V
     # Build operator with state.backend.sites indices (in physical pair order)
     op = _build_gate_operator(state, gate, phy_sites, ram_sites)
 
-    # Apply operator using CT.jl algorithm
-    apply_op_internal!(state.backend.mps, op, state.backend.sites,
-        state.backend.cutoff, state.backend.maxdim)
-
+    mps = state.backend.mps
+    cutoff = state.backend.cutoff
     # Contract 3.5: Normalization via the needs_normalization trait
     # (true for Projection/SpinSectorProjection/SpinSectorMeasurement and any
     # user gate that opts in; unitaries default to false — NO normalize)
     if needs_normalization(gate)
-        normalize!(state.backend.mps)
-        truncate!(state.backend.mps; cutoff = state.backend.cutoff)
+        # Projective gate: contract first, then inspect the block BEFORE
+        # writing it back. With the MPS gauged at the block's first site the
+        # block carries the full state norm, so norm(block)^2 == ‖Pψ‖²; an
+        # impossible postselection throws here with the MPS untouched.
+        i_list, block = _contract_op_block!(mps, op, state.backend.sites)
+        _check_postselection(norm(block)^2, gate, phy_sites)
+        _write_op_block!(mps, i_list, block, cutoff, state.backend.maxdim)
+        normalize!(mps)
+        truncate!(mps; cutoff = cutoff)
+    else
+        # Apply operator using CT.jl algorithm
+        apply_op_internal!(mps, op, state.backend.sites, cutoff, state.backend.maxdim)
     end
+    return nothing
 end
 
 """
@@ -268,12 +280,33 @@ end
 """
     apply_op_internal!(mps::MPS, op::ITensor, sites::Vector{Index}, cutoff::Float64, maxdim::Int)
 
-Apply operator to MPS following CT.jl algorithm (lines 147-172).
+Apply operator to MPS following CT.jl algorithm (lines 147-172):
+`_contract_op_block!` (gauge + contract + apply) followed by
+`_write_op_block!` (SVD chain write-back). `_apply_single!` runs the two
+phases itself for projective gates, to reject an impossible postselection
+between them.
 
 Contract 3.6: Index matching via Index comparison, NOT tag parsing.
 """
 function apply_op_internal!(
         mps::MPS, op::ITensor, sites::Vector{Index}, cutoff::Float64, maxdim::Int)
+    i_list, mps_ij = _contract_op_block!(mps, op, sites)
+    _write_op_block!(mps, i_list, mps_ij, cutoff, maxdim)
+    return nothing
+end
+
+"""
+    _contract_op_block!(mps::MPS, op::ITensor, sites::Vector{Index}) -> (i_list, block)
+
+First phase of `apply_op_internal!`: orthogonalize `mps` to the first RAM
+site touched by `op`, contract the tensors spanning the operator's RAM range
+`i_list` (sorted) into one block, and apply `op` to it. Mutates only the
+gauge of `mps` — no tensor is replaced — so the represented state is
+unchanged until `_write_op_block!` commits the block. Because the MPS is
+gauged at `i_list[1]`, `norm(block)` is the norm of the full post-operator
+state.
+"""
+function _contract_op_block!(mps::MPS, op::ITensor, sites::Vector{Index})
     # Get RAM site indices from operator indices (Contract 3.6)
     i_list = get_op_ram_sites(op, sites)
     sort!(i_list)
@@ -291,6 +324,19 @@ function apply_op_internal!(
     mps_ij *= op
     noprime!(mps_ij)
 
+    return i_list, mps_ij
+end
+
+"""
+    _write_op_block!(mps::MPS, i_list::Vector{Int}, mps_ij::ITensor, cutoff::Float64, maxdim::Int)
+
+Second phase of `apply_op_internal!`: write the contracted block `mps_ij`
+back into `mps` over the sorted RAM range `i_list` — direct assignment for a
+single site, an SVD chain (respecting `cutoff`/`maxdim`) for a multi-site
+range.
+"""
+function _write_op_block!(mps::MPS, i_list::Vector{Int}, mps_ij::ITensor,
+        cutoff::Float64, maxdim::Int)
     if length(i_list) == 1
         # Single-site: direct assignment
         mps[i_list[1]] = mps_ij

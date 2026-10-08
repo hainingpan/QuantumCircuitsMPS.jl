@@ -57,8 +57,52 @@ afterwards? Default `false` (unitaries preserve the norm).
 ```julia
 QuantumCircuitsMPS.needs_normalization(::MyProjectiveGate) = true
 ```
+
+Renormalization is only possible when the gate leaves something to
+renormalize: if the applied operator annihilates the state (a postselection
+onto an outcome of zero Born probability), the backends throw an
+`ArgumentError` and leave the state unchanged — see
+[`POSTSELECTION_PROB_TOL`](@ref).
 """
 needs_normalization(::AbstractGate) = false
+
+@doc raw"""
+    POSTSELECTION_PROB_TOL
+
+Smallest squared norm ``\lVert P\psi\rVert^2`` a gate with
+`needs_normalization(gate) == true` may leave behind (`1e-14`). For a
+normalized input ``\lVert P\psi\rVert^2`` is the Born probability of the
+requested branch; below this threshold there is no normalized conditional
+state (renormalizing would only amplify rounding noise into a fake state), so
+the MPS and state-vector backends reject the operation with an
+`ArgumentError` and leave the state unchanged — see
+[`_check_postselection`](@ref). `SpinSectorMeasurement` applies the same
+threshold to the total probability of its allowed sectors.
+"""
+const POSTSELECTION_PROB_TOL = 1e-14
+
+@doc raw"""
+    _check_postselection(norm2::Real, gate::AbstractGate, sites::Vector{Int})
+
+Guard shared by the MPS and state-vector `_apply_single!` methods for gates
+with `needs_normalization(gate) == true`: `norm2` is the squared norm
+``\lVert P\psi\rVert^2`` of the state *after* applying `gate` on the physical
+`sites`. Throws an `ArgumentError` naming the gate, the sites, and `norm2`
+when it is below [`POSTSELECTION_PROB_TOL`](@ref); returns `nothing`
+otherwise. Callers run it before committing the new tensors/vector, so a
+rejected gate leaves the state exactly as it was.
+"""
+function _check_postselection(norm2::Real, gate::AbstractGate, sites::Vector{Int})
+    norm2 < POSTSELECTION_PROB_TOL || return nothing
+    # Name the gate by value when that is short (`Projection(1)`); by type
+    # when the value would dump a matrix (SpinSectorProjection, MatrixGate).
+    label = repr(gate)
+    length(label) <= 48 || (label = string(typeof(gate)))
+    throw(ArgumentError(
+        "$label on site(s) $(sites) annihilates the state: ‖Pψ‖² = $(norm2) < " *
+        "$(POSTSELECTION_PROB_TOL), i.e. the requested outcome has zero Born " *
+        "probability, so no normalized post-selected state exists. The state is unchanged."))
+end
 
 """
     is_measurement(gate::AbstractGate) -> Bool

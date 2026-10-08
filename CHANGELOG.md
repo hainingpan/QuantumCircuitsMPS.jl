@@ -42,6 +42,23 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
   now cycles over `1:L-range` so `(pos, pos+range)` always fits. A staircase
   whose `range` does not fit at all (`range >= L`) under open boundaries is
   rejected with an `ArgumentError`. Periodic advancement is unchanged.
+- Postselecting onto an outcome of zero Born probability "succeeded":
+  starting from ``|00\rangle``, `apply!(state, Projection(1), SingleSite(1))`
+  returned normally with a zero MPS (entanglement entropy then reported
+  ``0``) on the MPS backend and with a `NaN` vector on the state-vector
+  backend, where every later calculation failed. There is no normalized
+  conditional state for such an event, so every gate with
+  `needs_normalization(gate) == true` (`Projection`, `SpinSectorProjection`,
+  `SpinSectorMeasurement`, user projectors) is now rejected with an
+  `ArgumentError` naming the gate, the physical sites and
+  ``\lVert P\psi\rVert^2`` when ``\lVert P\psi\rVert^2 <`` `POSTSELECTION_PROB_TOL`
+  (``10^{-14}``, the cutoff `SpinSectorMeasurement` already used for "no
+  allowed sector has weight"). The check runs before the new tensors/vector
+  are committed, so the state is left unchanged on both backends and both
+  state-vector engines. Born-sampled measurements (`Measure`, `Reset`) are
+  unaffected: they only ever project onto the outcome they just drew.
+  `SpinSectorMeasurement`'s zero-overlap rejection is now an `ArgumentError`
+  (previously a bare `ErrorException`).
 - `total_spin_projector(S; s)` for ``s \neq 1`` evaluated the Lagrange
   polynomial ``\prod_{S' \neq S} (S_1\cdot S_2 - \lambda_{S'}) / (\lambda_S -
   \lambda_{S'})`` in `Float64`, which is numerically unstable for large spins:
@@ -59,7 +76,9 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
   precision for every supported spin and exactly zero between different
   ``M_z`` blocks. The ``s = 1`` projectors keep their hardcoded polynomials and
   are byte-identical to before; ``s = 3/2`` and ``s = 2`` results change only
-  at the ``10^{-14}`` level.
+  at the ``10^{-14}`` level. With the exact projector, a strictly forbidden
+  input (no weight at all in the requested sector) is annihilated exactly and
+  is therefore rejected by the zero-probability postselection guard above.
 
 ## [0.5.5] - 2026-08-14
 

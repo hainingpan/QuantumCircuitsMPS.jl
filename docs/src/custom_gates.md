@@ -54,7 +54,9 @@ registered; each method you define is simply found by dispatch.
 4. **Opt-in traits** (both default to `false`, so unitaries need neither) —
    `QuantumCircuitsMPS.needs_normalization(gate) -> Bool`: `true` for
    non-unitary gates, so the backend renormalizes after applying (and, on
-   MPS, truncates); `QuantumCircuitsMPS.is_measurement(gate) -> Bool`:
+   MPS, truncates) — or throws an `ArgumentError`, leaving the state
+   unchanged, if the gate annihilates the state (see example (b));
+   `QuantumCircuitsMPS.is_measurement(gate) -> Bool`:
    `true` for gates that Born-sample via the `:born_measurement` RNG stream.
 5. **Full override** —
    `QuantumCircuitsMPS.execute!(state, gate, region::Vector{Int})`: replaces
@@ -154,6 +156,16 @@ backend renormalizes **and** truncates at the state's `cutoff` after such a
 gate, while the state-vector backend only renormalizes (a state vector has
 no bond dimension to truncate). The trait is the only difference between a
 projector that produces correct probabilities and one that quietly does not.
+
+The trait also guards against the one case where renormalization is
+impossible. Had site 1 been ``\lvert 1\rangle`` instead of ``\lvert +\rangle``,
+`MyProjection` would annihilate the state — a postselection onto an outcome
+of zero Born probability — and no normalized conditional state exists. Both
+backends then throw an `ArgumentError` naming the gate, the sites and
+``\lVert P\psi\rVert^2`` (anything below `POSTSELECTION_PROB_TOL`
+``= 10^{-14}`` counts as zero) and leave the state exactly as it was, instead
+of returning a zero MPS or a `NaN` vector. A protocol that post-selects
+should therefore either check `born_probability` first or catch this error.
 
 Note that `needs_normalization` and `is_measurement` are independent:
 `is_measurement` marks gates that *Born-sample* (consuming the
