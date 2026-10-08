@@ -59,6 +59,26 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
   unaffected: they only ever project onto the outcome they just drew.
   `SpinSectorMeasurement`'s zero-overlap rejection is now an `ArgumentError`
   (previously a bare `ErrorException`).
+- `total_spin_projector(S; s)` for ``s \neq 1`` evaluated the Lagrange
+  polynomial ``\prod_{S' \neq S} (S_1\cdot S_2 - \lambda_{S'}) / (\lambda_S -
+  \lambda_{S'})`` in `Float64`, which is numerically unstable for large spins:
+  at the documented maximum ``s = 10`` the projectors were off by about
+  ``10^{-3}`` (idempotence error ``\sim 10^{-3}``, eigenvalues down to
+  ``-3\times 10^{-4}``) and ``P_0`` carried ``\sim 10^{-4}`` of weight on
+  basis states with total ``M_z = 2``, which cannot belong to the singlet.
+  Renormalization amplified that leakage, so `SpinSectorProjection(P_0)` and
+  `SpinSectorMeasurement([0])` applied to an ``M_z = 2`` input returned a
+  normalized state with zero singlet overlap and ``M_z = 2``. The projectors
+  are now assembled from the eigenvectors of ``S_1 \cdot S_2`` one total-``M_z``
+  block at a time (the block at fixed ``M`` holds one state of each multiplet
+  ``S = \lvert M \rvert, \ldots, 2s`` with distinct eigenvalues
+  ``\lambda_S = \tfrac{1}{2}[S(S+1) - 2s(s+1)]``), which is accurate to machine
+  precision for every supported spin and exactly zero between different
+  ``M_z`` blocks. The ``s = 1`` projectors keep their hardcoded polynomials and
+  are byte-identical to before; ``s = 3/2`` and ``s = 2`` results change only
+  at the ``10^{-14}`` level. With the exact projector, a strictly forbidden
+  input (no weight at all in the requested sector) is annihilated exactly and
+  is therefore rejected by the zero-probability postselection guard above.
 
 ## [0.5.5] - 2026-08-14
 

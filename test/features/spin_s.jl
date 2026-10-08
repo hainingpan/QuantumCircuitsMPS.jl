@@ -2,12 +2,18 @@
 #
 # Covers:
 #   (a) S=3/2 and S=2 init at every Z-level; Magnetization eigenvalues −S..S
-#   (b) projector algebra for s = 1/2, 1, 3/2, 2 (±1e-13)
+#   (b) projector algebra for s = 1/2 .. 10 (±1e-12), eigen-relation
+#       S₁·S₂ P_S = λ_S P_S, and s≠1 agreement with the Lagrange polynomial
+#       form where that form is well-conditioned (s = 3/2, 2)
 #   (c) singlet-projector sanity (rank 1, trace 1)
 #   (d) spin-3/2 two-site MatrixGate(U; d=4) + entropy MPS-vs-SV (±1e-10)
 #   (e) categorical Measure(:Z) on S=3/2 and S=1 (Born stats, collapse)
 #   (f) qubit REGRESSION: categorical draw reduces bitwise to the old binary
 #       draw at d=2 (identical outcomes AND identical post-measurement states)
+#   (g) REGRESSION: s=10 projectors are exact in M_z (analytic singlet,
+#       exact zeros between M_z blocks, near-forbidden-sector postselection
+#       on MPS and SV, strictly forbidden input rejected with the state
+#       unchanged)
 
 using Test
 using QuantumCircuitsMPS
@@ -15,6 +21,22 @@ using LinearAlgebra
 using Random
 
 const QCMS = QuantumCircuitsMPS
+
+# High spins (up to the documented maximum S=10) are included because the
+# projectors used to be built from a Lagrange polynomial in S₁·S₂ that was
+# numerically unstable there (~1e-3 at s=10).
+const _PROJ_SPINS = (
+    1 // 2, 1 // 1, 3 // 2, 2 // 1, 5 // 2, 3 // 1, 7 // 2, 5 // 1, 10 // 1)
+
+# Casimir eigenvalue of S₁·S₂ on the total-spin-S multiplet of a spin-s pair
+_λ(S, s) = (S * (S + 1) - 2 * Float64(s) * (Float64(s) + 1)) / 2
+
+# Dense two-site amplitudes in the projector basis (site 1 slow, site 2 fast)
+_dense2(st) = st.backend.ψ
+function _dense2(st::SimulationState{<:QCMS.MPSBackend})
+    T = prod(st.backend.mps)
+    return vec(Array(T, reverse(st.backend.sites)...))
+end
 
 function _spin_rng(; born = 3)
     RNGRegistry(
@@ -77,26 +99,48 @@ end
     end
 
     # ------------------------------------------------------------------
-    # (b) projector algebra for s = 1/2, 1, 3/2, 2
+    # (b) projector algebra for s = 1/2 .. 10
     # ------------------------------------------------------------------
-    @testset "(b) total_spin_projector algebra s=$s" for s in (
-        1 // 2, 1 // 1, 3 // 2, 2 // 1)
+    @testset "(b) total_spin_projector algebra s=$s" for s in _PROJ_SPINS
         d = Int(2s + 1)
         Smax = Int(2s)
         Ps = [total_spin_projector(S; s = s) for S in 0:Smax]
         Id = Matrix{Float64}(I, d^2, d^2)
+        SS = QCMS._s_dot_s(s)
         # completeness
-        @test norm(sum(Ps) - Id) < 1e-13
+        @test norm(sum(Ps) - Id) < 1e-12
         for (i, P) in enumerate(Ps)
             S = i - 1
-            @test norm(P * P - P) < 1e-13            # idempotence
-            @test abs(tr(P) - (2S + 1)) < 1e-13      # sector dimension
-            @test norm(P - P') < 1e-13               # hermiticity
+            @test norm(P * P - P) < 1e-12            # idempotence
+            @test abs(tr(P) - (2S + 1)) < 1e-12      # sector dimension
+            @test norm(P - P') < 1e-12               # hermiticity
+            @test norm(SS * P - _λ(S, s) * P) < 1e-11  # projects onto the S eigenspace
+            @test minimum(eigvals(Symmetric(P))) > -1e-12  # positive semidefinite
             for j in (i + 1):length(Ps)
-                @test norm(P * Ps[j]) < 1e-13        # orthogonality
+                @test norm(P * Ps[j]) < 1e-12        # orthogonality
             end
         end
         @test verify_spin_projectors(; s = s, tol = 1e-12)
+    end
+
+    @testset "(b) s≠1: agrees with the Lagrange polynomial where it is stable" begin
+        # The Lagrange form ∏_{k≠S} (S₁·S₂ − λ_k)/(λ_S − λ_k) is the textbook
+        # closed form and is well-conditioned at small s; the eigenvector
+        # construction must reproduce it there (it replaces it only because
+        # the polynomial loses accuracy at large s).
+        for s in (3 // 2, 2 // 1)
+            d = Int(2s + 1)
+            Smax = Int(2s)
+            SS = QCMS._s_dot_s(s)
+            for S in 0:Smax
+                P_lag = Matrix{Float64}(I, d^2, d^2)
+                for k in 0:Smax
+                    k == S && continue
+                    P_lag = P_lag * (SS - _λ(k, s) * I) / (_λ(S, s) - _λ(k, s))
+                end
+                @test norm(P_lag - total_spin_projector(S; s = s)) < 1e-12
+            end
+        end
     end
 
     @testset "(b) S=1 regression: hardcoded path byte-identical + matches Lagrange" begin
@@ -131,15 +175,22 @@ end
     # ------------------------------------------------------------------
     # (c) singlet projector: rank 1, trace 1 on s ⊗ s
     # ------------------------------------------------------------------
-    @testset "(c) singlet projector rank/trace s=$s" for s in (
-        1 // 2, 1 // 1, 3 // 2, 2 // 1)
+    @testset "(c) singlet projector rank/trace s=$s" for s in _PROJ_SPINS
+        d = Int(2s + 1)
         P0 = total_spin_projector(0; s = s)
-        @test abs(tr(P0) - 1) < 1e-13
+        @test abs(tr(P0) - 1) < 1e-12
         @test rank(P0; atol = 1e-10) == 1
         # singlet eigenvalue of S₁·S₂ is λ₀ = −s(s+1)
         SS = QCMS._s_dot_s(Rational{Int}(s))
         λ0 = -Float64(s) * (Float64(s) + 1)
-        @test norm(SS * P0 - λ0 * P0) < 1e-12
+        @test norm(SS * P0 - λ0 * P0) < 1e-11
+        # analytic singlet |0,0⟩ = Σ_k (−1)^k/√d |m=s−k⟩|m=k−s⟩ (descending-m
+        # levels k and d−1−k; basis index = k₁·d + k₂ + 1)
+        v0 = zeros(d^2)
+        for k in 0:(d - 1)
+            v0[k * d + (d - 1 - k) + 1] = (-1)^k / sqrt(d)
+        end
+        @test norm(P0 - v0 * v0') < 1e-12
     end
 
     # ------------------------------------------------------------------
@@ -334,5 +385,85 @@ end
         # Magnetization qubit semantics untouched: ⟨Z⟩ = ±1 eigenvalues
         mzA = Magnetization(:Z)(sA)
         @test mzA≈(L - 2 * sum(outcomesA)) / L atol=1e-10
+    end
+
+    # ------------------------------------------------------------------
+    # (g) REGRESSION: s=10 projectors are exact in M_z
+    # ------------------------------------------------------------------
+    # total_spin_projector(S; s) for s≠1 used to evaluate the Lagrange
+    # polynomial ∏(S₁·S₂ − λ_k)/(λ_S − λ_k) in Float64, which at s=10 was off
+    # by ~1e-3 and put ~7e-5 of weight from the M_z=2 basis state |k₁=10,k₂=8⟩
+    # into P₀. Renormalization amplified that leakage: postselecting S=0 from a
+    # state with only a tiny genuine singlet component returned a normalized
+    # state with zero singlet overlap and M_z=2. The projectors are now
+    # assembled block by block in M_z, so cross-block entries are exactly 0.
+    @testset "(g) high-spin projector exactness (s=10)" begin
+        s = 10
+        d = 2s + 1
+        mz = [2s - (divrem(j - 1, d)[1] + divrem(j - 1, d)[2]) for j in 1:(d ^ 2)]
+        cross_block = mz .!= mz'                 # entries joining different M_z
+        for S in 0:(2s)
+            P = total_spin_projector(S; s = s)
+            @test all(iszero, P[cross_block])    # exactly 0, not ≈ 0
+        end
+
+        P0 = total_spin_projector(0; s = s)
+        v0 = zeros(d^2)
+        for k in 0:(d - 1)
+            v0[k * d + (d - 1 - k) + 1] = (-1)^k / sqrt(d)
+        end
+        e_forbidden = zeros(d^2)
+        e_forbidden[10d + 8 + 1] = 1.0          # |k₁=10, k₂=8⟩, M_z = 2
+        @test P0 * e_forbidden == zeros(d^2)    # exactly, not approximately
+
+        # Near-forbidden postselection on both backends: start from
+        # w ∝ ε|singlet⟩ + |k₁=10,k₂=8⟩ with ε = 1e-6 (singlet probability
+        # 1e-12: far below the old leakage, but above POSTSELECTION_PROB_TOL)
+        # and project onto S=0. The exact projector keeps only the ε
+        # component, so the renormalized state must be the singlet. w is
+        # reached from |0,0⟩ by a Householder reflection.
+        ε = 1e-6
+        w = ε * v0 + e_forbidden
+        w ./= norm(w)
+        e1 = zeros(d^2)
+        e1[1] = 1.0
+        h = e1 - w
+        U = Matrix{Float64}(I, d^2, d^2) - 2 * (h * h') / dot(h, h)   # U e1 = w
+        @test U * e1≈w atol=1e-14
+        for backend in (:mps, :statevector)
+            st = SimulationState(L = 2, bc = :open, site_type = "S=10",
+                backend = backend, maxdim = 32, cutoff = 0.0, rng = _spin_rng())
+            initialize!(st, ProductState(binary_int = 0))        # |k₁=0, k₂=0⟩
+            apply!(st, MatrixGate(U; d = d), Sites([1, 2]))
+            @test Magnetization(:Z)(st)≈1.0 atol=1e-9           # M_z/L = 2/2
+            apply!(st, SpinSectorProjection(P0), Sites([1, 2]))
+            ψ = _dense2(st)
+            @test norm(ψ)≈1.0 atol=1e-10
+            @test abs2(dot(v0, ψ))≈1.0 atol=1e-10
+            @test Magnetization(:Z)(st)≈0.0 atol=1e-10
+        end
+
+        # A strictly forbidden input (no singlet component at all) is
+        # annihilated exactly, i.e. the S=0 branch has zero Born weight. Both
+        # SpinSectorProjection(P₀) (via the zero-probability postselection
+        # guard) and SpinSectorMeasurement([0]) must reject it with the state
+        # untouched, instead of normalizing leakage into a wrong-sector state.
+        U_f = Matrix{Float64}(I, d^2, d^2)
+        U_f[:, [1, 10d + 8 + 1]] = U_f[:, [10d + 8 + 1, 1]]     # swap |0,0⟩ ↔ |10,8⟩
+        for backend in (:mps, :statevector)
+            st = SimulationState(L = 2, bc = :open, site_type = "S=10",
+                backend = backend, maxdim = 32, cutoff = 0.0, rng = _spin_rng())
+            initialize!(st, ProductState(binary_int = 0))
+            apply!(st, MatrixGate(U_f; d = d), Sites([1, 2]))
+            @test_throws ArgumentError apply!(st, SpinSectorProjection(P0), Sites([1, 2]))
+            @test _dense2(st)≈U_f[:, 1] atol=1e-14                # state unchanged
+            @test Magnetization(:Z)(st)≈1.0 atol=1e-12
+        end
+        st = SimulationState(L = 2, bc = :open, site_type = "S=10", maxdim = 32,
+            cutoff = 0.0, rng = _spin_rng())
+        initialize!(st, ProductState(binary_int = 0))
+        apply!(st, MatrixGate(U_f; d = d), Sites([1, 2]))
+        @test_throws ArgumentError apply!(st, SpinSectorMeasurement([0]), Sites([1, 2]))
+        @test _dense2(st)≈U_f[:, 1] atol=1e-14
     end
 end

@@ -81,7 +81,8 @@ Magnetization(:Z)(state)
 `total_spin_projector(S; s=1)` and `SpinSectorProjection`/
 `SpinSectorMeasurement` generalize the AKLT forced-measurement machinery to
 arbitrary spin-`s` pairs (`s=1` keeps its original hardcoded S=0/1/2
-projector polynomials for bitwise regression stability; ``s \neq 1`` uses the
-Lagrange/Casimir eigenvalue-product formula) — see
+projector polynomials for bitwise regression stability; ``s \neq 1`` builds
+each projector from the eigenvectors of ``S_1 \cdot S_2`` within each
+total-``M_z`` block, which is accurate to machine precision up to `s=10`) — see
 [AKLT Example: Forced Measurement Protocol](@ref) in the tutorials for the
 spin-1 case and the `Gates` section above for the full signatures.

@@ -6,6 +6,8 @@
 # Basis ordering: |1,1⟩, |1,0⟩, |1,-1⟩, |0,1⟩, |0,0⟩, |0,-1⟩, |-1,1⟩, |-1,0⟩, |-1,-1⟩
 # (i.e., m₁ ∈ {1,0,-1}, m₂ ∈ {1,0,-1}, lexicographic order)
 
+using LinearAlgebra: Symmetric, eigen
+
 @doc raw"""
     spin1_operators()
 
@@ -92,15 +94,23 @@ For `s=1` the three historical hardcoded Clebsch-Gordan polynomials are used
 - ``P_1 = -\frac{1}{2}(S_1\cdot S_2)^2 - \frac{1}{2}(S_1\cdot S_2) + I``
 - ``P_0 = \frac{1}{3}(S_1\cdot S_2)^2 - \frac{1}{3}I``
 
-For any other `s`, the general Lagrange interpolation in ``S_1 \cdot S_2`` is used:
+For any other `s`, ``P_S`` is assembled from the eigenvectors of
+``S_1 \cdot S_2``, whose eigenvalue on the total-spin-``S`` multiplet is
 ```math
-P_S = \prod_{S' \neq S} \frac{S_1\cdot S_2 - \lambda_{S'}}{\lambda_S - \lambda_{S'}}
+\lambda_S = \frac{1}{2}\left[S(S+1) - 2s(s+1)\right].
 ```
-with eigenvalues
-```math
-\lambda_S = \frac{1}{2}\left[S(S+1) - 2s(s+1)\right]
-```
-— no Clebsch-Gordan tables needed.
+Because ``S_1 \cdot S_2`` commutes with the total ``S_z``, it is block-diagonal
+in the total magnetization ``M = m_1 + m_2``, and the block at fixed ``M``
+contains exactly one state of every multiplet ``S = \lvert M \rvert, \ldots, 2s``
+with the distinct, strictly increasing eigenvalues ``\lambda_S``. Each block is
+diagonalized separately and the eigenvector with the ``(S - \lvert M \rvert + 1)``-th
+smallest eigenvalue contributes ``\lvert S, M \rangle\langle S, M \rvert`` to
+``P_S``. The result is accurate to machine precision for every supported spin
+(the polynomial Lagrange form ``\prod_{S' \neq S} (S_1\cdot S_2 - \lambda_{S'})
+/ (\lambda_S - \lambda_{S'})`` used before was numerically unstable for large
+``s``, with errors of order ``10^{-3}`` at ``s = 10`` that leaked weight into
+forbidden sectors), and the projector is exactly zero between different
+``M`` blocks — no Clebsch-Gordan tables needed.
 """
 function total_spin_projector(S::Int; s::Real = 1,
         d::Int = Int(2 * Rational{Int}(s) + 1))
@@ -138,15 +148,27 @@ function total_spin_projector(S::Int; s::Real = 1,
     0 <= S <= Smax || throw(ArgumentError(
         "S must be in 0:$Smax for spin-$s ⊗ spin-$s, got $S"))
 
-    # Lagrange interpolation in S₁·S₂: λ_j = ½[j(j+1) − 2s(s+1)]
+    # S₁·S₂ commutes with the total Sz, so it is block-diagonal in the total
+    # magnetization M = m₁ + m₂. The block at fixed M holds exactly one state
+    # of every multiplet S = |M|, |M|+1, ..., 2s, with distinct eigenvalues
+    # λ_S = ½[S(S+1) − 2s(s+1)] increasing in S, so after diagonalizing the
+    # block the (S − |M| + 1)-th eigenvector (ascending order) is |S, M⟩.
+    # Each block is small and symmetric, so this is accurate to machine
+    # precision for every supported s, and it is exactly zero between
+    # different M blocks. (The Lagrange polynomial ∏(S₁·S₂ − λ_k)/(λ_S − λ_k)
+    # used before lost ~1e-3 at s=10 and leaked weight into forbidden sectors.)
+    #
+    # Basis index (1-based) = k₁·d + k₂ + 1 with level k ↔ m = s − k, so the
+    # block for M = 2s − K collects every (k₁, k₂) with k₁ + k₂ = K.
     SS = _s_dot_s(srat)
-    sf = Float64(srat)
-    λ(j) = (j * (j + 1) - 2 * sf * (sf + 1)) / 2
-    D = d^2
-    P = Matrix{Float64}(I, D, D)
-    for k in 0:Smax
-        k == S && continue
-        P = P * (SS - λ(k) * I) / (λ(S) - λ(k))
+    P = zeros(Float64, d^2, d^2)
+    for K in 0:(2d - 2)
+        absM = abs(Smax - K)
+        S < absM && continue  # multiplet S has no M-component in this block
+        idx = [k1 * d + (K - k1) + 1 for k1 in max(0, K - d + 1):min(K, d - 1)]
+        vecs = eigen(Symmetric(SS[idx, idx])).vectors
+        v = vecs[:, S - absM + 1]
+        P[idx, idx] .+= v .* v'
     end
     return P
 end
