@@ -85,8 +85,10 @@ function initialize!(state::SimulationState{StateVectorBackend}, init::ProductSt
         # levels; use ProductState(spin_state="Z<m>") for intermediate levels.
         [b == "0" ? "Up" : "Dn" for b in vec_int_pos]
     elseif site_type == "Qudit"
-        # Generic qudit: "0" → "1", "1" → "2", etc. (1-indexed states)
-        [string(parse(Int, b) + 1) for b in vec_int_pos]
+        # Generic qudit: ITensor "Qudit" state names are zero-based level
+        # labels ("0", "1", ..., "d-1"), so the bit is the label as-is
+        # (see the MPS path in src/State/initialization.jl).
+        vec_int_pos
     else
         throw(ArgumentError("Unknown site_type: $site_type"))
     end
