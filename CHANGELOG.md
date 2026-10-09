@@ -8,6 +8,25 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
 
 ## [Unreleased]
 
+### Fixed
+
+- Projective gates on the MPS backend were judged impossible by the raw
+  projected norm ``\lVert P\psi\rVert^2`` instead of the Born probability
+  ``\lVert P\psi\rVert^2 / \lVert\psi\rVert^2``. The MPS is not renormalized
+  after truncated unitary layers, so ``\lVert\psi\rVert^2`` can fall below
+  `POSTSELECTION_PROB_TOL` (``10^{-14}``) while the retained state is
+  perfectly well defined: 80 `maxdim=1` applications of a gate rotating
+  ``|00\rangle`` towards ``|11\rangle`` leave exactly ``|00\rangle`` with
+  ``\lVert\psi\rVert^2 \approx 3 \times 10^{-16}``, and `Projection(0)`,
+  `Measure`, `Reset`, `SpinSectorProjection`, and `SpinSectorMeasurement`
+  all threw "zero Born probability" for an outcome of probability one.
+  `_check_postselection` now takes the input norm as well and tests the
+  ratio (the state-vector backend passes it too; there the ratio equals the
+  old value up to rounding), `compute_two_site_born_probability` — and so
+  the `SpinSectorMeasurement` sampler's sector probabilities — divides by
+  ``\langle\psi|\psi\rangle``, and the error message reports the probability
+  together with both norms. Results on normalized states are unchanged.
+
 ## [0.5.7] - 2026-10-09
 
 ### Removed
