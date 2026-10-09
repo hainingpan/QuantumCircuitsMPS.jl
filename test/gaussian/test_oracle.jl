@@ -88,12 +88,18 @@ include(joinpath(@__DIR__, "oracle.jl"))
         R[3, 3] = cos(th)
         Γ = R * oracle_vacuum_covariance(2) * transpose(R)
         ρ = oracle_density_matrix(Γ)
-        # Python golden (density_matrix(G2, order="msb")):
+        # Python golden (density_matrix(G2, order="msb")). GTN.density_matrix
+        # expands with γ_{2i} = i(c† − c) and coefficient (−i)^{|S|/2}, i.e. it
+        # reads Γ as −(i/2)⟨[γ,γ]⟩ in those Majoranas; in the package's Bravyi
+        # convention (γ_{2i} = −i(c† − c), Γ = +(i/2)⟨[γ,γ]⟩) the same Γ encodes
+        # the complex-conjugate state in the occupation basis, so the oracle
+        # must reproduce conj(ρ_py) (identical diagonal / occupations).
         ρ_py = ComplexF64[0.8824210936422443 0 0 0.3221088436188455im;
                           0 0 0 0;
                           0 0 0 0;
                           -0.3221088436188455im 0 0 0.11757890635775575]
-        @test maximum(abs.(ρ - ρ_py)) < 1e-12
+        @test maximum(abs.(ρ - conj(ρ_py))) < 1e-12
+        @test maximum(abs.(real.(diag(ρ)) - real.(diag(ρ_py)))) < 1e-12
         @test abs(tr(ρ) - 1) < 1e-12
         @test minimum(real(eigvals(Hermitian(ρ)))) > -1e-12
         @test norm(ρ * ρ - ρ) < 1e-10   # pure state

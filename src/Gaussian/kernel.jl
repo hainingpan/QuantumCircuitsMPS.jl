@@ -5,11 +5,15 @@
 # (L105-118). No SimulationState dependency — pure functions on matrices.
 #
 # Conventions (matching the reference Python implementation get_C_f, GTN.py:1518-1523):
+# - Γ[a,b] = (i/2)⟨[γ_a, γ_b]⟩ = ⟨i γ_a γ_b⟩ (a ≠ b), with Majoranas
+#   γ_{2i−1} = c_i + c_i†, γ_{2i} = −i(c_i† − c_i) (Bravyi's convention), so
+#   Γ[2i−1,2i] = ⟨i γ_{2i−1} γ_{2i}⟩ = 1 − 2⟨c_i†c_i⟩.
 # - Mode i (1-based) ↔ Majorana indices (2i−1, 2i).
 # - 2×2 block [[0,1],[−1,0]] on a mode ⇒ ⟨c†c⟩ = 0 (unoccupied / vacuum).
 # - 2×2 block [[0,−1],[1,0]] on a mode ⇒ ⟨c†c⟩ = 1 (occupied).
-# - kraus n=(s,0,0) projection ⇒ post-measurement Γ[i,j] = −s; the vacuum
-#   pair (Γ[2i−1,2i] = +1) is the s = −1 outcome.
+# - kraus n=(s,0,0) projection onto the parity sector iγ_iγ_j = −s ⇒
+#   post-measurement Γ[i,j] = −s; the vacuum pair (Γ[2i−1,2i] = +1) is the
+#   s = −1 outcome.
 
 using LinearAlgebra: Hermitian, cond, det, eigen, issuccess, lu
 
@@ -60,10 +64,12 @@ end
 @doc raw"""
     parity_projection_upsilon(s::Int) -> Matrix{Float64}
 
-4×4 Υ projecting a Majorana pair `(i,j)` onto parity outcome ``s \in \{+1,-1\}``,
-i.e. `_kraus((s,0,0))`. Post-measurement state has ``\Gamma[i,j] = -s`` (matching the
-Python reference: vacuum `Γ[2i−1,2i] = +1` is the `s = −1` outcome; contracting
-the vacuum pair with `s = +1` is the probability-zero outcome and throws).
+4×4 Υ projecting a Majorana pair `(i,j)` onto the parity sector
+``i\gamma_i\gamma_j = -s``, ``s \in \{+1,-1\}``, i.e. `_kraus((s,0,0))`. The post-measurement
+state has ``\Gamma[i,j] = \langle i\gamma_i\gamma_j\rangle = -s`` (matching the Python reference's
+sign convention for `s`: the vacuum `Γ[2i−1,2i] = +1` is the `s = −1` outcome;
+contracting the vacuum pair with `s = +1` is the probability-zero outcome and
+throws).
 """
 function parity_projection_upsilon(s::Int)
     s in (-1, 1) || throw(ArgumentError("parity outcome s must be +1 or -1, got $s"))

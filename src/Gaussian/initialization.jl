@@ -30,7 +30,7 @@ and the product-state covariance is the DIMERIZED pairing
 ``\bigoplus_k \begin{pmatrix}0&1\\-1&0\end{pmatrix}`` over consecutive site pairs `(γ_{2k−1}, γ_{2k})`,
 k = 1..L÷2. The bit pattern therefore has length **L÷2** (NOT L): bit `k`
 sets the parity sign of the pair `(γ_{2k−1}, γ_{2k})` — bit `0` ⇒
-``\Gamma[2k-1,2k] = +1`` (parity ``i\gamma\gamma = -1``, the "vacuum" sign), bit `1` ⇒ ``\Gamma[2k-1,2k] = -1``. The pattern is derived by the shared
+``\Gamma[2k-1,2k] = +1`` (parity ``i\gamma_{2k-1}\gamma_{2k} = +1``, the "vacuum" sign), bit `1` ⇒ ``\Gamma[2k-1,2k] = -1`` (parity ``-1``). The pattern is derived by the shared
 `_bit_pattern_string` helper with length L÷2, so `binary_int` is padded to
 L÷2 binary digits and an explicit `bitstring` is padded/truncated to
 exactly L÷2 characters — i.e. the pattern length is always exactly L÷2.

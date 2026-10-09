@@ -24,7 +24,7 @@ entropies = state.observables[:entropy]
 println("Final entropy: $(entropies[end])")
 ```
 
-**Physics**: `GaussianHaar()` draws an independent Haar-random ``O(4)``/``O(2)`` rotation for each bond (from `:gates_realization`) and conjugates it directly onto the Majorana covariance matrix — no dense Hilbert-space unitary is ever built. `Measure(:Z)` and `BondParity()` are projective parity measurements of, respectively, the on-site occupation ``i\gamma_{2i-1}\gamma_{2i}`` and the bond parity spanning two adjacent sites; both collapse ``\Gamma`` via the same fermionic-linear-optics contraction kernel used for the unitary case.
+**Physics**: `GaussianHaar()` draws an independent Haar-random ``O(4)``/``O(2)`` rotation for each bond (from `:gates_realization`) and conjugates it directly onto the Majorana covariance matrix — no dense Hilbert-space unitary is ever built. `Measure(:Z)` and `BondParity()` are projective parity measurements of, respectively, the on-site occupation parity ``i\gamma_{2i-1}\gamma_{2i} = 1 - 2c_i^\dagger c_i`` and the bond parity spanning two adjacent sites; both collapse ``\Gamma`` via the same fermionic-linear-optics contraction kernel used for the unitary case.
 
 ## What a Gaussian State Is
 
@@ -34,7 +34,13 @@ A pure fermionic Gaussian state on `L` modes is completely characterized (no exp
 \Gamma_{ab} = \frac{i}{2}\langle [\gamma_a, \gamma_b] \rangle \, ,
 ```
 
-where ``\gamma_1, \ldots, \gamma_{2L}`` are the Majorana operators (``\gamma_{2i-1} = c_i + c_i^\dagger``, ``\gamma_{2i} = i(c_i^\dagger - c_i)`` for fermionic mode `i`, with a Jordan–Wigner string on lower-indexed modes). A pure Gaussian state satisfies the invariant
+where ``\gamma_1, \ldots, \gamma_{2L}`` are the Majorana operators of the fermionic modes,
+
+```math
+\gamma_{2i-1} = c_i + c_i^\dagger \, , \qquad \gamma_{2i} = -i\,(c_i^\dagger - c_i) \, ,
+```
+
+for mode `i` (with a Jordan–Wigner string on lower-indexed modes) — the convention of [bravyi2005lagrangian](@cite). For ``a \neq b`` this is simply ``\Gamma_{ab} = \langle i\gamma_a\gamma_b\rangle``, and the occupation of mode `i` is ``c_i^\dagger c_i = (1 - i\gamma_{2i-1}\gamma_{2i})/2``, so an unoccupied mode has ``\Gamma_{2i-1,2i} = +1`` (see Conventions below). A pure Gaussian state satisfies the invariant
 
 ```math
 \Gamma^2 = -I
@@ -197,9 +203,10 @@ On the Majorana chain (`site_type="Majorana"`), `ProductState` bit patterns have
 
 ## Conventions
 
+- **Covariance and Majorana definitions**: ``\Gamma_{ab} = \frac{i}{2}\langle[\gamma_a,\gamma_b]\rangle`` with ``\gamma_{2i-1} = c_i + c_i^\dagger`` and ``\gamma_{2i} = -i(c_i^\dagger - c_i)`` — the convention of [bravyi2005lagrangian](@cite). Every ``\Gamma`` in this package (the stored `state.backend.corr`, the docstring formulas, and the exact-diagonalization test oracle) uses it. Off-diagonal elements are ``\Gamma_{ab} = \langle i\gamma_a\gamma_b\rangle``, so a projective measurement of the parity ``i\gamma_a\gamma_b`` with eigenvalue ``\pm 1`` leaves ``\Gamma_{ab} = \pm 1``.
 - **Mode ↔ Majorana mapping**: fermionic mode `i` (1-indexed) ↔ Majorana indices ``(2i-1, 2i)``. On the Majorana chain, site `i` IS Majorana `i` directly.
-- **Occupation sign**: ``\Gamma_{2i-1,2i} = +1`` ↔ mode `i` unoccupied; ``\Gamma_{2i-1,2i} = -1`` ↔ occupied — i.e. ``\langle c_i^\dagger c_i\rangle = (1 - \Gamma_{2i-1,2i})/2``. Verified empirically against the Python GTN reference implementation's `get_C_f`.
-- **Measurement outcome**: `outcome = 0` ↔ unoccupied/parity `+1` result on ``\Gamma``; `outcome = 1` ↔ occupied/parity `-1` result. `ProductState` bit `1` ↔ occupied, matching this convention.
+- **Occupation sign**: ``\Gamma_{2i-1,2i} = \langle i\gamma_{2i-1}\gamma_{2i}\rangle = 1 - 2\langle c_i^\dagger c_i\rangle``, so ``\Gamma_{2i-1,2i} = +1`` ↔ mode `i` unoccupied; ``\Gamma_{2i-1,2i} = -1`` ↔ occupied — i.e. ``\langle c_i^\dagger c_i\rangle = (1 - \Gamma_{2i-1,2i})/2``. Verified empirically against the Python GTN reference implementation's `get_C_f`.
+- **Measurement outcome**: `outcome = 0` ↔ unoccupied / parity ``i\gamma_a\gamma_b = +1`` (``\Gamma_{ab} = +1`` after the collapse); `outcome = 1` ↔ occupied / parity ``-1`` (``\Gamma_{ab} = -1``). `ProductState` bit `1` ↔ occupied, matching this convention.
 - **Exact-Haar sampler note**: `haar_orthogonal` draws Haar-random `SO(n)` matrices exactly via QR decomposition of a Ginibre matrix (sign-fixed, det-corrected) — this is a **deliberate departure** from the Python GTN reference implementation, whose `get_O` uses `expm` of a random skew-symmetric matrix (an approximation the GTN codebase's own notes flag as not proven exactly Haar). All Gaussian-backend randomness (`GaussianHaar`, `RandomGaussianState`) uses the exact sampler.
 
 ## Cross-Backend RNG Reproducibility

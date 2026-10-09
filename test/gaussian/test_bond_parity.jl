@@ -142,8 +142,8 @@ end
     for (a, b) in ((2, 3), (4, 5), (2L, 1))
         g = Γ[a, b]
         P₊ = (I + im * γ[a] * γ[b]) / 2
-        # VERIFIED convention: ⟨iγ̂ₐγ̂_b⟩ = −Γ[a,b] ⇒ P(parity +1) = (1−g)/2 = P(outcome 1)
-        @test abs(real(tr(ρ * P₊)) - (1 - g) / 2) < 1e-10
+        # Convention: ⟨iγ̂ₐγ̂_b⟩ = Γ[a,b] ⇒ P(parity +1) = (1+g)/2 = P(outcome 0)
+        @test abs(real(tr(ρ * P₊)) - (1 + g) / 2) < 1e-10
     end
 end
 
