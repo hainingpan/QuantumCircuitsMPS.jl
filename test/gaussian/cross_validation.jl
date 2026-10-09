@@ -11,14 +11,13 @@
 #   • CONSISTENCY (every step): ρ reconstructed FROM Γ must be a valid pure
 #     state (trace 1, Hermitian, ρ ⪰ 0, tr ρ² ≈ 1); its Born probabilities
 #     and entanglement entropies must match the covariance-matrix values.
-#   • INDEPENDENCE (PauliX / measurement steps): a shadow many-body state
-#     ρ_ind is evolved WITHOUT the Gaussian formalism (exact product-state
-#     projector; many-body parity projectors P_s = (I + s·i·γ̂_a γ̂_b)/2 using
-#     the SAME outcome s the backend sampled; many-body γ̂ operator for
-#     PauliX) and must equal oracle_density_matrix(Γ) after each such step.
-#     After GaussianHaar steps ρ_ind is resynchronized from Γ (unitary steps
-#     are independently validated by the Python golden contraction values +
-#     purity invariants).
+#   • INDEPENDENCE (measurement steps): a shadow many-body state ρ_ind is
+#     evolved WITHOUT the Gaussian formalism (exact product-state projector;
+#     many-body parity projectors P_s = (I + s·i·γ̂_a γ̂_b)/2 using the SAME
+#     outcome s the backend sampled) and must equal oracle_density_matrix(Γ)
+#     after each such step. After GaussianHaar steps ρ_ind is resynchronized
+#     from Γ (unitary steps are independently validated by the Python golden
+#     contraction values + purity invariants).
 #
 # Standalone: julia --project=. -e 'include("test/gaussian/cross_validation.jl")'
 
@@ -140,14 +139,17 @@ end
         ρ = _cv_consistency(state, L, γ)
         ρ_ind = ρ
 
-        # Step 3 — PauliX on site 1: many-body operator is γ̂₂ (flips row/col
-        # 2 of Γ, exactly the backend's occupation flip)
-        apply!(state, PauliX(), SingleSite(1))
+        # Step 3 — Measure(:Z) on site 1 (Born-sampled by the backend); the
+        # independence track applies the exact parity projector for the
+        # outcome the backend drew
+        site = 1
+        apply!(state, Measure(:Z), SingleSite(site))
+        s = _cv_sampled_s(state, 2site - 1, 2site)
         ρ = _cv_consistency(state, L, γ)
-        ρ_ind = γ[2] * ρ_ind * γ[2]'
+        ρ_ind = _cv_project!(ρ_ind, γ, 2site - 1, 2site, s, dim)
         @test norm(ρ_ind - ρ) < 1e-10
 
-        # Step 4 — Measure(:Z) on site 2 (Born-sampled by the backend)
+        # Step 4 — Measure(:Z) on site 2
         site = 2
         apply!(state, Measure(:Z), SingleSite(site))
         s = _cv_sampled_s(state, 2site - 1, 2site)
@@ -214,12 +216,11 @@ end
             @test maximum(abs.(Γ * Γ + I)) < 1e-10
         end
 
-        @testset "Reset circuit (L=4)" begin
+        @testset "Reset inside a Circuit is rejected before the Born draw (L=4)" begin
             L = 4
             circuit = Circuit(L = L, bc = :open) do c
                 apply!(c, GaussianHaar(), AdjacentPair(1))
                 apply!(c, Reset(), SingleSite(1))
-                apply!(c, Reset(), SingleSite(2))
                 record!(c, :mz)
             end
 
@@ -228,11 +229,21 @@ end
                     born_measurement = 42, state_init = 3))
             initialize!(state, ProductState(binary_int = 0))
             track!(state, :mz => Magnetization(:Z))
+            born_before = copy(QuantumCircuitsMPS.get_rng(state.rng_registry, :born_measurement))
 
-            simulate!(circuit, state; n_steps = 1, record_when = :marks)
-
-            # Sites 1,2 reset to unoccupied; sites 3,4 never touched → Mz = 1
-            @test state.observables[:mz][end] ≈ 1.0 atol = 1e-12
+            err = try
+                simulate!(circuit, state; n_steps = 1, record_when = :marks)
+                nothing
+            catch e
+                e
+            end
+            @test err isa ArgumentError
+            @test occursin("Reset", err.msg)
+            @test occursin("Gaussian", err.msg)
+            # The GaussianHaar before it ran; the Reset consumed no Born draw.
+            @test rand(copy(QuantumCircuitsMPS.get_rng(state.rng_registry, :born_measurement))) ==
+                  rand(copy(born_before))
+            @test isempty(state.observables[:mz])          # the record! was never reached
         end
     end
 end
