@@ -11,13 +11,14 @@
 # Pure functions on plain arrays. NO dependency on QuantumCircuitsMPS,
 # GaussianBackend, or SimulationState. Exponential cost — L ≤ 5 enforced.
 #
-# CONVENTIONS (must match src/Gaussian/kernel.jl, verified in T2):
+# CONVENTIONS (must match src/Gaussian/kernel.jl and docs/src/backends/gaussian.md):
+#   * Γ[a,b] = (i/2)⟨[γ_a, γ_b]⟩ = ⟨i γ_a γ_b⟩ for a ≠ b (Bravyi's convention).
 #   * Mode i (1-indexed) ↔ Majorana indices (2i−1, 2i).
-#   * γ_{2i−1} = c_i + c_i†,   γ_{2i} = i(c_i† − c_i), with Jordan-Wigner
-#     string on modes < i.
+#   * γ_{2i−1} = c_i + c_i†,   γ_{2i} = −i(c_i† − c_i), with Jordan-Wigner
+#     string on modes < i. Hence i γ_{2i−1} γ_{2i} = 1 − 2 c_i†c_i.
 #   * Vacuum covariance block for mode i: Γ[2i−1,2i] = +1 (⟨c†c⟩ = 0);
-#     occupied: Γ[2i−1,2i] = −1 (⟨c†c⟩ = 1). Same as T2's vacuum_covariance /
-#     occupation_covariance.
+#     occupied: Γ[2i−1,2i] = −1 (⟨c†c⟩ = 1). Same as the kernel's
+#     vacuum_covariance / occupation_covariance.
 #   * BASIS ORDERING: default order = :msb, i.e. SITE 1 IS THE MOST
 #     SIGNIFICANT BIT of the computational-basis index. Basis state
 #     |n₁ n₂ … n_L⟩ has (0-based) index n₁·2^(L−1) + n₂·2^(L−2) + … + n_L.
@@ -98,14 +99,14 @@ function majorana_matrices(L::Int; order::Symbol = :msb)
     gammas = Vector{Matrix{ComplexF64}}(undef, 2L)
     for j in 0:(L - 1)  # 0-based mode index (Julia site j+1)
         g1 = zeros(ComplexF64, dim, dim)  # γ_{2j+1} = c + c†
-        g2 = zeros(ComplexF64, dim, dim)  # γ_{2j+2} = i(c† − c)
+        g2 = zeros(ComplexF64, dim, dim)  # γ_{2j+2} = −i(c† − c)
         for b in 0:(dim - 1)
             flip = b ⊻ (1 << j)
             parity = count_ones(b & ((1 << j) - 1)) & 1
             sgn = 1 - 2 * parity              # JW string over lower bits
             nj = (b >> j) & 1
             g1[flip + 1, b + 1] = sgn
-            g2[flip + 1, b + 1] = sgn * (1 - 2 * nj) * im
+            g2[flip + 1, b + 1] = sgn * (2 * nj - 1) * im   # −i c† on |0⟩, +i c on |1⟩
         end
         gammas[2j + 1] = g1
         gammas[2j + 2] = g2
@@ -121,8 +122,11 @@ end
 
 # -----------------------------------------------------------------------------
 # Exact many-body density matrix from a 2L×2L Majorana covariance matrix
-# (port of GTN.py density_matrix, GTN.py:1432-1476):
-#   ρ = 2^{-L} Σ_{S ⊆ {1..2L}, |S| even} (−i)^{|S|/2} pf(Γ_S) ∏_{i∈S, ascending} γ̂_i
+# (Wick expansion of a Gaussian state in Bravyi's convention; port of
+# GTN.py density_matrix, GTN.py:1432-1476, with the Majorana sign of γ_{2i}
+# and the phase of the expansion coefficient both adapted to that convention):
+#   ρ = 2^{-L} Σ_{S ⊆ {1..2L}, |S| even} i^{|S|/2} pf(Γ_S) ∏_{i∈S, ascending} γ̂_i
+# so that tr(ρ i γ̂_a γ̂_b) = Γ[a,b] for a ≠ b.
 # -----------------------------------------------------------------------------
 function oracle_density_matrix(Γ::AbstractMatrix; tol::Real = 1e-12, order::Symbol = :msb)
     order in (:msb, :lsb) || throw(ArgumentError("order must be :msb or :lsb"))
@@ -143,7 +147,7 @@ function oracle_density_matrix(Γ::AbstractMatrix; tol::Real = 1e-12, order::Sym
         end
         idx = [i for i in 1:n_majorana if (mask >> (i - 1)) & 1 == 1]  # ascending
         sz = length(idx)
-        coeff = ((-im)^(sz ÷ 2)) * _pfaffian(Γ[idx, idx]; tol = tol)
+        coeff = (im^(sz ÷ 2)) * _pfaffian(Γ[idx, idx]; tol = tol)
         abs(coeff) < tol && continue
         # product γ̂_{i1} γ̂_{i2} … γ̂_{ik}, i1 < i2 < … < ik (left to right)
         G = γ[idx[1]]

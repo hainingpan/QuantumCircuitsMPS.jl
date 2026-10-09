@@ -73,9 +73,9 @@ function _cv_consistency(state, L::Int, γ::Vector{Matrix{ComplexF64}})
     @test norm(ρ - ρ') < 1e-10
     @test eigmin(Hermitian(Matrix(ρ))) > -1e-10
     @test abs(tr(ρ * ρ) - 1) < 1e-10
-    # Born probabilities: ⟨n̂ᵢ⟩ with n̂ᵢ = (I + i γ̂_{2i−1} γ̂_{2i})/2
+    # Born probabilities: ⟨n̂ᵢ⟩ with n̂ᵢ = (I − i γ̂_{2i−1} γ̂_{2i})/2
     for i in 1:L
-        n_op = (Matrix{ComplexF64}(I, 2^L, 2^L) + im .* (γ[2i - 1] * γ[2i])) ./ 2
+        n_op = (Matrix{ComplexF64}(I, 2^L, 2^L) - im .* (γ[2i - 1] * γ[2i])) ./ 2
         p1 = real(tr(ρ * n_op))
         @test abs(p1 - born_probability(state, i, 1)) < 1e-10
         @test abs((1 - p1) - born_probability(state, i, 0)) < 1e-10
@@ -89,13 +89,13 @@ function _cv_consistency(state, L::Int, γ::Vector{Matrix{ComplexF64}})
     return ρ
 end
 
-"""Read the parity eigenvalue s ∈ {−1,+1} the backend just collapsed onto,
-from the post-measurement Γ element at Majorana pair (a, b): post Γ[a,b]=−s
-(T8/T9 convention). Asserts the element is ±1 to 1e-10."""
+"""Read the parity eigenvalue s ∈ {−1,+1} of i γ̂_a γ̂_b the backend just
+collapsed onto, from the post-measurement Γ element at Majorana pair (a, b):
+Γ[a,b] = ⟨i γ̂_a γ̂_b⟩ = s. Asserts the element is ±1 to 1e-10."""
 function _cv_sampled_s(state, a::Int, b::Int)
     g = state.backend.corr[a, b]
     @test abs(abs(g) - 1) < 1e-10
-    return g < 0 ? 1.0 : -1.0
+    return g < 0 ? -1.0 : 1.0
 end
 
 """INDEPENDENCE track: apply the many-body parity projector
