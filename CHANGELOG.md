@@ -8,8 +8,45 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
 
 ## [Unreleased]
 
+### Changed
+
+Inputs that used to return a plausible but wrong result are now rejected
+with an `ArgumentError` before the state changes:
+
+- `Reset` is qubit-only (`local_dim=2`). On a spin-1 site it measured all
+  three levels but only flipped outcome 1, so a site found in level 2 was
+  left there. Any `local_dim ≠ 2` site now throws before the Born draw, so
+  the state and the `:born_measurement` stream are untouched. Build a
+  higher-spin reset with `Measure(:Z; feedback=...)` if needed.
+- `StringOrder` requires `site_type="S=1"` on the MPS and state-vector
+  backends. The state-vector method silently used a qubit eigenvalue table
+  for every `local_dim ≠ 3` (on spin-3/2 sites it returned ``+1`` where the
+  spin formula gives ``-2.25``); the MPS method failed with an ITensor
+  internal error. The qubit table is gone with it — qubits were never
+  supported on MPS and are now rejected on both.
+- `ProductState(binary_int=n)` must fit in `L` binary digits
+  (``n < 2^L``). A larger `n` produced a different state on every backend:
+  MPS and Clifford kept the leading `L` bits, the state vector and the
+  Gaussian covariance were built with too many sites.
+- `BornProbability(site, k)` rejects a level `k ≥ local_dim` on every
+  backend. It returned `0.0` on MPS/state vector and, on the Clifford
+  backend, `0.5` for an undetermined qubit — so ``|+\rangle`` reported
+  probabilities ``[0.5, 0.5, 0.5]`` for outcomes 0, 1, 2. The Clifford
+  `born_probability` function itself rejects any outcome other than 0/1.
+- A region with a repeated site (`Sites([2, 2])`,
+  `apply!(state, gate, [2, 2])`) is rejected, by the `Sites` constructor and
+  by `execute!` (so every geometry, `apply!` and the circuit engine). On the
+  Clifford backend a `RandomClifford` on such a region produced a
+  non-unitary tableau update that could purify one half of a Bell pair.
+
 ### Fixed
 
+- `DomainWall(order=...)` computed its weights ``(L-j+1)^{\text{order}}``
+  in `Int64`, which overflows (wrapping even to `0`) once they exceed
+  ``2^{63}`` — `DomainWall(order=32)` on four sites in ``|1000\rangle``
+  returned `0` instead of ``4^{32}``. The weights are now exact big-integer
+  powers rounded to `Float64`; results in the non-overflowing regime are
+  bit-identical.
 - `initialize!(state, ProductState(...))` on `site_type="Qudit"` prepared the
   wrong product state on both the MPS and state-vector backends: each bit was
   shifted up by one level, so `binary_int=0` gave ``|11\cdots1\rangle``
