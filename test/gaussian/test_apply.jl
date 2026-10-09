@@ -1,8 +1,9 @@
 # test/gaussian/test_apply.jl
 # Unit tests for the Gaussian gate-application engine:
 # _apply_single!(SimulationState{GaussianBackend}, ...) for GaussianHaar
-# (Haar-SO(4) Majorana conjugation, :gates_realization stream), PauliX
-# (fermionic occupation flip), and the rejecting AbstractGate fallback.
+# (Haar-SO(4) Majorana conjugation, :gates_realization stream), the
+# rejecting AbstractGate fallback, and the PauliX/Reset rejections (no
+# parity-odd occupation flip exists for fermions).
 #
 # NOTE: states are initialized by setting the covariance matrix directly via
 # the kernel (`vacuum_covariance`) instead of `initialize!`, so this file
@@ -66,18 +67,31 @@ end
         @test Γ3 != Γ1
     end
 
-    @testset "PauliX = fermionic occupation flip on vacuum site 1" begin
+    @testset "PauliX and Reset rejected before any state change" begin
+        # A fermionic occupation flip would be a single-Majorana reflection —
+        # parity-odd, not a Gaussian operation — so neither gate exists on
+        # this backend. Reset must throw BEFORE its Born draw: the generic
+        # Reset would otherwise measure first and only fail on outcome 1.
         s = make_vacuum_state(4; seed = 3)
-        @test s.backend.corr[1, 2] == 1.0  # vacuum: site 1 unoccupied
-        apply!(s, PauliX(), [1])
-        Γ = s.backend.corr
-        @test Γ[1, 2] == -1.0              # on-site block sign flipped (occupied)
-        @test Γ[2, 1] == 1.0
-        @test Γ[3, 4] == 1.0               # other sites untouched
-        @test norm(Γ * Γ + I) < 1e-14      # exact reflection: purity holds
-        @test norm(Γ + transpose(Γ)) == 0.0
-        apply!(s, PauliX(), [1])           # involution: flip back to vacuum
-        @test s.backend.corr[1, 2] == 1.0
+        for bond in ([1, 2], [3, 4], [2, 3])        # an entangled state, so a draw would matter
+            apply!(s, GaussianHaar(), bond)
+        end
+        Γ_before = copy(s.backend.corr)
+        born_before = copy(QuantumCircuitsMPS.get_rng(s.rng_registry, :born_measurement))
+        @test_throws ArgumentError apply!(s, PauliX(), [1])
+        @test_throws ArgumentError apply!(s, Reset(), [1])
+        @test s.backend.corr == Γ_before                       # bitwise untouched
+        @test rand(copy(QuantumCircuitsMPS.get_rng(s.rng_registry, :born_measurement))) ==
+              rand(copy(born_before))                           # no Born draw consumed
+        err = try
+            apply!(s, Reset(), [1])
+        catch e
+            e
+        end
+        @test err isa ArgumentError
+        @test occursin("Reset", err.msg)
+        @test occursin("parity-odd", err.msg)
+        @test occursin("Measure(:Z)", err.msg)                 # points at the supported alternative
     end
 
     @testset "uninitialized state rejected" begin
@@ -86,12 +100,11 @@ end
                 born_measurement = 21, state_init = 31))
         @test s.backend.corr === nothing
         @test_throws ArgumentError apply!(s, GaussianHaar(), [1, 2])
-        @test_throws ArgumentError apply!(s, PauliX(), [1])
     end
 
     @testset "$(nameof(typeof(gate))) rejected on backend=:gaussian" for gate in [
         Hadamard(), CNOT(), HaarRandom(), RandomClifford(), SWAP(),
-        PhaseGate(), PauliY(), PauliZ(), CZ(), Projection(0)
+        PhaseGate(), PauliX(), PauliY(), PauliZ(), CZ(), Projection(0), Reset()
     ]
         s = make_vacuum_state(4; seed = 5)
         sites = QuantumCircuitsMPS.support(gate) == 1 ? [1] : [1, 2]

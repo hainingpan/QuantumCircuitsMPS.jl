@@ -5,7 +5,8 @@
 #   _measure_single_site!(...) — REDUNDANT-DRAW contract (exactly one
 #     :born_measurement scalar per measured site, drawn unconditionally
 #     FIRST) + parity-projection collapse via gaussian_contraction!;
-#   Measure(:Z) / Reset flowing through the generic execute! protocol.
+#   Measure(:Z) flowing through the generic execute! protocol. (Reset is
+#   rejected on this backend — see test_apply.jl.)
 #
 # NOTE: not yet wired into test/runtests.jl — run directly:
 #   julia --project=. -e 'include("test/gaussian/test_measurement.jl")'
@@ -40,7 +41,7 @@ function entangle!(state, L; layers = 4)
     return state
 end
 
-@testset "Gaussian Measurement (born_probability, _measure_single_site!, Reset)" begin
+@testset "Gaussian Measurement (born_probability, _measure_single_site!, Measure(:Z))" begin
 
     # ═══════════════════════════════════════════════════════════════════════
     # 1. born_probability on product states
@@ -56,9 +57,9 @@ end
         @test s.backend.corr == QuantumCircuitsMPS.vacuum_covariance(L)
     end
 
-    @testset "after PauliX on site 1: probabilities reversed" begin
+    @testset "site 1 occupied: probabilities reversed" begin
         s = make_state(4)
-        apply!(s, PauliX(), SingleSite(1))
+        initialize!(s, ProductState(bitstring = "1000"))
         @test born_probability(s, 1, 0) ≈ 0.0 atol = 1e-14
         @test born_probability(s, 1, 1) ≈ 1.0 atol = 1e-14
         # other sites unaffected
@@ -85,7 +86,7 @@ end
 
     @testset "occupied measure → outcome 1, Γ[2i-1,2i] = -1" begin
         s = make_state(4)
-        apply!(s, PauliX(), SingleSite(2))
+        initialize!(s, ProductState(bitstring = "0100"))
         o = QuantumCircuitsMPS._measure_single_site!(s, 2)
         @test o == 1
         @test s.backend.corr[3, 4] == -1.0
@@ -150,7 +151,7 @@ end
     end
 
     # ═══════════════════════════════════════════════════════════════════════
-    # 5. Measure(:Z) + Reset through the generic execute! protocol
+    # 5. Measure(:Z) through the generic execute! protocol
     # ═══════════════════════════════════════════════════════════════════════
     @testset "Measure(:Z) via apply! collapses to ±1 block" begin
         L = 6
@@ -161,33 +162,14 @@ end
         @test isapprox(abs(g), 1.0; atol = 1e-10)        # collapsed to a definite occupation
     end
 
-    @testset "Reset on occupied site → unoccupied" begin
-        for seed in 1:20
+    @testset "Measure(:Z) on an occupied product site → outcome 1, Γ untouched" begin
+        for seed in 1:5
             s = make_state(2; born_measurement = seed)
-            apply!(s, PauliX(), SingleSite(1))
+            initialize!(s, ProductState(bitstring = "10"))
             @test born_probability(s, 1, 1) ≈ 1.0 atol = 1e-14
-            apply!(s, Reset(), SingleSite(1))
-            @test born_probability(s, 1, 0) ≈ 1.0 atol = 1e-14
-        end
-    end
-
-    @testset "Reset on vacuum stays unoccupied" begin
-        s = make_state(2)
-        apply!(s, Reset(), SingleSite(1))
-        @test born_probability(s, 1, 0) ≈ 1.0 atol = 1e-14
-    end
-
-    @testset "Reset forces unoccupied regardless of prior entangled state" begin
-        L = 6
-        for seed in (3, 4, 5)
-            s = make_state(L; seed = seed)
-            entangle!(s, L)
-            for site in 1:L
-                apply!(s, Reset(), SingleSite(site))
-                @test born_probability(s, site, 0) ≈ 1.0 atol = 1e-10
-            end
-            Γ = s.backend.corr
-            @test norm(Γ * Γ + I) < 1e-10
+            apply!(s, Measure(:Z), SingleSite(1))
+            @test s.backend.corr[1, 2] == -1.0                 # still occupied: deterministic
+            @test born_probability(s, 1, 1) ≈ 1.0 atol = 1e-14
         end
     end
 

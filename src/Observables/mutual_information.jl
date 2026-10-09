@@ -43,7 +43,11 @@ be CONTIGUOUS (a plain ascending range): non-contiguous input is accepted at
 construction (so one observable object can serve every backend) but rejected
 with an `ArgumentError` when EVALUATED on those backends. The Gaussian
 (covariance-matrix) backend supports arbitrary site subsets — including
-non-contiguous and PBC-wrapped regions such as `[7, 8, 1, 2]` at L=8.
+non-contiguous and PBC-wrapped regions such as `[7, 8, 1, 2]` at L=8. There
+the regions are sets of fermionic modes, so for two non-adjacent blocks the
+result is the fermionic mutual information, which differs in general from
+the Jordan–Wigner spin mutual information of the same sites (the three
+entropies agree only when each region, or its complement, is contiguous).
 
 # Arguments
 - `regionA`, `regionB`: the two site regions (contiguous, disjoint)

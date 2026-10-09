@@ -119,7 +119,7 @@ sites. Two implementation styles exist; both are valid:
   informative `ArgumentError` naming the offending gate and the alternative
   backends.
 
-Current method table (22 methods):
+Current method table (21 methods):
 
 | # | Method (dispatch on state × gate) | Defined in |
 |---|---|---|
@@ -134,9 +134,8 @@ Current method table (22 methods):
 | 17 | `(::SimulationState{StateVectorBackend}, ::BondParity)` — disambiguating rejection | `src/Gates/bond_parity.jl` |
 | 18 | `(::SimulationState{CliffordBackend}, ::BondParity)` — disambiguating rejection | `src/Gates/bond_parity.jl` |
 | 19 | `(::SimulationState{GaussianBackend}, ::GaussianHaar)`: direct Haar-`SO(n)` covariance conjugation | `src/Gaussian/Gaussian.jl` |
-| 20 | `(::SimulationState{GaussianBackend}, ::PauliX)`: fermionic occupation-parity flip | `src/Gaussian/Gaussian.jl` |
-| 21 | `(::SimulationState{GaussianBackend}, ::BondParity)` — disambiguator: throws (BondParity is executed via `execute!`, never `_apply_single!`, on Gaussian) | `src/Gaussian/Gaussian.jl` |
-| 22 | `(::SimulationState{GaussianBackend}, ::AbstractGate)` — fallback: informative `ArgumentError` | `src/Gaussian/Gaussian.jl` |
+| 20 | `(::SimulationState{GaussianBackend}, ::BondParity)` — disambiguator: throws (BondParity is executed via `execute!`, never `_apply_single!`, on Gaussian) | `src/Gaussian/Gaussian.jl` |
+| 21 | `(::SimulationState{GaussianBackend}, ::AbstractGate)` — fallback: informative `ArgumentError` (this is where `PauliX` lands on Gaussian: a fermionic occupation flip would be a parity-odd single-Majorana reflection, not a Gaussian operation) | `src/Gaussian/Gaussian.jl` |
 
 Methods 13–18 exist purely to avoid a dispatch ambiguity: `StateVectorBackend`
 and `CliffordBackend` each already have their own
@@ -161,8 +160,8 @@ Contract obligations (every implementation):
 4. Honor the `needs_normalization(gate)` trait after applying:
    MPS → `normalize!` + `truncate!(; cutoff)`; StateVector → `normalize!`;
    Clifford → not applicable (all supported operations preserve stabilizer
-   states); Gaussian → not applicable (`GaussianHaar`/`PauliX` are exact
-   orthogonal conjugations that preserve ``\Gamma^2 = -I`` to machine precision; the
+   states); Gaussian → not applicable (`GaussianHaar` is an exact
+   orthogonal conjugation that preserves ``\Gamma^2 = -I`` to machine precision; the
    backend instead self-monitors purity via `purify_tol` and calls
    `purify!` when floating-point drift exceeds it, independent of the
    normalization trait). Renormalization presupposes something to
@@ -183,7 +182,7 @@ Contract obligations (every implementation):
 | MPS | `build_operator(gate, site_index(es), local_dim; rng, mps, ram_sites) -> ITensor` | `apply_op_internal!` (contract + SVD chain, respects `cutoff`/`maxdim`) |
 | StateVector | `gate_matrix(gate) -> Matrix{ComplexF64}`; random gates via `gate_matrix(gate, rng; local_dim)` (dispatch in `_resolve_gate_matrix_sv`) | `apply_gate_sv!` (`:builtin`) or `apply_gate_sv_optimized!` (`:optimized`) |
 | Clifford | none — symbolic ops (`QuantumClifford.sX`, `sCPHASE`, `sCNOT`, ..., `random_clifford`) | `QuantumClifford.apply!(tableau, op[, indices])` |
-| Gaussian | **none — direct covariance-matrix update, no shared protocol.** `GaussianHaar` conjugates a Haar-`SO(n)` block directly onto rows/columns of `state.backend.corr` (``\Gamma \leftarrow R\Gamma R^{\mathsf T}``, `n=4` fermionic-mode / `n=2` Majorana-chain granularity); `PauliX` is a single-row/column sign flip. Measurement gates (`Measure(:Z)`, `BondParity`) go through the separate fermionic-linear-optics contraction kernel `gaussian_contraction!` instead (see §3). | in-place mutation of `state.backend.corr` (no ITensor, no dense matrix, no tableau) |
+| Gaussian | **none — direct covariance-matrix update, no shared protocol.** `GaussianHaar` conjugates a Haar-`SO(n)` block directly onto rows/columns of `state.backend.corr` (``\Gamma \leftarrow R\Gamma R^{\mathsf T}``, `n=4` fermionic-mode / `n=2` Majorana-chain granularity). Measurement gates (`Measure(:Z)`, `BondParity`) go through the separate fermionic-linear-optics contraction kernel `gaussian_contraction!` instead (see §3). | in-place mutation of `state.backend.corr` (no ITensor, no dense matrix, no tableau) |
 
 ### 3. `_measure_single_site!(state, site) -> Int` — the measurement primitive
 
@@ -216,7 +215,14 @@ contract inline rather than composing with `_measure_single_site!`. This is
 explicitly allowed: the "backends never override `execute!`" rule
 (§What backends must NOT touch, below) forbids *modifying* the existing
 `Measure`/`Reset` `execute!` methods, not *adding* a new `execute!` method
-for a gate type those methods don't handle.
+for a gate type those methods don't handle. The Gaussian backend also adds
+a rejecting `execute!(state::SimulationState{GaussianBackend}, gate::Reset, region)`
+(`src/Gaussian/Gaussian.jl`) for the same reason in the other direction:
+the generic `Reset` would Born-sample the site first and only then fail on
+the `PauliX` it cannot apply (and silently succeed for outcome 0), so the
+rejection has to happen *before* the draw. A backend-specific `execute!`
+override is acceptable when, and only when, it throws before touching the
+state or any RNG stream.
 
 Contract obligations for overrides:
 
@@ -332,7 +338,9 @@ above — a backend never overrides them:
 - `apply!` and the `_apply_dispatch!` geometry handlers (`src/Core/apply.jl`)
 - the `execute!` protocol layer, including the `Measure`/`Reset` overrides
   (`src/Core/apply.jl`) — these route through `_measure_single_site!` and
-  `_apply_single!` and work on every backend automatically
+  `_apply_single!` and work on every backend automatically. The one
+  sanctioned exception is a strictly rejecting override that throws before
+  any state or RNG change (the Gaussian `Reset` rejection, see §3)
 - the circuit engine (`src/Circuit/execute.jl`), stochastic rule
   (`src/API/probabilistic.jl`), and `track!`/`record!`/`simulate!`
 - feedback plumbing (`apply_feedback!`, `with_guarded_stream`)
