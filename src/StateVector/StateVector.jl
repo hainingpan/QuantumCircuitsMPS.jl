@@ -103,7 +103,10 @@ Steps:
    is NO truncate! equivalent for state vectors (no bond dimension). Such a
    gate is rejected with an `ArgumentError` before the new vector is stored
    (so the state is unchanged) when it annihilates the state — postselection
-   onto a zero-probability outcome, see `_check_postselection`.
+   onto a zero-probability outcome, see `_check_postselection`. The guard
+   gets the Born probability ‖Pψ‖²/‖ψ‖² (same contract as the MPS backend);
+   a state vector stays normalized, so the ratio only differs from ‖Pψ‖² by
+   rounding here.
 """
 function _apply_single!(state::SimulationState{StateVectorBackend}, gate::AbstractGate, phy_sites::Vector{Int})
     if support(gate) != length(phy_sites)
@@ -124,7 +127,9 @@ function _apply_single!(state::SimulationState{StateVectorBackend}, gate::Abstra
     end
 
     if needs_normalization(gate)
-        _check_postselection(norm(ψ)^2, gate, phy_sites)   # throws before the store below
+        # state.backend.ψ is still the input on both engines (fresh vector /
+        # copy above), so its norm is ‖ψ‖². Throws before the store below.
+        _check_postselection(norm(ψ)^2, norm(state.backend.ψ)^2, gate, phy_sites)
         normalize!(ψ)
     end
     state.backend.ψ = ψ

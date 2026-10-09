@@ -165,15 +165,23 @@ Contract obligations (every implementation):
    backend instead self-monitors purity via `purify_tol` and calls
    `purify!` when floating-point drift exceeds it, independent of the
    normalization trait). Renormalization presupposes something to
-   renormalize: when ``\lVert P\psi\rVert^2 <`` `POSTSELECTION_PROB_TOL`
-   (``10^{-14}``) the gate post-selects onto a zero-probability outcome, and
-   the backend must throw an `ArgumentError` **before committing** the new
-   state — call `_check_postselection(norm2, gate, phy_sites)` for the
-   shared message and threshold. MPS does this between the contraction and
-   the SVD write-back (`_contract_op_block!` / `_write_op_block!`, the two
-   phases of `apply_op_internal!`); StateVector checks the new vector before
+   renormalize: when the Born probability of the selected branch,
+   ``\lVert P\psi\rVert^2 / \lVert\psi\rVert^2``, is below
+   `POSTSELECTION_PROB_TOL` (``10^{-14}``) the gate post-selects onto a
+   zero-probability outcome, and the backend must throw an `ArgumentError`
+   **before committing** the new state — call
+   `_check_postselection(norm2_out, norm2_in, gate, phy_sites)` with
+   ``\lVert P\psi\rVert^2`` and the *input* ``\lVert\psi\rVert^2`` for the
+   shared message and threshold. Pass the ratio's two ingredients, never the
+   bare projected norm: the MPS backend keeps ``\lVert\psi\rVert^2 < 1`` after
+   truncated unitary layers, where ``\lVert P\psi\rVert^2`` alone can sit far
+   below the threshold for an outcome of probability one. MPS does this
+   between the contraction and the SVD write-back (`_contract_op_block!` /
+   `_write_op_block!`, the two phases of `apply_op_internal!`; the MPS is
+   gauged at the block's first site there, so `norm(mps)` is the input norm
+   at the cost of one tensor); StateVector checks the new vector before
    storing it (the `:optimized` engine works on a copy for such gates, as its
-   kernel mutates in place).
+   kernel mutates in place), with the stored vector still the input.
 5. Random-content gates draw from `:gates_realization` (see
    [RNG expectations](@ref backend-interface-rng)).
 
