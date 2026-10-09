@@ -115,6 +115,11 @@ This documentation is published in two versions: [stable](https://hainingpan.git
 - **RNG stream name hardcoded**: the stochastic engine always draws from `:gates_spacetime`.
   Independently-named streams per probabilistic operation are deferred until a concrete research
   use case requires it.
+- **`Reset` is qubit-only**: it is measure-then-conditional-`PauliX`, which only returns a
+  two-level site to ``\lvert 0\rangle``. On spin-``S > 1/2`` or qudit sites it throws an
+  `ArgumentError` before measuring; use `Measure(:Z; feedback=...)` to build a higher-spin reset.
+- **`StringOrder` is spin-1 only**: it is defined for `site_type="S=1"` and throws an
+  `ArgumentError` on every other site type (qubits included), on all backends.
 
 See [ROADMAP.md](https://github.com/hainingpan/QuantumCircuitsMPS.jl/blob/main/ROADMAP.md) for
 planned features and the [Changelog](@ref) for the full release history.

@@ -100,7 +100,9 @@ end
 
 Derive the physical-site bit-pattern string (site 1 = MSB, site L = LSB) from
 a `ProductState`'s `binary_int`/`binary_decimal`/`bitstring` specification,
-padded or truncated to `L` characters. Shared verbatim by all three backends'
+padded or truncated to `L` characters (a `binary_int` that needs more than
+`L` binary digits is rejected with an `ArgumentError` instead of truncated,
+so every backend sees the same `L`-site state). Shared verbatim by all three backends'
 `initialize!(::SimulationState, ::ProductState)` methods (MPS:
 `src/State/initialization.jl`, state-vector: `src/StateVector/initialization.jl`,
 Clifford: `src/Clifford/initialization.jl`) — previously copy-pasted
@@ -123,6 +125,14 @@ call sites again.
 """
 function _bit_pattern_string(init::ProductState, L::Int, local_dim::Int)
     bit_pattern_str::String = if init.binary_int !== nothing
+        # The integer must fit in L binary digits: a longer base-2 string
+        # was previously passed on untruncated, so the backends disagreed
+        # (MPS/Clifford kept the leading L bits, state-vector/Gaussian built
+        # a state with too many sites).
+        nbits = ndigits(init.binary_int, base = 2)
+        nbits <= L || throw(ArgumentError(
+            "binary_int=$(init.binary_int) needs $nbits binary digits but the product state " *
+            "has only $L (the largest representable value is 2^$L - 1 = $(big(2)^L - 1))"))
         # Convert integer to binary string, padded to L digits
         lpad(string(init.binary_int, base = 2), L, "0")
     elseif init.binary_decimal !== nothing

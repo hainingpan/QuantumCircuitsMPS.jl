@@ -14,19 +14,20 @@
 State-vector implementation of the `StringOrder` observable via diagonal
 eigenvalue summation over the dense state vector.
 
+Spin-1 only (`site_type="S=1"`, `local_dim=3`), like the MPS method: any
+other site type is rejected with an `ArgumentError` by
+`_check_string_order_site_type` (`src/Observables/string_order.jl`) before
+the sum. The eigenvalue table below is the spin-1 one; there is no qubit or
+higher-spin table.
+
 # Eigenvalue table (S=1, `local_dim=3`)
 - digit 0 ("Up", Sz=+1): `sz=+1`, `expsz=exp(iπ)=-1`
 - digit 1 ("Z0", Sz=0):  `sz=0`,  `expsz=exp(0)=+1`
 - digit 2 ("Dn", Sz=-1): `sz=-1`, `expsz=exp(-iπ)=-1`
-
-# Eigenvalue table (qubit, `local_dim=2`)
-- digit 0 (|0⟩, Sz=+1): `sz=+1`, `expsz=exp(iπ)=-1`
-- digit 1 (|1⟩, Sz=-1): `sz=-1`, `expsz=exp(-iπ)=-1`
-
-For qubits, `expsz = -1` unconditionally (both digits give -1), so the
-string part contributes `(-1)^(number_of_string_sites)`.
 """
 function (obs::StringOrder)(state::SimulationState{StateVectorBackend})
+    _check_string_order_site_type(state)
+
     i_phys = obs.i
     j_phys = obs.j
     L = state.L
@@ -38,15 +39,13 @@ function (obs::StringOrder)(state::SimulationState{StateVectorBackend})
 
     ψ = state.backend.ψ
 
-    # Sz eigenvalue for a given local digit
-    # S=1 (d=3): digit 0→+1, digit 1→0, digit 2→-1  i.e. sz = 1 - digit
-    # Qubit (d=2): digit 0→+1, digit 1→-1
-    @inline _sz(digit::Int) = d == 3 ? Float64(1 - digit) : (digit == 0 ? 1.0 : -1.0)
+    # Sz eigenvalue for a given local digit (S=1, d=3):
+    # digit 0→+1, digit 1→0, digit 2→-1  i.e. sz = 1 - digit
+    @inline _sz(digit::Int) = Float64(1 - digit)
 
-    # exp(iπ·Sz) eigenvalue for a given local digit
-    # S=1 (d=3): diag(-1, +1, -1)  → digit==1 gives +1, else -1
-    # Qubit (d=2): both digits give exp(±iπ) = -1 unconditionally
-    @inline _expsz(digit::Int) = d == 3 ? (digit == 1 ? 1.0 : -1.0) : -1.0
+    # exp(iπ·Sz) eigenvalue for a given local digit (S=1, d=3):
+    # diag(-1, +1, -1)  → digit==1 gives +1, else -1
+    @inline _expsz(digit::Int) = digit == 1 ? 1.0 : -1.0
 
     # Digit extraction: site 1 = MSB convention (matches all other SV
     # observables); loop-invariant strides d^(L-s) hoisted out of the n0 loop

@@ -43,7 +43,8 @@ function domain_wall(state::SimulationState{StateVectorBackend}, i1::Int, order:
 
     dw_value = 0.0
     for j in 1:L
-        weight = Float64((L - j + 1)^order)
+        # BigInt power, as in the MPS implementation: no Int64 overflow
+        weight = Float64(big(L - j + 1)^order)
         dw_value += weight * probs[j]
     end
 

@@ -7,6 +7,10 @@
 
 Reset gate: projects to ``\lvert 0 \rangle`` or ``\lvert 1 \rangle`` based on Born probability, then flips to ``\lvert 0 \rangle`` if needed.
 Equivalent to measure + conditional X.
+
+Qubit-only: defined for two-level sites (`local_dim == 2`). Applying it to a
+higher-spin or qudit site throws an `ArgumentError` before anything is
+measured, since a conditional X does not return such a site to ``\lvert 0 \rangle``.
 """
 struct Reset <: AbstractGate end
 support(::Reset) = 1

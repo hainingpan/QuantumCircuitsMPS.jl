@@ -39,8 +39,11 @@ end
     Sites(sites)
 
 Set geometry: ONE region made of the given sites (a range or collection of
-Ints, kept in the given order). A gate applied to `Sites(c)` must have
-`support(gate) == length(c)` (see [`validate_support`](@ref)).
+distinct Ints, kept in the given order). A gate applied to `Sites(c)` must
+have `support(gate) == length(c)` (see [`validate_support`](@ref)). A
+repeated site (e.g. `Sites([2, 2])`) is rejected: no gate acts on the same
+site twice within one region, and backends given such a region would
+produce a non-unitary update.
 
 Expands to a single element `[collect(sites)]`. For applying a gate
 independently at each site, use [`EachSite`](@ref) instead.
@@ -52,6 +55,7 @@ struct Sites <: AbstractGeometry
         v = collect(Int, sites)
         isempty(v) && throw(ArgumentError("Sites requires a non-empty site collection"))
         all(>=(1), v) || throw(ArgumentError("Sites sites must be >= 1, got $v"))
+        allunique(v) || throw(ArgumentError("Sites sites must be distinct, got $v"))
         new(v)
     end
 end
