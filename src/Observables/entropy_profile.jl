@@ -32,14 +32,16 @@ bipartite entropies at every cut, computed by the existing per-cut
 - Gaussian: ``O(L)`` covariance-submatrix eigendecompositions — ``O(L^4)`` total
   (real `renyi_index`, inherited from `EntanglementEntropy` on that backend)
 
-# PBC caveat (cross-backend semantics)
-On the MPS backend under `bc=:periodic`, each `cut` is the RAM bond index of
-the FOLDED-PBC MPS (`src/Observables/entanglement.jl`), NOT the physical
-prefix bipartition `{1..cut}` used by the state-vector, Clifford and Gaussian
-backends (only `cut = L÷2` is fold-aligned). A periodic-BC MPS profile is
-therefore in RAM-bond coordinates and is NOT directly comparable to the other
-backends' physical-cut profiles. Cross-backend profile comparisons must use
-`bc=:open`, where all four backends agree on the physical bipartition.
+# PBC convention (cross-backend semantics)
+On the MPS backend under `bc=:periodic`, each `cut` is a bond index of the
+folded MPS (`src/Observables/entanglement.jl`), i.e. the ring arc
+`state.ram_phy[1:cut]` growing from the fold seam, whereas the state-vector,
+Clifford and Gaussian backends bipartition the physical prefix `{1..cut}`
+(with the default fold the half cut `L÷2` and one neighbouring cut coincide;
+see the PBC note in `EntanglementEntropy`'s docstring). A periodic-BC MPS
+profile is therefore indexed by RAM bond rather than by physical cut;
+cross-backend profile comparisons use `bc=:open`, where all four backends
+agree at every cut.
 
 # Recording
 Returns a `Vector{Float64}` (one entry per cut). When tracked, each record
