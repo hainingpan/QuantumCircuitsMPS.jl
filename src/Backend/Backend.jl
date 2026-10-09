@@ -75,7 +75,10 @@ Gaussian (free-fermion) backend: holds a Majorana covariance matrix Γ for
 Gaussian-state simulation of fermionic circuits.
 
 `corr` is the ``2L\times2L`` real antisymmetric Majorana covariance matrix
-``\Gamma[a,b] = \frac{i}{2}\langle[\gamma_a,\gamma_b]\rangle``, satisfying the invariant ``\Gamma^2 = -I`` for a pure
+``\Gamma[a,b] = \frac{i}{2}\langle[\gamma_a,\gamma_b]\rangle`` (``= \langle i\gamma_a\gamma_b\rangle`` for ``a \neq b``), with the
+Majorana operators ``\gamma_{2i-1} = c_i + c_i^\dagger`` and ``\gamma_{2i} = -i(c_i^\dagger - c_i)`` of
+fermionic mode `i` (Bravyi's convention; an unoccupied mode has
+``\Gamma[2i-1,2i] = +1``), satisfying the invariant ``\Gamma^2 = -I`` for a pure
 Gaussian state. Mode `i` (1-indexed, `1 <= i <= L`) maps to Majorana indices
 `(2i−1, 2i)`.
 

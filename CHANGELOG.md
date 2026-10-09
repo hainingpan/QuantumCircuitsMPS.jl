@@ -54,6 +54,20 @@ with an `ArgumentError` before the state changes:
   `BoundsError`). ITensor `"Qudit"` state labels are zero-based, so a bit `b`
   now prepares level `b`, making a `local_dim=2` Qudit identical to a Qubit.
   `"Qubit"` and spin-``S`` site types were never affected.
+- The Gaussian backend's documented Majorana operators did not match its
+  covariance matrix: with the previously stated ``\gamma_{2i} = i(c_i^\dagger - c_i)``,
+  the stored ``\Gamma`` would have been ``-\frac{i}{2}\langle[\gamma_a,\gamma_b]\rangle``
+  instead of the advertised ``+\frac{i}{2}\langle[\gamma_a,\gamma_b]\rangle``. The
+  convention is now stated consistently in the guide, the docstrings, and the
+  exact-diagonalization test oracle: ``\Gamma_{ab} = \frac{i}{2}\langle[\gamma_a,\gamma_b]\rangle = \langle i\gamma_a\gamma_b\rangle``
+  with ``\gamma_{2i-1} = c_i + c_i^\dagger`` and ``\gamma_{2i} = -i(c_i^\dagger - c_i)``
+  (Bravyi's convention), so ``\Gamma_{2i-1,2i} = 1 - 2\langle c_i^\dagger c_i\rangle`` and an
+  unoccupied mode has ``\Gamma_{2i-1,2i} = +1``, exactly as the code always
+  stored. Derived statements that carried the wrong sign (``\langle i\gamma_a\gamma_b\rangle``
+  versus ``\Gamma_{ab}``, ``n_i = (1 - i\gamma_{2i-1}\gamma_{2i})/2``, the parity sector
+  selected by `parity_projection_upsilon(s)`) were corrected accordingly. No
+  numerical behavior changed: `state.backend.corr`, Born probabilities,
+  measurement outcomes, and every observable are identical.
 
 ## [0.5.6] - 2026-10-08
 
