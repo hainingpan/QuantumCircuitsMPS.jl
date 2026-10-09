@@ -53,12 +53,10 @@ exactly (the eigenvalues of ``i\Gamma`` are all ``\pm 1``). Every gate and measu
 | Category | Gate | Fermionic-mode (`site_type="Qubit"`, default) | Majorana chain (`site_type="Majorana"`) |
 |---|---|---|---|
 | Random Gaussian unitary | `GaussianHaar()` | Haar-random ``O \in SO(4)`` on the 4 Majoranas of 2 adjacent sites, from `:gates_realization` | Haar-random ``O \in SO(2)`` on the 2 Majoranas of 2 adjacent sites — exactly ``\exp(\theta \gamma_i\gamma_j)``, ``\theta \sim U[0, 2\pi)`` (the class-DIII unitary `K_U`) |
-| Occupation flip | `PauliX()` | fermionic occupation-parity flip (reflects one Majorana row/column) — enables `Reset` | rejected: `ArgumentError` (a single Majorana site has no occupation to flip) |
 | On-site measurement | `Measure(:Z)` | projective occupation-parity measurement ``i\gamma_{2i-1}\gamma_{2i}`` | rejected: `ArgumentError` (use `BondParity` instead) |
 | Bond measurement | `BondParity()` | projective bond-parity measurement ``i\gamma_{2i}\gamma_{2i+1}`` between adjacent sites (PBC wrap `(L,1)` supported) | projective parity ``i\gamma_i\gamma_{i+1}`` between adjacent Majorana sites (PBC wrap supported) — this IS the class-DIII monitored measurement |
-| Feedback | `Reset()` | forces unoccupied (measure, then `PauliX` if occupied) — identical semantics to the other backends | rejected: `ArgumentError` (routes through `Measure(:Z)`, which is rejected) |
 
-Any gate outside this set — `Hadamard`, `CNOT`, `HaarRandom`, `RandomClifford`, `SWAP`, `PhaseGate`, `PauliY`, `PauliZ`, `CZ`, `Projection`, `SpinSectorProjection` — has no covariance-matrix representation and raises an informative error rather than being silently approximated:
+Any gate outside this set — `Hadamard`, `CNOT`, `HaarRandom`, `RandomClifford`, `SWAP`, `PhaseGate`, `PauliX`, `PauliY`, `PauliZ`, `CZ`, `Projection`, `SpinSectorProjection`, and `Reset` — has no covariance-matrix representation and raises an informative error rather than being silently approximated:
 
 ```julia
 using QuantumCircuitsMPS
@@ -69,10 +67,12 @@ initialize!(state, ProductState(binary_int=0))
 apply!(state, CNOT(), AdjacentPair(1))
 ```
 ```
-ArgumentError: Gaussian backend only supports fermionic Gaussian operations (GaussianHaar, PauliX, Measure(:Z), BondParity, Reset). Received: CNOT. Please switch to backend=:mps or backend=:statevector for non-Gaussian gates.
+ArgumentError: Gaussian backend only supports fermionic Gaussian operations (GaussianHaar, Measure(:Z), BondParity). Received: CNOT. Please switch to backend=:mps or backend=:statevector for non-Gaussian gates.
 ```
 
-`Measure(:Z)` and `Reset()` do **not** get their own `_apply_single!`/`execute!` overrides on the fermionic-mode granularity: `Measure` flows through the generic engine, which calls this backend's `born_probability` + `_measure_single_site!`; `Reset` composes `Measure` with `PauliX`. `BondParity` gets a dedicated `execute!` override (see [Backend Interface Contract](@ref)) because it measures two sites at once — outside the single-site `born_probability` contract.
+`PauliX` and `Reset` deserve a word, since they *are* available on the Clifford backend. The only occupation flip a covariance matrix can represent is the reflection of a single Majorana, i.e. conjugation by ``\gamma_{2i}``. That operator is parity-odd: it changes the fermion parity of the state, which no closed fermionic system can do (fermion-parity superselection). The Jordan–Wigner image of the qubit ``X_i`` fares no better — it is a product of ``2i-1`` Majoranas, parity-odd as well. So there is no physically meaningful "flip" for a fermionic mode, and `Reset` (measure, then flip if occupied) goes with it. `Reset` is rejected by a dedicated `execute!` override *before* its Born draw, so the covariance matrix and the `:born_measurement` stream are untouched. To put a mode into a definite occupation, use `Measure(:Z)` (random outcome) or prepare the pattern with `initialize!(state, ProductState(bitstring=...))`.
+
+`Measure(:Z)` does **not** get its own `_apply_single!`/`execute!` override on the fermionic-mode granularity: it flows through the generic engine, which calls this backend's `born_probability` + `_measure_single_site!`. `BondParity` gets a dedicated `execute!` override (see [Backend Interface Contract](@ref)) because it measures two sites at once — outside the single-site `born_probability` contract.
 
 ## Majorana Chain (`site_type="Majorana"`)
 
@@ -94,7 +94,7 @@ Key facts:
 - `site_type="Majorana"` requires **even `L`** (a pure Gaussian state needs an even number of Majoranas): odd `L` throws `ArgumentError` at construction.
 - ``\Gamma`` is ``L \times L`` (one Majorana per site) instead of ``2L \times 2L``.
 - `ProductState` bit patterns have length `L÷2`: bit `k` sets the parity sign of the consecutive Majorana pair ``(\gamma_{2k-1}, \gamma_{2k})`` (dimerized vacuum when all bits are `0`).
-- Rejected on the Majorana chain (informative `ArgumentError`, each naming "Majorana"): `PauliX`, `Measure(:Z)`, `Reset`, `Magnetization`. There is no single-Majorana occupation or ``\langle Z \rangle`` — parity lives on a *pair*.
+- Rejected on the Majorana chain (informative `ArgumentError`, each naming "Majorana"): `Measure(:Z)`, `Magnetization`, `BornProbability`. There is no single-Majorana occupation or ``\langle Z \rangle`` — parity lives on a *pair*. (`PauliX` and `Reset` are rejected on both granularities, see above.)
 - `EntanglementEntropy`, `MutualInformation`, and `TripartiteMutualInformation` work unchanged (the site→Majorana index mapping is the identity on this granularity, and arbitrary/wrapped site subsets are still supported).
 
 Physics sanity check on the dimerized vacuum (`ProductState(binary_int=0)`, all pairs unoccupied): even cuts see zero entanglement (the cut falls between dimerized pairs), odd cuts split a pair and see `log(2)/2` nats (half a fermion's worth), and two dimerized-paired Majorana sites have `MI = log(2)`:
