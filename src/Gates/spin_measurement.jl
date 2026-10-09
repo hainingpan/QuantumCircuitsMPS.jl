@@ -177,12 +177,18 @@ end
 @doc raw"""
     compute_two_site_born_probability(mps::MPS, projector::Matrix{Float64}, ram_sites::Vector{Int}, local_dim::Int) -> Float64
 
-Compute the Born probability ``\langle \psi \rvert P \lvert \psi \rangle`` for a two-site projector.
+Compute the Born probability
+``\langle \psi \rvert P \lvert \psi \rangle / \langle \psi \vert \psi \rangle``
+for a two-site projector.
 
-Computes ``\langle \psi \rvert P \lvert \psi \rangle`` by:
+Computes it by:
 1. Orthogonalizing MPS to the target region
 2. Contracting the two-site block into a local tensor
 3. Computing ``\langle T \rvert P \lvert T \rangle`` using proper index contraction
+4. Dividing by ``\langle T \vert T \rangle = \langle \psi \vert \psi \rangle`` (the
+   norm of the gauge-center tensor), so the result is the physical probability
+   even when truncation has left the MPS un-normalized — the MPS backend does
+   not renormalize after unitary layers.
 
 # Arguments
 - `mps`: Current MPS state  
@@ -191,7 +197,8 @@ Computes ``\langle \psi \rvert P \lvert \psi \rangle`` by:
 - `local_dim`: Local Hilbert space dimension (3 for spin-1)
 
 # Returns
-- Probability ``p = \langle \psi \rvert P \lvert \psi \rangle`` (real, non-negative)
+- Probability ``p = \langle \psi \rvert P \lvert \psi \rangle / \langle \psi \vert \psi \rangle``
+  (real, non-negative; `NaN` on a zero-norm MPS, for which no probability is defined)
 """
 function compute_two_site_born_probability(
         mps::MPS, projector::Matrix{Float64}, ram_sites::Vector{Int}, local_dim::Int)
@@ -248,8 +255,9 @@ function compute_two_site_born_probability(
     # the two-site block should give a scalar when contracted properly
     result = scalar(overlap_tensor)
 
-    # Return real part, ensuring non-negative (numerical precision)
-    return max(real(result), 0.0)
+    # Return real part, ensuring non-negative (numerical precision), relative
+    # to ⟨ψ|ψ⟩ — psi is gauged at i_ram, so norm(psi) is that one tensor's norm.
+    return max(real(result), 0.0) / norm(psi)^2
 end
 
 @doc raw"""
@@ -294,18 +302,20 @@ function build_operator(gate::SpinSectorMeasurement, sites::Vector{<:Index},
         P_S = total_spin_projector(S; s = spin_s)
         push!(projectors, P_S)
 
-        # Compute ⟨ψ|P_S|ψ⟩ via MPS contraction
+        # Compute ⟨ψ|P_S|ψ⟩/⟨ψ|ψ⟩ via MPS contraction
         prob = compute_two_site_born_probability(mps, P_S, ram_sites, local_dim)
         push!(probs, prob)
     end
 
     # === Step 2: Normalize probabilities over allowed sectors ===
-    # The total is the Born probability of the allowed branch (= ‖Pψ‖² for
-    # the projector onto the union of the sectors): below the shared
-    # postselection threshold there is no outcome to sample, so reject with
-    # the state untouched — same contract as _check_postselection.
+    # The total is the Born probability of the allowed branch (= ‖Pψ‖²/‖ψ‖²
+    # for the projector onto the union of the sectors — relative to the input
+    # norm, which an un-renormalized truncated MPS does not keep at 1): below
+    # the shared postselection threshold there is no outcome to sample, so
+    # reject with the state untouched — same contract as _check_postselection.
+    # `!(>=)` so that a NaN total (zero-norm MPS) is rejected as well.
     total_prob = sum(probs)
-    if total_prob < POSTSELECTION_PROB_TOL
+    if !(total_prob >= POSTSELECTION_PROB_TOL)
         throw(ArgumentError(
             "SpinSectorMeasurement: state has zero overlap with all allowed sectors $(gate.sectors) " *
             "(sector probabilities $probs sum to $total_prob < $POSTSELECTION_PROB_TOL): no outcome " *

@@ -242,6 +242,9 @@ Steps:
    Such a gate is rejected with an `ArgumentError` — before any tensor is
    written back, so the state is unchanged — when it annihilates the state
    (postselection onto a zero-probability outcome; see `_check_postselection`).
+   The probability is judged relative to the input norm, ‖Pψ‖²/‖ψ‖²: the MPS
+   is not renormalized after truncated unitary layers, so ‖ψ‖² alone says
+   nothing about the physics.
 """
 function _apply_single!(state::SimulationState, gate::AbstractGate, phy_sites::Vector{Int})
     # Contract 2.1: Support validation
@@ -263,10 +266,13 @@ function _apply_single!(state::SimulationState, gate::AbstractGate, phy_sites::V
     if needs_normalization(gate)
         # Projective gate: contract first, then inspect the block BEFORE
         # writing it back. With the MPS gauged at the block's first site the
-        # block carries the full state norm, so norm(block)^2 == ‖Pψ‖²; an
-        # impossible postselection throws here with the MPS untouched.
+        # block carries the full state norm, so norm(block)^2 == ‖Pψ‖², and
+        # norm(mps)^2 == ‖ψ‖² is the input norm read off that one gauge-center
+        # tensor (no tensor has been replaced yet). Their ratio is the Born
+        # probability of the branch; an impossible postselection throws here
+        # with the MPS untouched.
         i_list, block = _contract_op_block!(mps, op, state.backend.sites)
-        _check_postselection(norm(block)^2, gate, phy_sites)
+        _check_postselection(norm(block)^2, norm(mps)^2, gate, phy_sites)
         _write_op_block!(mps, i_list, block, cutoff, state.backend.maxdim)
         normalize!(mps)
         truncate!(mps; cutoff = cutoff)

@@ -11,10 +11,18 @@
 #
 #     apply!(state, Projection(1), SingleSite(1))
 #
-# now throws an ArgumentError naming the gate, the physical sites and
-# ‖Pψ‖², and — on both backends and both state-vector engines — leaves the
-# state exactly as it was. The threshold is the shared
+# now throws an ArgumentError naming the gate, the physical sites and the
+# Born probability ‖Pψ‖²/‖ψ‖², and — on both backends and both state-vector
+# engines — leaves the state exactly as it was. The threshold is the shared
 # POSTSELECTION_PROB_TOL = 1e-14 (also used by SpinSectorMeasurement).
+#
+# The guard compares a *probability*, i.e. the projected norm relative to
+# the input norm: the MPS backend does not renormalize after truncated
+# unitary layers, so ‖ψ‖² alone can be arbitrarily small (0.64^80 ≈ 3e-16
+# after 80 maxdim=1 truncations) while the retained state is exactly |00⟩
+# and every outcome-0 projection has probability one. Comparing raw ‖Pψ‖²
+# against the threshold rejected those certain projections (and, through
+# the same path, Measure / Reset / SpinSectorMeasurement) as "impossible".
 #
 # Test groups:
 #   1. The bug-report scenario on MPS, SV :builtin and SV :optimized.
@@ -24,9 +32,14 @@
 #      onto an empty sector: rejected with the MPS block never written back.
 #   4. Periodic MPS (non-identity phy_ram), spin-site Projection, and the
 #      circuit engine all surface the same error.
+#   5. Truncated (un-renormalized) MPS with ‖ψ‖² < POSTSELECTION_PROB_TOL:
+#      a certain projection, Measure, Reset, SpinSectorProjection and
+#      SpinSectorMeasurement all apply; an impossible branch is still
+#      rejected; the guard itself is scale-invariant and names a zero-norm
+#      input.
 
 using Test
-using LinearAlgebra: norm
+using LinearAlgebra: I, norm
 using QuantumCircuitsMPS
 
 # --- helpers (file-local, `_ip_` prefixed: runtests.jl shares one scope) ---
@@ -77,6 +90,36 @@ function _ip_error(f)
     catch e
         return e
     end
+end
+
+# Rotation in the {|00⟩, |11⟩} plane (|01⟩, |10⟩ untouched): U|00⟩ = 0.8|00⟩ + 0.6|11⟩.
+const _IP_U_ROT = [0.8 0 0 -0.6; 0 1 0 0; 0 0 1 0; 0.6 0 0 0.8]
+
+# Spin-1 analogue acting on the two product levels |0,0⟩ (index 1) and
+# |2,2⟩ (index 9) of a two-site d=3 space: V|0,0⟩ = 0.8|0,0⟩ + 0.6|2,2⟩.
+const _IP_V_ROT = let V = Matrix{Float64}(I, 9, 9)
+    V[1, 1] = 0.8
+    V[1, 9] = -0.6
+    V[9, 1] = 0.6
+    V[9, 9] = 0.8
+    V
+end
+
+# A maxdim=1, cutoff=0 MPS after `n` applications of the rotation: the SVD
+# keeps only the 0.8|00⟩ (resp. 0.8|0,0⟩) component each time, so the
+# retained state stays exactly the initial product state while ‖ψ‖² decays
+# to 0.64^n — the MPS backend does not renormalize after unitary gates.
+# n = 80 gives ‖ψ‖² ≈ 3.1e-16 < POSTSELECTION_PROB_TOL.
+function _ip_truncated(; site_type = "Qubit", n = 80)
+    d = site_type == "Qubit" ? 2 : 3
+    U = d == 2 ? _IP_U_ROT : _IP_V_ROT
+    st = SimulationState(L = 2, bc = :open, backend = :mps, maxdim = 1, cutoff = 0.0,
+        site_type = site_type, rng = _ip_rng(), log_events = true)
+    initialize!(st, ProductState(binary_int = 0))
+    for _ in 1:n
+        apply!(st, MatrixGate(U; d = d), Sites([1, 2]))
+    end
+    return st
 end
 
 @testset "REGRESSION impossible_postselection" begin
@@ -138,7 +181,9 @@ end
         before = _ip_dense(st)
         err = _ip_error(() -> apply!(st, Projection(1), SingleSite(1)))
         @test err isa ArgumentError
+        @test occursin("‖Pψ‖²/‖ψ‖² = ", err.msg)
         @test occursin("‖Pψ‖² = ", err.msg)
+        @test occursin("‖ψ‖² = ", err.msg)
         @test _ip_unchanged(st, before)
     end
 
@@ -222,6 +267,139 @@ end
         st = _ip_state(kw)
         before = _ip_dense(st)
         @test_throws ArgumentError simulate!(circuit, st; n_steps = 1)
+        @test _ip_unchanged(st, before)
+    end
+
+    # =====================================================================
+    # 5. Truncated MPS: the guard compares a probability, not a norm
+    # =====================================================================
+    @testset "guard is scale-invariant and names a zero-norm input" begin
+        check = QuantumCircuitsMPS._check_postselection
+        tol = QuantumCircuitsMPS.POSTSELECTION_PROB_TOL
+        # Same physics, input norms spanning 16 orders of magnitude.
+        for n2 in (1.0, 1e-8, 1e-16)
+            @test check(0.5 * n2, n2, Projection(0), [1]) === nothing      # p = 1/2
+            @test check(n2, n2, Projection(0), [1]) === nothing            # p = 1
+            @test check(1e-12 * n2, n2, Projection(1), [1]) === nothing    # p = 1e-12 ≥ tol
+            err = _ip_error(() -> check(1e-16 * n2, n2, Projection(1), [1]))   # p = 1e-16 < tol
+            @test err isa ArgumentError
+            @test occursin("‖Pψ‖²/‖ψ‖² = ", err.msg)
+            @test occursin(", ‖ψ‖² = $(n2))", err.msg)        # the input norm is reported
+            @test occursin("zero Born probability", err.msg)
+        end
+        # The threshold applies to the ratio (inclusive), not to ‖Pψ‖².
+        @test check(tol, 1.0, Projection(1), [1]) === nothing
+        @test check(1e-20, 1e-20, Projection(1), [1]) === nothing
+        @test _ip_error(() -> check(0.0, 1e-16, Projection(1), [1])) isa ArgumentError
+        # Zero-norm input: no probability is defined, distinct message, no NaN leak.
+        err = _ip_error(() -> check(0.0, 0.0, Projection(0), [1]))
+        @test err isa ArgumentError
+        @test occursin("zero norm", err.msg)
+        @test !occursin("NaN", err.msg)
+    end
+
+    # ‖ψ‖² ≈ 3.1e-16 while the retained state is exactly |00⟩: the raw
+    # projected norm is below the threshold for the certain outcome, the
+    # Born probability is one.
+    @testset "truncated MPS: a certain projection is accepted" begin
+        st = _ip_truncated()
+        n2 = norm(st.backend.mps)^2
+        @test n2 ≈ 0.64^80 rtol = 1e-6
+        @test n2 < QuantumCircuitsMPS.POSTSELECTION_PROB_TOL
+        @test born_probability(st, 1, 0) ≈ 1.0
+        @test born_probability(st, 2, 0) ≈ 1.0
+
+        apply!(st, Projection(0), SingleSite(1))      # used to throw "zero Born probability"
+        @test norm(st.backend.mps) ≈ 1.0              # renormalized, as after any projective gate
+        @test abs2(_ip_dense(st)[1]) ≈ 1.0            # still |00⟩
+        @test born_probability(st, 1, 0) ≈ 1.0
+        @test born_probability(st, 2, 0) ≈ 1.0
+        apply!(st, Projection(0), SingleSite(2))      # and again on a normalized state
+        @test abs2(_ip_dense(st)[1]) ≈ 1.0
+
+        # The impossible branch is still impossible: ‖Pψ‖²/‖ψ‖² = 0, whatever ‖ψ‖².
+        st = _ip_truncated()
+        before = _ip_dense(st)
+        @test born_probability(st, 1, 1) ≈ 0.0 atol = 1e-15
+        err = _ip_error(() -> apply!(st, Projection(1), SingleSite(1)))
+        @test err isa ArgumentError
+        @test occursin("Projection(1)", err.msg)
+        @test occursin("‖Pψ‖²/‖ψ‖² = ", err.msg)
+        @test occursin("zero Born probability", err.msg)
+        # The message names the input norm: "(‖Pψ‖² = 0.0, ‖ψ‖² = 3.12e-16)".
+        reported = match(r", ‖ψ‖² = ([0-9.e+-]+)\)", err.msg)
+        @test reported !== nothing && parse(Float64, reported.captures[1]) ≈ n2
+        @test _ip_unchanged(st, before)
+        @test norm(st.backend.mps)^2 ≈ n2            # not renormalized by a rejected gate
+    end
+
+    # Measure / Reset Born-sample with the (norm-independent) born_probability
+    # and then project through the same guard: the sampled outcome 0 is
+    # certain and must apply, including inside simulate!.
+    @testset "truncated MPS: Measure and Reset apply" begin
+        st = _ip_truncated()
+        apply!(st, Measure(:Z), SingleSite(1))
+        @test norm(st.backend.mps) ≈ 1.0
+        @test born_probability(st, 1, 0) ≈ 1.0
+        outcomes = measurements(st)
+        @test length(outcomes) == 1
+        @test outcomes[1].sites == [1]
+        @test outcomes[1].outcome == 0
+
+        st = _ip_truncated()
+        apply!(st, Reset(), SingleSite(2))
+        @test norm(st.backend.mps) ≈ 1.0
+        @test born_probability(st, 2, 0) ≈ 1.0
+
+        circuit = Circuit(L = 2, bc = :open) do c
+            for _ in 1:80
+                apply!(c, MatrixGate(_IP_U_ROT), Sites([1, 2]))
+            end
+            apply!(c, Measure(:Z), AllSites())
+        end
+        st = SimulationState(L = 2, bc = :open, maxdim = 1, cutoff = 0.0,
+            rng = _ip_rng(), log_events = true)
+        initialize!(st, ProductState(binary_int = 0))
+        simulate!(circuit, st; n_steps = 1)
+        @test norm(st.backend.mps) ≈ 1.0
+        @test length(measurements(st)) == 2
+        @test all(m.outcome == 0 for m in measurements(st))
+    end
+
+    # Two-site projective gates on a truncated spin-1 MPS: |+1,+1⟩ lies
+    # entirely in the S=2 sector, so projecting/measuring onto a sector set
+    # containing S=2 is certain; a set without it is still impossible.
+    @testset "truncated MPS: SpinSectorProjection / SpinSectorMeasurement apply" begin
+        st = _ip_truncated(site_type = "S=1")
+        n2 = norm(st.backend.mps)^2
+        @test n2 ≈ 0.64^80 rtol = 1e-6
+        @test n2 < QuantumCircuitsMPS.POSTSELECTION_PROB_TOL
+        ram = [st.phy_ram[1], st.phy_ram[2]]
+        # The sector probabilities are Born probabilities (relative to ‖ψ‖²).
+        ps = [QuantumCircuitsMPS.compute_two_site_born_probability(
+                  st.backend.mps, total_spin_projector(S), ram, 3) for S in 0:2]
+        @test ps ≈ [0.0, 0.0, 1.0] atol = 1e-12
+
+        apply!(st, SpinSectorMeasurement([0, 1, 2]), Sites([1, 2]))   # used to throw "zero overlap"
+        @test norm(st.backend.mps) ≈ 1.0
+        @test born_probability(st, 1, 0) ≈ 1.0
+        @test born_probability(st, 2, 0) ≈ 1.0
+
+        st = _ip_truncated(site_type = "S=1")
+        apply!(st, SpinSectorProjection(total_spin_projector(2)), Sites([1, 2]))
+        @test norm(st.backend.mps) ≈ 1.0
+        @test born_probability(st, 1, 0) ≈ 1.0
+
+        st = _ip_truncated(site_type = "S=1")
+        before = _ip_dense(st)
+        err = _ip_error(() -> apply!(st, SpinSectorMeasurement([0, 1]), Sites([1, 2])))
+        @test err isa ArgumentError
+        @test occursin("zero overlap", err.msg)
+        @test _ip_unchanged(st, before)
+        singlet = SpinSectorProjection(total_spin_projector(0))
+        err = _ip_error(() -> apply!(st, singlet, Sites([1, 2])))
+        @test err isa ArgumentError
+        @test occursin("‖Pψ‖²/‖ψ‖² = ", err.msg)
         @test _ip_unchanged(st, before)
     end
 end

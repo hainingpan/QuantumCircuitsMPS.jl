@@ -69,39 +69,53 @@ needs_normalization(::AbstractGate) = false
 @doc raw"""
     POSTSELECTION_PROB_TOL
 
-Smallest squared norm ``\lVert P\psi\rVert^2`` a gate with
-`needs_normalization(gate) == true` may leave behind (`1e-14`). For a
-normalized input ``\lVert P\psi\rVert^2`` is the Born probability of the
-requested branch; below this threshold there is no normalized conditional
-state (renormalizing would only amplify rounding noise into a fake state), so
-the MPS and state-vector backends reject the operation with an
-`ArgumentError` and leave the state unchanged — see
-[`_check_postselection`](@ref). `SpinSectorMeasurement` applies the same
-threshold to the total probability of its allowed sectors.
+Smallest Born probability ``\lVert P\psi\rVert^2 / \lVert\psi\rVert^2`` of
+the branch a gate with `needs_normalization(gate) == true` may select
+(`1e-14`). The probability is the squared norm of the projected state
+*relative to the input's*, so the test is independent of how the input is
+normalized — the MPS backend does not renormalize after truncated unitary
+layers, so ``\lVert\psi\rVert^2 < 1`` is common there and carries no physics.
+Below this threshold there is no normalized conditional state (renormalizing
+would only amplify rounding noise into a fake state), so the MPS and
+state-vector backends reject the operation with an `ArgumentError` and leave
+the state unchanged — see [`_check_postselection`](@ref).
+`SpinSectorMeasurement` applies the same threshold to the total Born
+probability of its allowed sectors.
 """
 const POSTSELECTION_PROB_TOL = 1e-14
 
 @doc raw"""
-    _check_postselection(norm2::Real, gate::AbstractGate, sites::Vector{Int})
+    _check_postselection(norm2_out::Real, norm2_in::Real, gate::AbstractGate, sites::Vector{Int})
 
 Guard shared by the MPS and state-vector `_apply_single!` methods for gates
-with `needs_normalization(gate) == true`: `norm2` is the squared norm
+with `needs_normalization(gate) == true`: `norm2_out` is the squared norm
 ``\lVert P\psi\rVert^2`` of the state *after* applying `gate` on the physical
-`sites`. Throws an `ArgumentError` naming the gate, the sites, and `norm2`
-when it is below [`POSTSELECTION_PROB_TOL`](@ref); returns `nothing`
-otherwise. Callers run it before committing the new tensors/vector, so a
-rejected gate leaves the state exactly as it was.
+`sites`, `norm2_in` the squared norm ``\lVert\psi\rVert^2`` of the state
+*before*. Their ratio is the Born probability of the requested branch
+whatever the input's normalization. Throws an `ArgumentError` naming the
+gate, the sites, and both norms when the ratio is below
+[`POSTSELECTION_PROB_TOL`](@ref) — or when `norm2_in` is zero, where no
+probability is defined at all; returns `nothing` otherwise. Callers run it
+before committing the new tensors/vector, so a rejected gate leaves the
+state exactly as it was.
 """
-function _check_postselection(norm2::Real, gate::AbstractGate, sites::Vector{Int})
-    norm2 < POSTSELECTION_PROB_TOL || return nothing
+function _check_postselection(norm2_out::Real, norm2_in::Real, gate::AbstractGate,
+        sites::Vector{Int})
+    prob = norm2_out / norm2_in
+    # `>=` rather than `!(< tol)`: a NaN ratio (non-finite tensors) is rejected too.
+    norm2_in > 0 && prob >= POSTSELECTION_PROB_TOL && return nothing
     # Name the gate by value when that is short (`Projection(1)`); by type
     # when the value would dump a matrix (SpinSectorProjection, MatrixGate).
     label = repr(gate)
     length(label) <= 48 || (label = string(typeof(gate)))
+    norm2_in > 0 || throw(ArgumentError(
+        "$label on site(s) $(sites) cannot be applied: the state has zero norm " *
+        "(‖ψ‖² = $(norm2_in)), so no Born probability is defined. The state is unchanged."))
     throw(ArgumentError(
-        "$label on site(s) $(sites) annihilates the state: ‖Pψ‖² = $(norm2) < " *
-        "$(POSTSELECTION_PROB_TOL), i.e. the requested outcome has zero Born " *
-        "probability, so no normalized post-selected state exists. The state is unchanged."))
+        "$label on site(s) $(sites) annihilates the state: Born probability " *
+        "‖Pψ‖²/‖ψ‖² = $(prob) < $(POSTSELECTION_PROB_TOL) (‖Pψ‖² = $(norm2_out), " *
+        "‖ψ‖² = $(norm2_in)), i.e. the requested outcome has zero Born probability, " *
+        "so no normalized post-selected state exists. The state is unchanged."))
 end
 
 """
