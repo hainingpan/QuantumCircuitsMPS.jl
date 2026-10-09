@@ -75,7 +75,8 @@ Performs projective measurement that collapses the state to a definite spin sect
 Outcome probabilities follow Born rule: ``P(S) = \langle \psi \rvert P_S \lvert \psi \rangle``
 
 # Arguments
-- `sectors`: Which sectors to measure (default: [0, 1, 2] for all sectors)
+- `sectors`: Which sectors to measure (default: [0, 1, 2] for all sectors).
+  Must be distinct; a repeated sector is rejected with an `ArgumentError`.
 
 # Example
 ```julia
@@ -114,6 +115,12 @@ struct SpinSectorMeasurement <: AbstractGate
         ))
         !isempty(sectors) || throw(ArgumentError(
             "sectors must be non-empty"
+        ))
+        # The sampler normalizes over one Born weight per listed sector, so a
+        # repeated sector would be double-weighted (e.g. [0,0,2] on a spin-1
+        # pair in |0,0⟩ picks S=0 with probability 1/2 instead of 1/3).
+        allunique(sectors) || throw(ArgumentError(
+            "sectors must be distinct, got $sectors"
         ))
         return new(sectors)
     end
