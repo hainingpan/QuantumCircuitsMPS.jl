@@ -161,11 +161,16 @@ The trait also guards against the one case where renormalization is
 impossible. Had site 1 been ``\lvert 1\rangle`` instead of ``\lvert +\rangle``,
 `MyProjection` would annihilate the state — a postselection onto an outcome
 of zero Born probability — and no normalized conditional state exists. Both
-backends then throw an `ArgumentError` naming the gate, the sites and
-``\lVert P\psi\rVert^2`` (anything below `POSTSELECTION_PROB_TOL`
-``= 10^{-14}`` counts as zero) and leave the state exactly as it was, instead
-of returning a zero MPS or a `NaN` vector. A protocol that post-selects
-should therefore either check `born_probability` first or catch this error.
+backends then throw an `ArgumentError` naming the gate, the sites and the
+Born probability ``\lVert P\psi\rVert^2 / \lVert\psi\rVert^2`` (anything
+below `POSTSELECTION_PROB_TOL` ``= 10^{-14}`` counts as zero) and leave the
+state exactly as it was, instead of returning a zero MPS or a `NaN` vector.
+The probability is taken relative to the input norm on purpose: the MPS
+backend does not renormalize after truncated unitary layers, so
+``\lVert\psi\rVert^2`` drifts below 1 there without any physical meaning, and
+an outcome of probability one must be accepted however small
+``\lVert P\psi\rVert^2`` has become. A protocol that post-selects should
+therefore either check `born_probability` first or catch this error.
 
 Note that `needs_normalization` and `is_measurement` are independent:
 `is_measurement` marks gates that *Born-sample* (consuming the
