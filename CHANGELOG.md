@@ -73,6 +73,19 @@ with an `ArgumentError` before the state changes:
   selected by `parity_projection_upsilon(s)`) were corrected accordingly. No
   numerical behavior changed: `state.backend.corr`, Born probabilities,
   measurement outcomes, and every observable are identical.
+- The `EntanglementEntropy` docstring described `cut::Int` as "the physical
+  site where the bipartition cut is made" on every backend, and its MPS
+  implementation notes claimed a physical-to-RAM conversion that the code
+  does not perform. The docstring now states the convention: under
+  `bc=:periodic` the MPS backend uses `cut` as a bond of its folded chain,
+  so the subsystem is the ring arc `state.ram_phy[1:cut]`, while the
+  state-vector, Clifford, and Gaussian backends, which have no fold,
+  bipartition the physical prefix ``\{1,\ldots,\mathrm{cut}\}``; with the
+  default fold the half cut `L÷2` (and one neighbouring cut) coincide. It
+  comes with a worked `L = 8` table and the
+  `sort(state.ram_phy[1:cut]) == 1:cut` alignment check; the MPS guide,
+  `EntropyProfile`, and the Backend Interface Contract were aligned with it.
+  No numerical behavior changed.
 
 ## [0.5.6] - 2026-10-08
 

@@ -360,11 +360,14 @@ Backend primitives may only touch the streams below, always via
   reorder init data via `state.ram_phy`). Identity for StateVector/Clifford;
   a zig-zag fold for MPS under PBC.
 - **PBC `EntanglementEntropy(cut=k)` semantics differ by design** (v0.4.0
-  audit finding): the MPS backend interprets `cut` as a RAM bond of the
-  folded MPS (only `cut = L÷2` is fold-aligned with a physical bipartition),
-  while StateVector/Clifford/Gaussian use the physical `{1..k}` bipartition.
-  Under OBC all four agree at every cut. Cross-backend entropy comparisons
-  under PBC must use `cut = L÷2` or OBC.
+  audit finding): the MPS backend interprets `cut` as a bond of the folded
+  chain — the subsystem is the ring arc `state.ram_phy[1:k]`; with the
+  default fold `cut = L÷2` (and one neighbouring cut) coincides with the
+  physical prefix — while StateVector/Clifford/Gaussian use the physical
+  `{1..k}` bipartition. The fold belongs to the MPS representation of a
+  ring; other backends have no fold and keep the physical prefix. Under OBC
+  all four agree at every cut; cross-backend comparisons under PBC use
+  `cut = L÷2` or OBC.
 - **`state.mps` / `state.sites` / `state.cutoff` / `state.maxdim` are
   supported API on `SimulationState{MPSBackend}`** — property forwarding to
   `state.backend.<field>`, kept deliberately (v0.4.0 decision; see
