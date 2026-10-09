@@ -142,4 +142,30 @@ end
             @test StringOrder(1, 4)(s1) ≈ 0.0 atol = 1e-12
         end
     end
+
+    # ------------------------------------------------------------------
+    # 4. ProductState(binary_int) must fit in L binary digits
+    # ------------------------------------------------------------------
+    @testset "Oversized binary_int rejected identically on all four backends" begin
+        L = 4
+        for backend in (:mps, :statevector, :clifford, :gaussian)
+            s = SimulationState(L = L, bc = :open, backend = backend, rng = _as_rng())
+            for bad in (16, 17, 2^10)
+                err = _as_caught(() -> initialize!(s, ProductState(binary_int = bad)))
+                @test err isa ArgumentError
+                @test occursin("binary_int=$bad", err.msg)
+                @test occursin("2^$L - 1 = 15", err.msg)
+            end
+            # The largest value that fits is accepted and prepares |1111⟩
+            initialize!(s, ProductState(binary_int = 15))
+            @test all(BornProbability(i, 1)(s) ≈ 1.0 for i in 1:L)
+            initialize!(s, ProductState(binary_int = 0))
+            @test all(BornProbability(i, 0)(s) ≈ 1.0 for i in 1:L)
+        end
+        # The dense representations have the advertised size for L sites
+        sv = make_backend_state(:statevector, L; binary_int = 15, seeds = _as_seeds())
+        @test length(sv.backend.ψ) == 2^L
+        g = make_backend_state(:gaussian, L; binary_int = 15, seeds = _as_seeds())
+        @test size(g.backend.corr) == (2L, 2L)
+    end
 end
