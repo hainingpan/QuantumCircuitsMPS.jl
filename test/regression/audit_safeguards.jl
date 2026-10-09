@@ -201,4 +201,32 @@ end
             @test_throws ArgumentError BornProbability(1, 3)(s)
         end
     end
+
+    # ------------------------------------------------------------------
+    # 6. Repeated sites in one region
+    # ------------------------------------------------------------------
+    @testset "Repeated sites rejected by Sites and by execute!" begin
+        @test_throws ArgumentError Sites([2, 2])
+        @test_throws ArgumentError Sites([1, 2, 1])
+        @test Sites([2, 1]).sites == [2, 1]   # distinct sites keep their order
+
+        # Bell pair; a "unitary" on Sites([2,2]) used to purify site 2's reduced state
+        for backend in (:mps, :statevector, :clifford)
+            s = make_backend_state(backend, 2; seeds = _as_seeds())
+            apply!(s, Hadamard(), SingleSite(1))
+            apply!(s, CNOT(), [1, 2])
+            ee_before = EntanglementEntropy(cut = 1)(s)
+            @test ee_before ≈ 1.0 atol = 1e-8
+
+            err = _as_caught(() -> apply!(s, RandomClifford(), [2, 2]))
+            @test err isa ArgumentError
+            @test occursin("repeated site", err.msg)
+            @test occursin("[2, 2]", err.msg)
+            @test EntanglementEntropy(cut = 1)(s) ≈ ee_before atol = 1e-8
+
+            # Other two-site gates take the same path
+            @test_throws ArgumentError apply!(s, CNOT(), [1, 1])
+            @test EntanglementEntropy(cut = 1)(s) ≈ ee_before atol = 1e-8
+        end
+    end
 end

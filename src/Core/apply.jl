@@ -153,8 +153,17 @@ end
 
 Related traits: `needs_normalization(gate)` (post-apply renormalization) and
 `is_measurement(gate)` (gate Born-samples via `:born_measurement`).
+
+`region` must not repeat a site: every backend's `_apply_single!` assumes
+distinct sites (a repeated site gives a non-unitary tableau update on the
+Clifford backend, for instance), so a repeated site is an `ArgumentError`
+here, before any backend is touched. This covers `apply!(state, gate,
+sites::Vector{Int})`, every geometry, and the circuit engine.
 """
 function execute!(state::SimulationState, gate::AbstractGate, region::Vector{Int})
+    allunique(region) || throw(ArgumentError(
+        "Gate $(typeof(gate)) applied to a region with a repeated site: $region. " *
+        "Sites within one region must be distinct."))
     _apply_single!(state, gate, region)
 end
 
