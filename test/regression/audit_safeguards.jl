@@ -60,4 +60,49 @@ end
             @test DomainWall(order = 32)(s, 2) ≈ 1.0
         end
     end
+
+    # ------------------------------------------------------------------
+    # 2. Reset is qubit-only
+    # ------------------------------------------------------------------
+    @testset "Reset rejected on non-qubit sites; state and RNG untouched" begin
+        for backend in (:mps, :statevector)
+            s = SimulationState(L = 2, bc = :open, site_type = "S=1", backend = backend,
+                rng = _as_rng())
+            initialize!(s, ProductState(spin_state = "Dn"))   # level 2 on every site
+            rng_before = copy(get_rng(s.rng_registry, :born_measurement))
+
+            err = _as_caught(() -> apply!(s, Reset(), SingleSite(1)))
+            @test err isa ArgumentError
+            @test occursin("Reset", err.msg)
+            @test occursin("local_dim=3", err.msg)
+            @test occursin("S=1", err.msg)
+
+            # Nothing happened: still |Dn⟩, and no :born_measurement draw was consumed
+            @test BornProbability(1, 2)(s) ≈ 1.0
+            @test rand(copy(get_rng(s.rng_registry, :born_measurement))) ==
+                  rand(copy(rng_before))
+
+            # Same via the explicit site-vector path
+            @test_throws ArgumentError apply!(s, Reset(), [1])
+            @test BornProbability(1, 2)(s) ≈ 1.0
+        end
+
+        # Higher spin and a d=3 qudit are rejected the same way
+        for (st, d) in (("S=3/2", 4), ("Qudit", 3))
+            s = SimulationState(
+                L = 2, bc = :open, site_type = st, local_dim = d, rng = _as_rng())
+            initialize!(s, ProductState(binary_int = 0))
+            err = _as_caught(() -> apply!(s, Reset(), SingleSite(1)))
+            @test err isa ArgumentError
+            @test occursin("local_dim=$d", err.msg)
+        end
+
+        # Qubits are unaffected: |11⟩ → Reset site 1 → |01⟩
+        for backend in (:mps, :statevector, :clifford)
+            s = make_backend_state(backend, 2; binary_int = 3, seeds = _as_seeds())
+            apply!(s, Reset(), SingleSite(1))
+            @test BornProbability(1, 0)(s) ≈ 1.0
+            @test BornProbability(2, 1)(s) ≈ 1.0
+        end
+    end
 end
