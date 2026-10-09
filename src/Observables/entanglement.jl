@@ -11,7 +11,9 @@ parametric observable `EntanglementEntropy{C}` with `C === Int` or
   (`1 <= cut < L`). Supported on ALL backends (MPS, state vector, Clifford,
   Gaussian). This is the historical form; its `cut` SEMANTICS are unchanged
   (the `renyi_index` contract is not — see below, it now accepts any real
-  index that normalizes to a finite `Float64 > 0`).
+  index that normalizes to a finite `Float64 > 0`). Under `bc=:periodic`
+  the MPS backend reads `cut` as a bond of its folded chain — see the note
+  below.
 - **Region (`cut::AbstractRange` or `cut::AbstractVector{<:Integer}`)** —
   entropy of the reduced density matrix of an arbitrary set of PHYSICAL
   sites. Supported on the state-vector, Clifford and Gaussian backends only;
@@ -24,8 +26,14 @@ parametric observable `EntanglementEntropy{C}` with `C === Int` or
 
 # Arguments
 - `cut`: either
-  - `cut::Int`: physical site where the bipartition cut is made (must satisfy
-    `1 <= cut < L`; `cut < 1` throws at construction, `cut >= L` at call time), or
+  - `cut::Int`: bipartition cut (must satisfy `1 <= cut < L`; `cut < 1`
+    throws at construction, `cut >= L` at call time). Under `bc=:open` this
+    is the physical bipartition ``\{1,\ldots,\mathrm{cut}\}`` versus
+    ``\{\mathrm{cut}+1,\ldots,L\}`` on every backend. Under `bc=:periodic`
+    the state-vector, Clifford, and Gaussian backends keep that physical
+    meaning (the ring arc bounded by the bonds `(cut, cut+1)` and `(L, 1)`),
+    and the MPS backend uses `cut` as a bond of its folded chain — see the
+    note below. Or
   - `cut::UnitRange`/`cut::Vector{Int}`: a region of physical sites. Range
     semantics are INCLUSIVE site sets: `cut=3:6` means sites `{3,4,5,6}`.
     The region is validated at construction (non-empty, no duplicates, all
@@ -75,10 +83,36 @@ parametric observable `EntanglementEntropy{C}` with `C === Int` or
 
 # Implementation (MPS, `cut::Int`)
 The entropy is computed by:
-1. Converting the physical cut position to RAM ordering
+1. Taking `cut` as a bond index of the stored (RAM-ordered) MPS (under OBC
+   RAM order is physical order; under PBC see the note below)
 2. Orthogonalizing the MPS at the cut site
 3. Performing SVD to obtain Schmidt values
 4. Computing the entropy from the Schmidt spectrum
+
+!!! note "Periodic MPS: cut indexes a bond of the folded chain"
+    Under `bc=:periodic` the MPS backend stores the ring in the zig-zag
+    folded order of `src/Core/basis.jl`, and `cut` is a bond index of that
+    chain. The subsystem is the first `cut` sites in RAM,
+    `state.ram_phy[1:cut]` — a contiguous ring arc growing outward from the
+    fold seam at `pbc_fold_start` (default `L÷4+1`). The state-vector,
+    Clifford, and Gaussian backends have no fold and bipartition the physical
+    prefix ``\{1,\ldots,\mathrm{cut}\}``. For `L = 8` with the default fold
+    (`ram_phy = [3, 2, 4, 1, 5, 8, 6, 7]`):
+
+    | `cut` | MPS subsystem | state vector / Clifford / Gaussian |
+    |:-----:|:--------------|:-----------------------------------|
+    | 1 | {3} | {1} |
+    | 2 | {2, 3} | {1, 2} |
+    | 3 | {2, 3, 4} | {1, 2, 3} |
+    | 4 | {1, 2, 3, 4} | {1, 2, 3, 4} |
+    | 6 | {8, 1, 2, 3, 4, 5} | {1, 2, 3, 4, 5, 6} |
+
+    With the default fold the half cut `cut = L÷2` is the physical half
+    ``\{1,\ldots,L/2\}`` on every backend (one neighbouring cut is aligned as
+    well); `sort(state.ram_phy[1:cut]) == 1:cut` tells whether a given cut
+    is. For cross-backend comparison at other cuts use `bc=:open`; on the
+    non-MPS backends the region form `cut = 1:k` names the physical prefix
+    explicitly.
 
 !!! warning "The MPS backend does NOT support regions"
     MPS entanglement entropy comes from the SVD of a single bond adjacent to
@@ -250,11 +284,12 @@ function (ee::EntanglementEntropy)(state)
     # Validate cut is in valid range
     1 <= ee.cut < state.L || throw(ArgumentError("cut must satisfy 1 <= cut < L"))
 
-    # Determine RAM cut position based on boundary conditions
-    # For periodic BC with folded MPS, the fold origin is configurable via
-    # pbc_fold_start (default: L÷4+1, aligning the half-cut with the physical
-    # midpoint). The cut parameter directly specifies the RAM bond index.
-    # For open BC, ram_phy is identity so this also works correctly.
+    # `cut` is the RAM bond index of the stored MPS. Under OBC ram_phy is the
+    # identity, so this is the physical bipartition {1..cut}. Under PBC the
+    # chain is folded (src/Core/basis.jl) and RAM bond `cut` separates the
+    # ring arc ram_phy[1:cut] from the rest; with the default
+    # pbc_fold_start = L÷4+1 the half cut L÷2 is the physical half. See the
+    # PBC note in the docstring.
     ram_cut = ee.cut
 
     # Compute entropy using internal helper
