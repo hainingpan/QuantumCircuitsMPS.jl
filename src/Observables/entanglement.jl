@@ -15,7 +15,12 @@ parametric observable `EntanglementEntropy{C}` with `C === Int` or
 - **Region (`cut::AbstractRange` or `cut::AbstractVector{<:Integer}`)** —
   entropy of the reduced density matrix of an arbitrary set of PHYSICAL
   sites. Supported on the state-vector, Clifford and Gaussian backends only;
-  **the MPS backend throws an `ArgumentError`** (see below).
+  **the MPS backend throws an `ArgumentError`** (see below). On the Gaussian
+  backend the region is a set of fermionic *modes* and the entropy is read
+  off the restricted covariance matrix; this equals the Jordan–Wigner spin
+  entropy of the same sites when the region or its complement is contiguous,
+  but not for a doubly non-contiguous region such as `[1, 3]` at `L = 4`
+  (see the Gaussian backend guide).
 
 # Arguments
 - `cut`: either
