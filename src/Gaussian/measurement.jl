@@ -11,7 +11,7 @@
 # `execute!` methods in Core/apply.jl unchanged.
 #
 # Occupation convention (see kernel.jl header):
-#   ⟨cᵢ†cᵢ⟩ = (1 − Γ[2i−1, 2i]) / 2
+#   Γ[2i−1, 2i] = ⟨i γ_{2i−1} γ_{2i}⟩ = 1 − 2⟨cᵢ†cᵢ⟩,  i.e.  ⟨cᵢ†cᵢ⟩ = (1 − Γ[2i−1, 2i]) / 2
 #   Γ[2i−1,2i] = +1 ⇒ unoccupied (outcome 0);  −1 ⇒ occupied (outcome 1).
 
 @doc raw"""
@@ -73,7 +73,8 @@ and the comparison is vacuous, i.e. the draw is redundant, exactly as on
 the Clifford backend).
 
 **Outcome → parity sign mapping:** the kernel
-projector `parity_projection_upsilon(s)` leaves the post-measurement state
+projector `parity_projection_upsilon(s)` projects onto the parity sector
+``i\gamma_{2i-1}\gamma_{2i} = -s`` and leaves the post-measurement state
 with ``\Gamma[2i-1,2i]=-s``. To end with `Γ[2i−1,2i] = +1` (outcome 0,
 unoccupied) we contract with `s = −1`; for `Γ[2i−1,2i] = −1` (outcome 1,
 occupied), `s = +1`. I.e. ``s = 2\cdot\mathrm{outcome}-1``.
@@ -139,9 +140,10 @@ kernel, same draw contract — only the site→Majorana index mapping (via
 [`site_majoranas`](@ref)) differs.
 
 **Born rule** (cross-validated against the exact-diagonalization/Pfaffian reference in `test/gaussian/oracle.jl`): the
-covariance element ``g = \Gamma[ix_1,ix_2]`` satisfies ``\langle i\hat\gamma_{ix_1}\hat\gamma_{ix_2}\rangle = -g``,
-so with the outcome encoding ``\mathrm{outcome}\in(0,1)`` ↔ parity eigenvalue
-``s = 2\cdot\mathrm{outcome}-1\in(-1,+1)``:
+covariance element ``g = \Gamma[ix_1,ix_2]`` is the parity expectation value,
+``\langle i\hat\gamma_{ix_1}\hat\gamma_{ix_2}\rangle = g``, and the outcome encoding is
+``\mathrm{outcome} = 0`` ↔ parity eigenvalue ``+1``, ``\mathrm{outcome} = 1`` ↔ parity
+eigenvalue ``-1`` (parity eigenvalue ``= 1 - 2\cdot\mathrm{outcome}``), so:
 
 ```math
 P(\mathrm{outcome}=0)=\frac{1+g}{2},\qquad P(\mathrm{outcome}=1)=\frac{1-g}{2}
@@ -149,9 +151,10 @@ P(\mathrm{outcome}=0)=\frac{1+g}{2},\qquad P(\mathrm{outcome}=1)=\frac{1-g}{2}
 
 — the SAME affine structure as the on-site occupation measurement
 (`_measure_single_site!`), because on-site occupation is itself the bond
-parity of the intra-mode pair (``n = (1 + i\gamma_1\gamma_2)/2``). The kernel `s` IS the
-measured parity eigenvalue: contracting `parity_projection_upsilon(s)`
-leaves ``\Gamma[ix_1,ix_2] = -s``, i.e. ``\langle i\hat\gamma\hat\gamma\rangle = s`` post-measurement.
+parity of the intra-mode pair (``n = (1 - i\gamma_{2i-1}\gamma_{2i})/2``). The kernel sign
+``s = 2\cdot\mathrm{outcome}-1`` is MINUS the measured parity eigenvalue: contracting
+`parity_projection_upsilon(s)` leaves ``\Gamma[ix_1,ix_2] = -s``, i.e.
+``\langle i\hat\gamma\hat\gamma\rangle = -s = 1 - 2\cdot\mathrm{outcome}`` post-measurement.
 
 **Draw contract (REDUNDANT-DRAW, cross-backend lockstep):** exactly ONE
 scalar `:born_measurement` draw is consumed per BondParity application —
@@ -199,13 +202,13 @@ function execute!(state::SimulationState{GaussianBackend}, gate::BondParity, phy
     born_measurement_rng = get_rng(state.rng_registry, :born_measurement)
     r = rand(born_measurement_rng)
     g = Γ[ix[1], ix[2]]
-    p0 = (1 + g) / 2          # P(outcome 0, bond parity iγγ = −1); verified against test/gaussian/oracle.jl
+    p0 = (1 + g) / 2          # P(outcome 0, bond parity iγγ = +1); verified against test/gaussian/oracle.jl
     outcome = r < p0 ? 0 : 1
     p_outcome = outcome == 0 ? p0 : 1 - p0
     p_outcome > 1e-15 || throw(ArgumentError(
         "BondParity collapse onto outcome $outcome on bond ($lo, $hi) has vanishing " *
         "probability ($p_outcome) — cannot project onto a probability-zero branch."))
-    s = 2 * outcome - 1       # measured parity eigenvalue; post Γ[ix₁,ix₂] = −s
+    s = 2 * outcome - 1       # kernel sign = −(measured parity eigenvalue); post Γ[ix₁,ix₂] = −s
     gaussian_contraction!(Γ, parity_projection_upsilon(s), ix;
         scratch = state.backend.scratch, purify_tol = state.backend.purify_tol)
     if state.event_log !== nothing
