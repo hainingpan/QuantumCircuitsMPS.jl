@@ -76,11 +76,18 @@ Under `bc=:periodic`, the MPS backend stores sites in a **folded** RAM
 ordering (`src/Core/basis.jl`) so that periodic boundary conditions can be
 represented by a 1-D chain topology. All public geometry/gate/observable
 APIs speak *physical* site indices and translate transparently — except
-`EntanglementEntropy(cut=k)`, whose `cut` is the RAM bond index of the
-folded MPS, not the physical bipartition ``\{1,\ldots,k\}`` (only `cut = L÷2` is
-fold-aligned). See the [Backend Interface Contract](@ref)'s PBC section and
-`EntropyProfile`'s docstring for the full detail; cross-backend entropy
-comparisons under PBC should use `cut = L÷2` or `bc=:open`.
+`EntanglementEntropy(cut=k)`, whose `cut` is a bond index of the folded
+chain: the subsystem is `state.ram_phy[1:k]`, a contiguous ring arc growing
+outward from the fold seam (`pbc_fold_start`, default `L÷4+1`). The
+state-vector, Clifford, and Gaussian backends have no fold and bipartition
+the physical prefix ``\{1,\ldots,k\}``. With the default fold the half cut
+`cut = L÷2` is ``\{1,\ldots,L/2\}`` on every backend (one neighbouring cut
+is aligned as well), and `sort(state.ram_phy[1:k]) == 1:k` tells whether a
+given `k` is. For `L = 8` (`ram_phy = [3, 2, 4, 1, 5, 8, 6, 7]`), `cut = 2`
+measures ``\{2, 3\}`` on MPS and ``\{1, 2\}`` on the other backends. See
+the PBC note in the `EntanglementEntropy` docstring for the full table, the
+[Backend Interface Contract](@ref)'s PBC section, and `EntropyProfile`'s
+docstring; for cross-backend comparison at other cuts use `bc=:open`.
 
 **Regions are not supported on MPS.** `EntanglementEntropy` also accepts a
 region form of `cut` — a range (`c1:c2`) or a vector of sites (`[s1, s2,
