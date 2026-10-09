@@ -38,6 +38,11 @@ with an `ArgumentError` before the state changes:
   by `execute!` (so every geometry, `apply!` and the circuit engine). On the
   Clifford backend a `RandomClifford` on such a region produced a
   non-unitary tableau update that could purify one half of a Bell pair.
+- `SpinSectorMeasurement(sectors)` rejects a repeated sector
+  (`SpinSectorMeasurement([0, 0, 2])`). The sampler normalizes one Born
+  weight per listed sector, so a duplicate was double-weighted: on a spin-1
+  pair in ``|0,0\rangle`` the set ``\{0, 2\}`` has ``P(S=0) = 1/3``, but
+  `[0, 0, 2]` selected ``S=0`` with probability ``1/2``.
 
 ### Fixed
 

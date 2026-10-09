@@ -24,6 +24,10 @@
 #   6. A region with a repeated site (Sites([2,2]), apply!(s, g, [2,2]))
 #      reached the backends; on Clifford it turned a maximally mixed reduced
 #      state into a pure one. Now rejected by Sites and by execute!.
+#   7. SpinSectorMeasurement([0,0,2]) was accepted and the sampler summed one
+#      Born weight per listed entry, so the repeated sector was double-
+#      weighted: on a spin-1 pair in |0,0⟩ it picked S=0 with probability
+#      1/2 instead of 1/3. Now rejected by the constructor.
 
 using Test
 using QuantumCircuitsMPS
@@ -228,5 +232,30 @@ end
             @test_throws ArgumentError apply!(s, CNOT(), [1, 1])
             @test EntanglementEntropy(cut = 1)(s) ≈ ee_before atol = 1e-8
         end
+    end
+
+    # ------------------------------------------------------------------
+    # 7. Repeated sectors in SpinSectorMeasurement
+    # ------------------------------------------------------------------
+    @testset "SpinSectorMeasurement rejects repeated sectors" begin
+        for bad in ([0, 0, 2], [1, 1], [2, 0, 2])
+            err = _as_caught(() -> SpinSectorMeasurement(bad))
+            @test err isa ArgumentError
+            @test occursin("distinct", err.msg)
+            @test occursin(string(bad), err.msg)
+        end
+        @test SpinSectorMeasurement([2, 0]).sectors == [2, 0]   # distinct sectors keep their order
+        @test SpinSectorMeasurement().sectors == [0, 1, 2]
+
+        # The distribution the duplicate used to distort: |Z0,Z0⟩ = √(2/3)|S=2⟩ − √(1/3)|S=0⟩,
+        # so over the sector set {0,2} the Born weights are [1/3, 2/3] (summing to 1);
+        # [0,0,2] normalized [1/3, 1/3, 2/3] by 4/3 and gave S=0 half the time.
+        s = SimulationState(L = 2, bc = :open, site_type = "S=1", rng = _as_rng())
+        initialize!(s, ProductState(spin_state = "Z0"))
+        ram = [s.phy_ram[1], s.phy_ram[2]]
+        ps = [QuantumCircuitsMPS.compute_two_site_born_probability(
+                  s.backend.mps, total_spin_projector(S), ram, 3) for S in (0, 2)]
+        @test ps ≈ [1 / 3, 2 / 3] atol = 1e-12
+        @test sum(ps) ≈ 1.0 atol = 1e-12
     end
 end
