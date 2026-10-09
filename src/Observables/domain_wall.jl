@@ -72,7 +72,9 @@ function domain_wall(state, i1::Int, order::Int)
     for j in 1:L
         # Weight for finding first "1" at position j
         # CT.jl line 598: (L-j+1)^order
-        weight = Float64((L - j + 1)^order)
+        # BigInt power: an Int64 power overflows (wraps, even to 0) once
+        # (L-j+1)^order exceeds 2^63; the exact integer is rounded to Float64.
+        weight = Float64(big(L - j + 1)^order)
 
         # Probability of:
         # - Sites 1..j-1 being "0" (all zeros before position j)
