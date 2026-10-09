@@ -76,6 +76,19 @@ docstrings carry the same caveat.
 
 ### Fixed
 
+- `Bricklayer(:nnn_odd_2)` / `Bricklayer(:nnn_even_2)` under `bc=:periodic`
+  at ``L \equiv 2 \pmod 4`` (`L = 6, 10, 14, ...`) are not disjoint pair
+  layers, and now say so: a one-time warning is emitted at circuit-build time
+  and on immediate-mode `apply!`, through the same helper as the odd-`L`
+  `:odd`/`:even` warning. The next-nearest-neighbor bonds of an even ring form
+  two rings of length ``L/2`` (odd sites, even sites); when ``L/2`` is odd no
+  two-layer tiling exists, so the sublayer's wrap pair shares a site with its
+  last bulk pair (`(3,5),(5,1)` at `L=6`) and the two gates are applied
+  sequentially in enumeration order rather than as one depth-1 layer. The
+  enumeration itself is unchanged (RNG coin order is an API contract), and
+  `Bricklayer(:nnn)` still gates every NNN bond exactly once. `:nnn_odd_1`,
+  `:nnn_even_1`, `:nnn`, ``L \equiv 0 \pmod 4``, and open boundaries do not
+  warn.
 - `DomainWall(order=...)` computed its weights ``(L-j+1)^{\text{order}}``
   in `Int64`, which overflows (wrapping even to `0`) once they exceed
   ``2^{63}`` — `DomainWall(order=32)` on four sites in ``|1000\rangle``

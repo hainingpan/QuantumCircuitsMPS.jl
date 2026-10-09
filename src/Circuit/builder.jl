@@ -43,10 +43,10 @@ Record a deterministic gate operation in the circuit builder.
 
 Stores operation as: `(type=:deterministic, gate=gate, geometry=geometry)`
 
-A `Bricklayer(:odd)`/`Bricklayer(:even)` geometry with odd `L` under
-`bc=:periodic` emits a one-time warning at this recording step (no valid
-brickwork tiling exists — see `_warn_bricklayer_odd_pbc`); the operation is
-still recorded unchanged.
+A `Bricklayer` geometry that is not a disjoint pair layer under
+`bc=:periodic` — `:odd`/`:even` with odd `L`, or `:nnn_odd_2`/`:nnn_even_2`
+with `L % 4 == 2` — emits a one-time warning at this recording step (see
+`_warn_bricklayer_odd_pbc`); the operation is still recorded unchanged.
 
 # Example
 ```julia
@@ -195,7 +195,8 @@ function apply_with_prob!(
         end
     end
 
-    # Odd-L PBC brickwork layers have no valid tiling — warn (once per
+    # PBC brickwork layers on an odd-length ring (odd-L :odd/:even, NNN wrap
+    # sublayers at L % 4 == 2) are not disjoint pair layers — warn (once per
     # parity/L combination), mirroring the deterministic apply! path.
     for o in outcomes
         o.geometry isa Bricklayer &&
