@@ -32,6 +32,11 @@ Expected: ``|O^2| \approx (4/9)^2 \approx 0.198`` for NNN AKLT ground state
 # Notes
 - order=2 requires j >= i+4 (for non-overlapping endpoint pairs)
 - NNN AKLT creates two decoupled chains; paired endpoints project onto both
+- Defined for spin-1 chains only (`site_type="S=1"`): ``S_z`` and
+  ``\exp(i\pi S_z)`` are the spin-1 operators. Evaluating it on any other site
+  type (qubits, higher spins, qudits) throws an `ArgumentError` on the MPS and
+  state-vector backends alike; Clifford and Gaussian states reject it
+  regardless of site type.
 
 # Example
 ```julia
@@ -64,14 +69,34 @@ struct StringOrder <: AbstractObservable
 end
 
 @doc raw"""
+    _check_string_order_site_type(state::SimulationState)
+
+`StringOrder` is defined for spin-1 chains only: its ``S_z`` and
+``\exp(i\pi S_z)`` factors are the spin-1 operators, so on any other site type
+the formula is not the advertised observable. Throw an `ArgumentError` unless
+`state.site_type == "S=1"`. Shared by the MPS and state-vector methods.
+"""
+function _check_string_order_site_type(state::SimulationState)
+    state.site_type == "S=1" || throw(ArgumentError(
+        "StringOrder is only defined for spin-1 chains (site_type=\"S=1\"), got " *
+        "site_type=\"$(state.site_type)\" (local_dim=$(state.local_dim))."))
+    return nothing
+end
+
+@doc raw"""
     (obs::StringOrder)(state::SimulationState) -> Float64
 
 Compute the string order parameter via MPS contraction as
 ``\langle\psi|O|\psi\rangle / \langle\psi|\psi\rangle``, with the norm divided
 out (see `_mps_norm2`) so that the value refers to the retained state even
 when truncation has left the MPS un-normalized.
+
+Spin-1 only (`site_type="S=1"`); any other site type is rejected by
+`_check_string_order_site_type` before the contraction.
 """
 function (obs::StringOrder)(state::SimulationState)
+    _check_string_order_site_type(state)
+
     i_phys = obs.i
     j_phys = obs.j
     L = state.L

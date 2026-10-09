@@ -105,4 +105,41 @@ end
             @test BornProbability(2, 1)(s) ≈ 1.0
         end
     end
+
+    # ------------------------------------------------------------------
+    # 3. StringOrder is spin-1 only
+    # ------------------------------------------------------------------
+    @testset "StringOrder rejected outside site_type=\"S=1\" on MPS and SV" begin
+        for backend in (:mps, :statevector)
+            # Qubits (the state-vector method used to evaluate a qubit table)
+            sq = make_backend_state(backend, 4; seeds = _as_seeds())
+            err = _as_caught(() -> StringOrder(1, 4)(sq))
+            @test err isa ArgumentError
+            @test occursin("S=1", err.msg)
+            @test occursin("Qubit", err.msg)
+
+            # Spin-3/2, all |Up⟩: the state-vector method returned +1 here
+            s32 = SimulationState(
+                L = 6, bc = :open, site_type = "S=3/2", backend = backend,
+                rng = _as_rng())
+            initialize!(s32, ProductState(spin_state = "Up"))
+            @test_throws ArgumentError StringOrder(1, 4)(s32)
+            @test_throws ArgumentError StringOrder(1, 5, order = 2)(s32)
+
+            # A d=3 qudit has the right dimension but no spin operators
+            sq3 = SimulationState(L = 4, bc = :open, site_type = "Qudit", local_dim = 3,
+                backend = backend, rng = _as_rng())
+            initialize!(sq3, ProductState(binary_int = 0))
+            @test_throws ArgumentError StringOrder(1, 4)(sq3)
+
+            # Spin-1 still evaluates: |Up Up Up Up⟩ → (+1)·(−1)·(−1)·(+1) = +1,
+            # |Z0 …⟩ → Sz = 0 at the endpoints
+            s1 = SimulationState(L = 4, bc = :open, site_type = "S=1", backend = backend,
+                rng = _as_rng())
+            initialize!(s1, ProductState(spin_state = "Up"))
+            @test StringOrder(1, 4)(s1) ≈ 1.0
+            initialize!(s1, ProductState(spin_state = "Z0"))
+            @test StringOrder(1, 4)(s1) ≈ 0.0 atol = 1e-12
+        end
+    end
 end
