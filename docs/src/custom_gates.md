@@ -229,8 +229,7 @@ fallback rather than silently approximating:
 
 - Clifford accepts `PauliX`, `PauliY`, `PauliZ`, `Hadamard`, `PhaseGate`,
   `CZ`, `CNOT`, `SWAP`, `RandomClifford`, `Measure`, `Reset`.
-- Gaussian accepts `GaussianHaar`, `PauliX`, `Measure(:Z)`, `BondParity`,
-  `Reset`.
+- Gaussian accepts `GaussianHaar`, `Measure(:Z)`, `BondParity`.
 
 Anything else raises an `ArgumentError` naming the offending gate type; the
 verbatim Clifford message is shown in the next section.
@@ -239,10 +238,9 @@ verbatim Clifford message is shown in the next section.
 It is enforced in the backends' generic apply step, so a gate that overrides
 `execute!` and is composed purely of whitelisted primitives also runs there.
 Example (c)'s `MyFlip` delegates to `PauliX`, so it works on the Clifford
-backend, and on the Gaussian backend at its **default** fermionic-mode
-granularity — but **not** with `site_type="Majorana"`, where `PauliX` itself
-is rejected with an `ArgumentError` (a single Majorana site has no
-occupation to flip; see the [Gaussian Backend](@ref) page).
+backend — but **not** on the Gaussian backend, where `PauliX` itself is
+rejected with an `ArgumentError` (a fermionic occupation flip would be
+parity-odd; see the [Gaussian Backend](@ref) page).
 
 For anything more exotic on Clifford or Gaussian, the supported escape hatch
 is `backend=:mps` or `backend=:statevector`. Per-backend application methods

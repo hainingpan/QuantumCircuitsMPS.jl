@@ -7,8 +7,10 @@
 # fallback `_apply_single!`. Instead we override `born_probability` (a
 # direct, non-destructive covariance-matrix read) and
 # `_measure_single_site!` (parity projection via the contraction kernel).
-# `Measure(:Z)` and `Reset` then flow through the EXISTING generic
-# `execute!` methods in Core/apply.jl unchanged.
+# `Measure(:Z)` then flows through the EXISTING generic `execute!` method in
+# Core/apply.jl unchanged. (`Reset` is rejected on this backend by a
+# dedicated `execute!` override in Gaussian.jl — it would need a qubit
+# PauliX, which has no fermionic Gaussian counterpart.)
 #
 # Occupation convention (see kernel.jl header):
 #   Γ[2i−1, 2i] = ⟨i γ_{2i−1} γ_{2i}⟩ = 1 − 2⟨cᵢ†cᵢ⟩,  i.e.  ⟨cᵢ†cᵢ⟩ = (1 − Γ[2i−1, 2i]) / 2
@@ -89,7 +91,7 @@ Logs a `MeasurementOutcome` event exactly like the default implementation
 """
 function _measure_single_site!(state::SimulationState{GaussianBackend}, site::Int)
     state.backend.majoranas_per_site == 1 && throw(ArgumentError(
-        "Measure(:Z)/Reset are not defined on a Majorana chain (site_type=\"Majorana\"): a " *
+        "Measure(:Z) is not defined on a Majorana chain (site_type=\"Majorana\"): a " *
         "single Majorana site has no parity; use BondParity on an adjacent pair instead."))
     Γ = state.backend.corr
     Γ === nothing && throw(ArgumentError(

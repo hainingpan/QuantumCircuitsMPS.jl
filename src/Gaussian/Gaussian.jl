@@ -5,9 +5,17 @@
 #     the two target sites (DIRECT conjugation — exact for unitaries; the
 #     Choi/contraction kernel `gaussian_contraction!` is reserved for
 #     measurements).
-#   - PauliX: fermionic occupation flip (single-Majorana reflection).
 #   - AbstractGate fallback: informative ArgumentError (mirrors the Clifford
 #     backend's rejecting fallback in src/Clifford/Clifford.jl).
+#   - Reset: rejected by a dedicated `execute!` override BEFORE the Born
+#     draw (the generic Reset measures first and only then applies PauliX,
+#     which this backend does not have — see the method's docstring).
+#
+# Qubit PauliX has no Gaussian implementation on purpose. The only
+# occupation flip a covariance matrix can represent is the reflection of a
+# single Majorana, i.e. conjugation by γ_{2i} — a parity-ODD operator. No
+# closed fermionic system evolves under such a unitary (fermion-parity
+# superselection), so it is rejected like every other non-Gaussian gate.
 #
 # DISPATCH NOTE: the AbstractGate catch-all below (specializing on `state`'s
 # type parameter only) is AMBIGUOUS against any un-parameterized
@@ -85,41 +93,38 @@ function _apply_single!(state::SimulationState{GaussianBackend}, gate::GaussianH
 end
 
 @doc raw"""
-    _apply_single!(state::SimulationState{GaussianBackend}, gate::PauliX, phy_sites::Vector{Int})
+    execute!(state::SimulationState{GaussianBackend}, gate::Reset, region::Vector{Int})
 
-Fermionic OCCUPATION FLIP on the single site in `phy_sites` — NOT the
-Jordan-Wigner qubit Pauli-X. Implemented as the reflection of one on-site
-Majorana: the sign of row and column `2i` of Γ is flipped (`i` = RAM index
-of the site), which negates the on-site element ``\Gamma[2i-1,2i] = \langle i\gamma_{2i-1}\gamma_{2i}\rangle``
-and therefore flips the occupation ``\langle c^\dagger c\rangle = (1-\Gamma[2i-1,2i])/2`` between 0
-and 1. A reflection ``\Gamma \leftarrow R\Gamma R`` with ``R = \mathrm{diag}(1,\dots,-1,\dots,1)`` is exactly
-orthogonal, so the pure-state invariant ``\Gamma^2 = -I`` is preserved to machine
-precision (no re-purification needed).
+Always throws an `ArgumentError`: `Reset` is not available on the Gaussian
+backend, on either site granularity.
 
-This is the operation that lets the generic `Reset` gate (measure, then
-flip if occupied — `src/Core/apply.jl`) work on the Gaussian backend:
-vacuum + `PauliX(site i)` ⇒ site `i` measures occupied with probability 1.
+`Reset` is "measure, then `PauliX` if the outcome is 1", and the flip is
+the problem. A covariance matrix can only flip one occupation by reflecting
+a single Majorana (conjugation by ``\gamma_{2i}``), which is a parity-odd
+operator: it changes the fermion parity of the state, something no closed
+fermionic system can do. Rather than ship a flip that is physically
+meaningless for fermions, both `PauliX` and `Reset` are rejected.
 
-On the Majorana chain (`site_type="Majorana"`, `majoranas_per_site == 1`)
-this throws an informative `ArgumentError`: a site is a single Majorana
-mode and no single-Majorana occupation flip exists.
+The generic `execute!(::SimulationState, ::Reset, ...)` in `src/Core/apply.jl`
+would Born-sample the site FIRST and only then fail on `PauliX` (for
+outcome 1 — and silently succeed for outcome 0). This override exists so the
+rejection happens before anything changes: the covariance matrix and the
+`:born_measurement` stream are untouched when it throws.
+
+To project a mode onto a definite occupation use `Measure(:Z)` (random
+outcome); to prepare an occupation pattern use `initialize!` with
+`ProductState(bitstring=...)`. For the qubit `Reset`, use `backend=:mps` or
+`backend=:statevector`.
 """
-function _apply_single!(state::SimulationState{GaussianBackend}, gate::PauliX, phy_sites::Vector{Int})
-    if support(gate) != length(phy_sites)
-        throw(ArgumentError("Gate support $(support(gate)) does not match sites $(length(phy_sites))"))
-    end
-    state.backend.majoranas_per_site == 1 && throw(ArgumentError(
-        "PauliX is not defined on a Majorana chain (site_type=\"Majorana\"): a site is a " *
-        "single Majorana mode and no single-Majorana occupation flip exists (occupation " *
-        "lives on a PAIR of Majoranas). Use fermionic-mode granularity (site_type=\"Qubit\")."))
-    Γ = state.backend.corr
-    Γ === nothing && throw(ArgumentError(
-        "Gaussian state is not initialized — call initialize!(state, ...) before applying gates."))
-
-    i = last(site_majoranas(state, phy_sites[1]))  # second Majorana (2r) of the mode
-    Γ[i, :] .*= -1
-    Γ[:, i] .*= -1   # diagonal element Γ[i,i] is flipped twice — stays 0
-    return nothing
+function execute!(state::SimulationState{GaussianBackend}, gate::Reset, region::Vector{Int})
+    throw(ArgumentError(
+        "Reset is not supported on the Gaussian backend (the state is unchanged): resetting " *
+        "a fermionic mode would require a single-Majorana occupation flip, which is parity-odd " *
+        "and not a fermionic Gaussian operation. The Gaussian backend supports GaussianHaar, " *
+        "Measure(:Z), and BondParity only. Use Measure(:Z) for a projective occupation " *
+        "measurement, ProductState(bitstring=...) to prepare an occupation pattern, or " *
+        "backend=:mps / backend=:statevector for Reset."
+    ))
 end
 
 """
@@ -149,15 +154,15 @@ end
 Fallback for any gate NOT handled by one of the specific `_apply_single!`
 methods above. The Gaussian (free-fermion covariance-matrix) backend can
 only represent fermionic Gaussian operations; generic qubit gates (e.g.
-Hadamard, CNOT, Haar-random qubit unitaries) are not Gaussian and have no
-covariance-matrix representation. Throws an informative `ArgumentError`
-naming the offending gate type and suggesting the dense-backend
-alternatives.
+Hadamard, CNOT, Haar-random qubit unitaries, and PauliX — see the file
+header) are not Gaussian and have no covariance-matrix representation.
+Throws an informative `ArgumentError` naming the offending gate type and
+suggesting the dense-backend alternatives.
 """
 function _apply_single!(state::SimulationState{GaussianBackend}, gate::AbstractGate, phy_sites::Vector{Int})
     throw(ArgumentError(
         "Gaussian backend only supports fermionic Gaussian operations " *
-        "(GaussianHaar, PauliX, Measure(:Z), BondParity, Reset). " *
+        "(GaussianHaar, Measure(:Z), BondParity). " *
         "Received: $(typeof(gate)). " *
         "Please switch to backend=:mps or backend=:statevector for non-Gaussian gates."
     ))

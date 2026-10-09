@@ -8,6 +8,22 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
 
 ## [Unreleased]
 
+### Removed
+
+- `PauliX` and `Reset` on the Gaussian backend. The Gaussian `PauliX` was a
+  single-Majorana reflection (conjugation by ``\gamma_{2i}``), which flips the
+  occupation of mode `i` but is parity-odd: it changes the fermion parity
+  of the state, which no closed fermionic system can do, and after a
+  Jordan–Wigner transformation it is ``X_i Z_{i+1}\cdots Z_L`` rather than the
+  qubit ``X_i`` the gate name promises. Neither reading is a fermionic
+  Gaussian operation, so both gates are now rejected with an
+  `ArgumentError` on both site granularities. `Reset` is rejected before its
+  Born draw (the generic path would have measured first and only then failed
+  on the flip, or silently succeeded on outcome 0), leaving the covariance
+  matrix and the `:born_measurement` stream untouched. The supported
+  Gaussian gate set is `GaussianHaar`, `Measure(:Z)`, and `BondParity`;
+  prepare occupation patterns with `ProductState(bitstring=...)`.
+
 ### Changed
 
 Inputs that used to return a plausible but wrong result are now rejected
@@ -43,6 +59,20 @@ with an `ArgumentError` before the state changes:
   weight per listed sector, so a duplicate was double-weighted: on a spin-1
   pair in ``|0,0\rangle`` the set ``\{0, 2\}`` has ``P(S=0) = 1/3``, but
   `[0, 0, 2]` selected ``S=0`` with probability ``1/2``.
+
+The Gaussian backend guide now states what its region observables measure.
+`EntanglementEntropy(cut=region)` and `MutualInformation` on the Gaussian
+backend are entropies of sets of fermionic *modes*, read off the restricted
+covariance matrix. They coincide with the Jordan–Wigner spin entropies of the
+same sites whenever the region or its complement is one contiguous block
+(every `cut::Int`, every range, PBC-wrapped regions such as `[L, 1]`), but
+not for a doubly non-contiguous region: for
+``\tfrac{1}{2}(1 + c_1^\dagger c_3^\dagger)(1 + c_2^\dagger c_4^\dagger)|0\rangle``
+the fermionic entropy of modes ``\{1, 3\}`` is ``0`` while the spin entropy
+of sites ``\{1, 3\}`` is ``\ln 2``. Nothing numerical changed; a
+cross-validation test now pins this contract against the exact
+Jordan–Wigner oracle, and the `MutualInformation`/`EntanglementEntropy`
+docstrings carry the same caveat.
 
 ### Fixed
 
@@ -86,6 +116,19 @@ with an `ArgumentError` before the state changes:
   selected by `parity_projection_upsilon(s)`) were corrected accordingly. No
   numerical behavior changed: `state.backend.corr`, Born probabilities,
   measurement outcomes, and every observable are identical.
+- The `EntanglementEntropy` docstring described `cut::Int` as "the physical
+  site where the bipartition cut is made" on every backend, and its MPS
+  implementation notes claimed a physical-to-RAM conversion that the code
+  does not perform. The docstring now states the convention: under
+  `bc=:periodic` the MPS backend uses `cut` as a bond of its folded chain,
+  so the subsystem is the ring arc `state.ram_phy[1:cut]`, while the
+  state-vector, Clifford, and Gaussian backends, which have no fold,
+  bipartition the physical prefix ``\{1,\ldots,\mathrm{cut}\}``; with the
+  default fold the half cut `L÷2` (and one neighbouring cut) coincide. It
+  comes with a worked `L = 8` table and the
+  `sort(state.ram_phy[1:cut]) == 1:cut` alignment check; the MPS guide,
+  `EntropyProfile`, and the Backend Interface Contract were aligned with it.
+  No numerical behavior changed.
 
 ## [0.5.6] - 2026-10-08
 

@@ -11,8 +11,8 @@ discussed (see [CONTRIBUTING.md](CONTRIBUTING.md)).
 
 The Gaussian (free-fermion / Majorana-covariance-matrix) backend
 (`backend=:gaussian`) shipped as a fourth backend alongside MPS, state
-vector, and Clifford: `GaussianHaar`/`PauliX`/`Measure(:Z)`/`BondParity`/
-`Reset` gates, `EntanglementEntropy`/`Magnetization`/`MutualInformation`/
+vector, and Clifford: `GaussianHaar`/`Measure(:Z)`/`BondParity` gates,
+`EntanglementEntropy`/`Magnetization`/`MutualInformation`/
 `TripartiteMutualInformation` observables, both fermionic-mode and
 Majorana-chain (`site_type="Majorana"`) site granularities, and an example
 notebook reproducing the class-DIII staggered monitored Majorana-chain phase

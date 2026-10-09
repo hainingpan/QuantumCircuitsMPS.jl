@@ -188,7 +188,8 @@ end
     @test_throws ArgumentError born_probability(s, 2, 0)
     # messages are informative
     for (f, needle) in ((() -> apply!(s, Measure(:Z), SingleSite(2)), "BondParity"),
-        (() -> apply!(s, PauliX(), SingleSite(2)), "single-Majorana"),
+        (() -> apply!(s, PauliX(), SingleSite(2)), "PauliX"),   # rejected on every Gaussian granularity
+        (() -> apply!(s, Reset(), SingleSite(2)), "Reset"),
         (() -> Magnetization(:Z)(s), "Majorana"),
         (() -> born_probability(s, 2, 0), "BondParity"))
         err = try
