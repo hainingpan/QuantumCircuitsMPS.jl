@@ -2,6 +2,11 @@
     BornProbability(site::Int, outcome::Int)
 
 Observable for Born rule probability ``P(\text{outcome} \mid \text{state})`` at a physical site.
+
+`outcome` is a level index `0 .. local_dim-1` (0 or 1 for qubits). It is
+checked against the state's `local_dim` when the observable is evaluated:
+a nonexistent level is an `ArgumentError`, never a silent `0.0` (or, on the
+Clifford backend, a silent `0.5`).
 """
 struct BornProbability <: AbstractObservable
     site::Int      # Physical site index
@@ -16,6 +21,9 @@ end
 
 # Callable struct interface
 function (bp::BornProbability)(state)
+    bp.outcome < state.local_dim || throw(ArgumentError(
+        "BornProbability outcome $(bp.outcome) does not exist on a site with " *
+        "local_dim=$(state.local_dim) (valid levels: 0:$(state.local_dim - 1))"))
     return born_probability(state, bp.site, bp.outcome)
 end
 

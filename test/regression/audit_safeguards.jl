@@ -168,4 +168,37 @@ end
         g = make_backend_state(:gaussian, L; binary_int = 15, seeds = _as_seeds())
         @test size(g.backend.corr) == (2L, 2L)
     end
+
+    # ------------------------------------------------------------------
+    # 5. Born probability of a nonexistent level
+    # ------------------------------------------------------------------
+    @testset "BornProbability rejects levels ≥ local_dim on every backend" begin
+        # Qubits on all four backends: level 2 does not exist
+        for backend in (:mps, :statevector, :clifford, :gaussian)
+            s = make_backend_state(backend, 2; seeds = _as_seeds())
+            err = _as_caught(() -> BornProbability(1, 2)(s))
+            @test err isa ArgumentError
+            @test occursin("outcome 2", err.msg)
+            @test occursin("local_dim=2", err.msg)
+            @test BornProbability(1, 0)(s) ≈ 1.0
+            @test BornProbability(1, 1)(s) ≈ 0.0 atol = 1e-12
+        end
+
+        # The reported Clifford case: |+⟩ gave [0.5, 0.5, 0.5] for levels 0, 1, 2
+        cs = make_backend_state(:clifford, 2; seeds = _as_seeds())
+        apply!(cs, Hadamard(), SingleSite(1))
+        @test BornProbability(1, 0)(cs) == 0.5
+        @test BornProbability(1, 1)(cs) == 0.5
+        @test_throws ArgumentError BornProbability(1, 2)(cs)
+        @test_throws ArgumentError born_probability(cs, 1, 2)   # direct call too
+
+        # Spin-1: levels 0..2 exist, level 3 does not
+        for backend in (:mps, :statevector)
+            s = SimulationState(L = 2, bc = :open, site_type = "S=1", backend = backend,
+                rng = _as_rng())
+            initialize!(s, ProductState(spin_state = "Dn"))
+            @test BornProbability(1, 2)(s) ≈ 1.0
+            @test_throws ArgumentError BornProbability(1, 3)(s)
+        end
+    end
 end

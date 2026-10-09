@@ -18,7 +18,9 @@ import QuantumClifford
     born_probability(state::SimulationState{CliffordBackend}, site::Int, outcome::Int) -> Float64
 
 Compute the Born (Z-measurement) probability of `outcome` (0 or 1) at
-physical `site` for a stabilizer state.
+physical `site` for a stabilizer state. Any other `outcome` is an
+`ArgumentError`: a qubit has no third level, and the undetermined branch
+below would otherwise report `0.5` for it.
 
 For a stabilizer state, a single-qubit Z measurement is either
 DETERMINISTIC (probability exactly 0.0 or 1.0) or perfectly UNDETERMINED
@@ -28,6 +30,8 @@ NON-DESTRUCTIVE, read-only query: it operates on a copy of the tableau via
 `QuantumClifford.projectZ!`, so `state.backend.tableau` is left unmodified.
 """
 function born_probability(state::SimulationState{CliffordBackend}, site::Int, outcome::Int)
+    outcome in (0, 1) || throw(ArgumentError(
+        "Clifford born_probability: outcome must be 0 or 1 for a qubit, got $outcome"))
     ram_site = state.phy_ram[site]
     tableau_copy = copy(state.backend.tableau)
     _, anticom_index, result = QuantumClifford.projectZ!(tableau_copy, ram_site)
