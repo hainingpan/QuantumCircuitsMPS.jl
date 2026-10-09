@@ -8,127 +8,63 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
 
 ## [Unreleased]
 
+## [0.5.7] - 2026-10-09
+
 ### Removed
 
-- `PauliX` and `Reset` on the Gaussian backend. The Gaussian `PauliX` was a
-  single-Majorana reflection (conjugation by ``\gamma_{2i}``), which flips the
-  occupation of mode `i` but is parity-odd: it changes the fermion parity
-  of the state, which no closed fermionic system can do, and after a
-  Jordan–Wigner transformation it is ``X_i Z_{i+1}\cdots Z_L`` rather than the
-  qubit ``X_i`` the gate name promises. Neither reading is a fermionic
-  Gaussian operation, so both gates are now rejected with an
-  `ArgumentError` on both site granularities. `Reset` is rejected before its
-  Born draw (the generic path would have measured first and only then failed
-  on the flip, or silently succeeded on outcome 0), leaving the covariance
-  matrix and the `:born_measurement` stream untouched. The supported
-  Gaussian gate set is `GaussianHaar`, `Measure(:Z)`, and `BondParity`;
-  prepare occupation patterns with `ProductState(bitstring=...)`.
+- `PauliX` and `Reset` on the Gaussian backend. Neither is a fermionic
+  Gaussian operation (the Gaussian `PauliX` changed the fermion parity), so
+  both now throw an `ArgumentError`. The supported Gaussian gates are
+  `GaussianHaar`, `Measure(:Z)`, and `BondParity`.
 
 ### Changed
 
-Inputs that used to return a plausible but wrong result are now rejected
-with an `ArgumentError` before the state changes:
+Inputs that used to return a plausible but wrong result now throw an
+`ArgumentError` before the state changes:
 
-- `Reset` is qubit-only (`local_dim=2`). On a spin-1 site it measured all
-  three levels but only flipped outcome 1, so a site found in level 2 was
-  left there. Any `local_dim ≠ 2` site now throws before the Born draw, so
-  the state and the `:born_measurement` stream are untouched. Build a
-  higher-spin reset with `Measure(:Z; feedback=...)` if needed.
-- `StringOrder` requires `site_type="S=1"` on the MPS and state-vector
-  backends. The state-vector method silently used a qubit eigenvalue table
-  for every `local_dim ≠ 3` (on spin-3/2 sites it returned ``+1`` where the
-  spin formula gives ``-2.25``); the MPS method failed with an ITensor
-  internal error. The qubit table is gone with it — qubits were never
-  supported on MPS and are now rejected on both.
-- `ProductState(binary_int=n)` must fit in `L` binary digits
-  (``n < 2^L``). A larger `n` produced a different state on every backend:
-  MPS and Clifford kept the leading `L` bits, the state vector and the
-  Gaussian covariance were built with too many sites.
-- `BornProbability(site, k)` rejects a level `k ≥ local_dim` on every
-  backend. It returned `0.0` on MPS/state vector and, on the Clifford
-  backend, `0.5` for an undetermined qubit — so ``|+\rangle`` reported
-  probabilities ``[0.5, 0.5, 0.5]`` for outcomes 0, 1, 2. The Clifford
-  `born_probability` function itself rejects any outcome other than 0/1.
-- A region with a repeated site (`Sites([2, 2])`,
-  `apply!(state, gate, [2, 2])`) is rejected, by the `Sites` constructor and
-  by `execute!` (so every geometry, `apply!` and the circuit engine). On the
-  Clifford backend a `RandomClifford` on such a region produced a
-  non-unitary tableau update that could purify one half of a Bell pair.
-- `SpinSectorMeasurement(sectors)` rejects a repeated sector
-  (`SpinSectorMeasurement([0, 0, 2])`). The sampler normalizes one Born
-  weight per listed sector, so a duplicate was double-weighted: on a spin-1
-  pair in ``|0,0\rangle`` the set ``\{0, 2\}`` has ``P(S=0) = 1/3``, but
-  `[0, 0, 2]` selected ``S=0`` with probability ``1/2``.
+- `Reset` on a non-qubit site (on spin-1 sites it only flipped outcome 1).
+- `StringOrder` on any `site_type` other than `"S=1"` on the MPS and
+  state-vector backends (the state vector used a qubit eigenvalue table; the
+  MPS failed with an ITensor internal error).
+- `ProductState(binary_int=n)` with ``n \ge 2^L`` (each backend prepared a
+  different state).
+- `BornProbability(site, k)` with `k ≥ local_dim` (returned `0.0`, or `0.5`
+  on the Clifford backend).
+- A region with a repeated site, in `Sites`, `apply!`, and every geometry
+  (a `RandomClifford` on such a region was non-unitary).
+- `SpinSectorMeasurement` with a repeated sector (the duplicate was
+  double-weighted in the Born draw).
 
-The Gaussian backend guide now states what its region observables measure.
-`EntanglementEntropy(cut=region)` and `MutualInformation` on the Gaussian
-backend are entropies of sets of fermionic *modes*, read off the restricted
-covariance matrix. They coincide with the Jordan–Wigner spin entropies of the
-same sites whenever the region or its complement is one contiguous block
-(every `cut::Int`, every range, PBC-wrapped regions such as `[L, 1]`), but
-not for a doubly non-contiguous region: for
-``\tfrac{1}{2}(1 + c_1^\dagger c_3^\dagger)(1 + c_2^\dagger c_4^\dagger)|0\rangle``
-the fermionic entropy of modes ``\{1, 3\}`` is ``0`` while the spin entropy
-of sites ``\{1, 3\}`` is ``\ln 2``. Nothing numerical changed; a
-cross-validation test now pins this contract against the exact
-Jordan–Wigner oracle, and the `MutualInformation`/`EntanglementEntropy`
-docstrings carry the same caveat.
+The Gaussian backend guide and the `EntanglementEntropy`/`MutualInformation`
+docstrings now state that Gaussian region entropies are entropies of sets of
+fermionic modes, which agree with the Jordan–Wigner spin entropies only when
+the region or its complement is contiguous. No numerical change; a
+cross-validation test pins the contract.
 
 ### Fixed
 
 - `Bricklayer(:nnn_odd_2)` / `Bricklayer(:nnn_even_2)` under `bc=:periodic`
-  at ``L \equiv 2 \pmod 4`` (`L = 6, 10, 14, ...`) are not disjoint pair
-  layers, and now say so: a one-time warning is emitted at circuit-build time
-  and on immediate-mode `apply!`, through the same helper as the odd-`L`
-  `:odd`/`:even` warning. The next-nearest-neighbor bonds of an even ring form
-  two rings of length ``L/2`` (odd sites, even sites); when ``L/2`` is odd no
-  two-layer tiling exists, so the sublayer's wrap pair shares a site with its
-  last bulk pair (`(3,5),(5,1)` at `L=6`) and the two gates are applied
-  sequentially in enumeration order rather than as one depth-1 layer. The
-  enumeration itself is unchanged (RNG coin order is an API contract), and
-  `Bricklayer(:nnn)` still gates every NNN bond exactly once. `:nnn_odd_1`,
-  `:nnn_even_1`, `:nnn`, ``L \equiv 0 \pmod 4``, and open boundaries do not
-  warn.
-- `DomainWall(order=...)` computed its weights ``(L-j+1)^{\text{order}}``
-  in `Int64`, which overflows (wrapping even to `0`) once they exceed
-  ``2^{63}`` — `DomainWall(order=32)` on four sites in ``|1000\rangle``
-  returned `0` instead of ``4^{32}``. The weights are now exact big-integer
-  powers rounded to `Float64`; results in the non-overflowing regime are
-  bit-identical.
+  at ``L \equiv 2 \pmod 4`` now warn once that the sublayer is not a disjoint
+  pair layer (its wrap pair shares a site with its last bulk pair). The gate
+  enumeration is unchanged.
+- `DomainWall(order=...)` overflowed `Int64` for large orders and could
+  return `0`. Weights are now exact; results in the non-overflowing regime
+  are bit-identical.
 - `initialize!(state, ProductState(...))` on `site_type="Qudit"` prepared the
-  wrong product state on both the MPS and state-vector backends: each bit was
-  shifted up by one level, so `binary_int=0` gave ``|11\cdots1\rangle``
-  instead of ``|00\cdots0\rangle`` (and `local_dim=2` with a `1` bit threw a
-  `BoundsError`). ITensor `"Qudit"` state labels are zero-based, so a bit `b`
-  now prepares level `b`, making a `local_dim=2` Qudit identical to a Qubit.
-  `"Qubit"` and spin-``S`` site types were never affected.
-- The Gaussian backend's documented Majorana operators did not match its
-  covariance matrix: with the previously stated ``\gamma_{2i} = i(c_i^\dagger - c_i)``,
-  the stored ``\Gamma`` would have been ``-\frac{i}{2}\langle[\gamma_a,\gamma_b]\rangle``
-  instead of the advertised ``+\frac{i}{2}\langle[\gamma_a,\gamma_b]\rangle``. The
-  convention is now stated consistently in the guide, the docstrings, and the
-  exact-diagonalization test oracle: ``\Gamma_{ab} = \frac{i}{2}\langle[\gamma_a,\gamma_b]\rangle = \langle i\gamma_a\gamma_b\rangle``
-  with ``\gamma_{2i-1} = c_i + c_i^\dagger`` and ``\gamma_{2i} = -i(c_i^\dagger - c_i)``
-  (Bravyi's convention), so ``\Gamma_{2i-1,2i} = 1 - 2\langle c_i^\dagger c_i\rangle`` and an
-  unoccupied mode has ``\Gamma_{2i-1,2i} = +1``, exactly as the code always
-  stored. Derived statements that carried the wrong sign (``\langle i\gamma_a\gamma_b\rangle``
-  versus ``\Gamma_{ab}``, ``n_i = (1 - i\gamma_{2i-1}\gamma_{2i})/2``, the parity sector
-  selected by `parity_projection_upsilon(s)`) were corrected accordingly. No
-  numerical behavior changed: `state.backend.corr`, Born probabilities,
-  measurement outcomes, and every observable are identical.
-- The `EntanglementEntropy` docstring described `cut::Int` as "the physical
-  site where the bipartition cut is made" on every backend, and its MPS
-  implementation notes claimed a physical-to-RAM conversion that the code
-  does not perform. The docstring now states the convention: under
-  `bc=:periodic` the MPS backend uses `cut` as a bond of its folded chain,
-  so the subsystem is the ring arc `state.ram_phy[1:cut]`, while the
-  state-vector, Clifford, and Gaussian backends, which have no fold,
-  bipartition the physical prefix ``\{1,\ldots,\mathrm{cut}\}``; with the
-  default fold the half cut `L÷2` (and one neighbouring cut) coincide. It
-  comes with a worked `L = 8` table and the
-  `sort(state.ram_phy[1:cut]) == 1:cut` alignment check; the MPS guide,
-  `EntropyProfile`, and the Backend Interface Contract were aligned with it.
-  No numerical behavior changed.
+  wrong product state on the MPS and state-vector backends (every bit was
+  shifted up one level, so `binary_int=0` gave ``|11\cdots1\rangle``).
+  `"Qubit"` and spin-``S`` sites were never affected.
+- The Gaussian backend's documented Majorana operators had the wrong sign
+  relative to its covariance matrix. The guide, docstrings, and test oracle
+  now state Bravyi's convention consistently
+  (``\gamma_{2i-1} = c_i + c_i^\dagger``, ``\gamma_{2i} = -i(c_i^\dagger - c_i)``,
+  ``\Gamma_{ab} = \frac{i}{2}\langle[\gamma_a,\gamma_b]\rangle``). No numerical
+  change.
+- The `EntanglementEntropy` docstring misdescribed `cut::Int` under
+  `bc=:periodic`: on the MPS backend `cut` is a bond of the folded chain and
+  the subsystem is `state.ram_phy[1:cut]`; the other backends bipartition the
+  physical prefix. The MPS guide, `EntropyProfile`, and the backend contract
+  were aligned. No numerical change.
 
 ## [0.5.6] - 2026-10-08
 
@@ -600,7 +536,8 @@ documentation.
 
 Initial clean release, with CIPT and MIPT example notebooks.
 
-[Unreleased]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.6...HEAD
+[Unreleased]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.7...HEAD
+[0.5.7]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.5...v0.5.6
 [0.5.5]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.4...v0.5.5
 [0.5.4]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.3...v0.5.4
