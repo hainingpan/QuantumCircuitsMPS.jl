@@ -6,6 +6,8 @@
 #      (commit 23a5dee — no double-touch), a full MIPT circuit on the SV
 #      backend, and the MPS backend's documented clean rejection of odd-L PBC
 #      (the folded basis requires even L, src/Core/basis.jl)
+#      2b. NNN wrap sublayers (:nnn_odd_2/:nnn_even_2) at L ≡ 2 (mod 4) under
+#      PBC: enumeration pinned (non-disjoint, API contract) + one-time warning
 #   3. SimulationState / ProductState constructor validation, including two
 #      validations ADDED (L >= 1; binary_int >= 0) that previously
 #      allowed silent construction of unusable/garbage states
@@ -105,6 +107,85 @@ using LinearAlgebra: norm
         end
         @test_logs Circuit(L = 5, bc = :periodic) do c
             apply!(c, HaarRandom(), Bricklayer(:nn))
+        end
+    end
+
+    # =====================================================================
+    # 2b. NNN wrap sublayers at L ≡ 2 (mod 4) under PBC (L=6, 10)
+    # =====================================================================
+    @testset "L%4==2 PBC: NNN wrap sublayers are not disjoint — warn; controls silent" begin
+        # The NNN bonds of an even ring are two rings (odd sites, even sites)
+        # of length L/2. At L ≡ 2 (mod 4) that length is odd, so neither ring
+        # splits into two disjoint pair layers: the wrap pair of :nnn_odd_2 /
+        # :nnn_even_2 shares a site with the sublayer's last bulk pair. The
+        # enumeration is an API contract (RNG coin order) and is KEPT — pinned
+        # here — but the same one-time warning machinery as the odd-L NN case
+        # now fires on both the circuit-builder and immediate-mode paths.
+        @test QuantumCircuitsMPS.elements(Bricklayer(:nnn_odd_2), 6, :periodic) ==
+              [[3, 5], [5, 1]]
+        @test QuantumCircuitsMPS.elements(Bricklayer(:nnn_even_2), 6, :periodic) ==
+              [[4, 6], [6, 2]]
+        @test QuantumCircuitsMPS.elements(Bricklayer(:nnn_even_2), 10, :periodic) ==
+              [[4, 6], [8, 10], [10, 2]]
+        # Bond coverage is still complete and non-redundant at L=6
+        nnn6 = QuantumCircuitsMPS.elements(Bricklayer(:nnn), 6, :periodic)
+        @test length(nnn6) == 6 && allunique(Set.(nnn6))
+
+        warn_re = r"not a valid brickwork sublayer"
+
+        # Circuit-builder path (deterministic apply!)
+        @test_logs (:warn, warn_re) Circuit(L = 6, bc = :periodic) do c
+            apply!(c, HaarRandom(), Bricklayer(:nnn_odd_2))
+        end
+        @test_logs (:warn, warn_re) Circuit(L = 10, bc = :periodic) do c
+            apply!(c, HaarRandom(), Bricklayer(:nnn_even_2))
+        end
+
+        # Circuit-builder path (stochastic outcome geometry)
+        @test_logs (:warn, warn_re) Circuit(L = 6, bc = :periodic) do c
+            apply_with_prob!(c;
+                outcomes = [
+                    (probability = 1.0, gate = Measure(:Z),
+                    geometry = Bricklayer(:nnn_even_2))
+                ])
+        end
+
+        # Immediate-mode path; the message names the shared site and both pairs
+        state = SimulationState(L = 6, bc = :periodic, backend = :statevector,
+            rng = RNGRegistry(gates_spacetime = 1, gates_realization = 2,
+                born_measurement = 3))
+        initialize!(state, ProductState(binary_int = 0))
+        @test_logs (:warn, r"pairs \(3,5\) and \(5,1\), which share site 5") apply!(
+            state, CZ(), Bricklayer(:nnn_odd_2))
+        @test_logs (:warn, r"pairs \(4,6\) and \(6,2\), which share site 6") apply!(
+            state, CZ(), Bricklayer(:nnn_even_2))
+
+        # Controls: NO warning for L ≡ 0 (mod 4) PBC, OBC, the wrap-free
+        # sublayers, or :nnn (ALL NNN bonds — a bond enumeration, not a layer)
+        @test_logs Circuit(L = 8, bc = :periodic) do c
+            apply!(c, HaarRandom(), Bricklayer(:nnn_odd_2))
+            apply!(c, HaarRandom(), Bricklayer(:nnn_even_2))
+        end
+        @test_logs Circuit(L = 6, bc = :open) do c
+            apply!(c, HaarRandom(), Bricklayer(:nnn_odd_2))
+            apply!(c, HaarRandom(), Bricklayer(:nnn_even_2))
+        end
+        @test_logs Circuit(L = 6, bc = :periodic) do c
+            apply!(c, HaarRandom(), Bricklayer(:nnn_odd_1))
+            apply!(c, HaarRandom(), Bricklayer(:nnn_even_1))
+            apply!(c, HaarRandom(), Bricklayer(:nnn))
+        end
+
+        # The warning fires exactly when a sublayer touches a site twice
+        # (collect_test_logs installs a fresh logger, so maxlog=1 resets)
+        for L in 4:16, par in (:nnn_odd_1, :nnn_odd_2, :nnn_even_1, :nnn_even_2)
+
+            layer = QuantumCircuitsMPS.elements(Bricklayer(par), L, :periodic)
+            disjoint = allunique(reduce(vcat, layer; init = Int[]))
+            logs, _ = Test.collect_test_logs() do
+                QuantumCircuitsMPS._warn_bricklayer_odd_pbc(Bricklayer(par), L, :periodic)
+            end
+            @test isempty(logs) == disjoint
         end
     end
 

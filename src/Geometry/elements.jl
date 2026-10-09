@@ -119,8 +119,12 @@ order (API contract — RNG coin consumption follows this order):
   for PBC at even `L`; `:nn` = `:odd` then `:even` plus the `(L,1)` wrap
   bond; `:nnn` = sublayers 1,2,3,4). At odd `L`, single layers (`:odd`,
   `:even`) leave one site unpaired rather than double-touching a site —
-  see the parity branches below. Using `:odd`/`:even` at odd `L` under PBC
-  emits a one-time warning at circuit-build / `apply!` time (helper
+  see the parity branches below. The NNN wrap sublayers `:nnn_odd_2` /
+  `:nnn_even_2` under PBC at ``L \equiv 2 \pmod 4`` are NOT disjoint: the
+  wrap pair shares a site with the last bulk pair (`(L-3,L-1),(L-1,1)` resp.
+  `(L-2,L),(L,2)`), because the odd-site and even-site NNN rings then have
+  odd length ``L/2``; the enumeration is kept as an API contract. Both cases
+  emit a one-time warning at circuit-build / `apply!` time (helper
   `_warn_bricklayer_odd_pbc` in `Geometry/static.jl` — deliberately NOT
   called here: `elements` sits in performance-critical loops).
 
@@ -207,7 +211,12 @@ function elements(geo::Bricklayer, L::Int, bc::Symbol)
             push!(pairs, (i, i+2))
         end
         if bc == :periodic && L >= 4
-            push!(pairs, (L-1, 1))  # Wrap: (11,1) for L=12
+            # Wrap: (11,1) for L=12. Disjoint from the bulk only when L % 4 == 0;
+            # at L % 4 == 2 the bulk already ends with (L-3, L-1), so site L-1
+            # is touched twice (odd-site NNN ring of odd length L/2 — no
+            # two-layer tiling exists). Kept as the API contract; the caller
+            # paths warn via _warn_bricklayer_odd_pbc.
+            push!(pairs, (L-1, 1))
         end
     elseif geo.parity == :nnn_even_1
         # NNN even sublayer 1: (2,4), (6,8), (10,12), ... (stride 4, offset 2)
@@ -220,7 +229,9 @@ function elements(geo::Bricklayer, L::Int, bc::Symbol)
             push!(pairs, (i, i+2))
         end
         if bc == :periodic && L >= 4
-            push!(pairs, (L, 2))  # Wrap: (12,2) for L=12
+            # Wrap: (12,2) for L=12. Same caveat as :nnn_odd_2: at L % 4 == 2
+            # the bulk ends with (L-2, L), so site L is touched twice.
+            push!(pairs, (L, 2))
         end
     end
     return [[p1, p2] for (p1, p2) in pairs]
