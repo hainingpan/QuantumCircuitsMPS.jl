@@ -1,6 +1,6 @@
 cff-version: 1.2.0
 message: "If you use this software, please cite it as below."
-title: "QuantumCircuitsMPS.jl: MPS-based Quantum Circuit Simulation"
+title: "QuantumCircuitsMPS.jl: Quantum Circuit Simulation"
 authors:
   - family-names: Pan
     given-names: Haining
