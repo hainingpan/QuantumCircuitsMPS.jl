@@ -63,6 +63,13 @@ using Test
 
 const GOLDEN_DIR = joinpath(@__DIR__, "golden")
 
+# Every MPS state below is built with `retruncate = :gate`: the goldens were
+# captured when a projective gate was always followed by a full-chain
+# `truncate!`, and that choice is part of their truncation history. The
+# package default is now `:never` (see the `SimulationState` docstring);
+# re-running these circuits with the default reproduces the same physics but
+# not the same digits.
+#
 # Physics values (entropies, expectation values, string order) are compared
 # at GOLDEN_PHYSICS_ATOL; RNG fingerprints must still match EXACTLY. The
 # goldens were captured when `normalize!` after a projective gate rescaled
@@ -122,7 +129,8 @@ function rerun_case_a()
             (probability = p, gate = Measure(:Z), geometry = AllSites())])
     end
     registry = RNGRegistry(gates_spacetime = 42, born_measurement = 1, gates_realization = 2)
-    state = SimulationState(L = L, bc = :periodic, maxdim = 64, rng = registry)
+    state = SimulationState(L = L, bc = :periodic, maxdim = 64, rng = registry,
+        retruncate = :gate)
     initialize!(state, ProductState(binary_int = 0))
     track!(state, :entropy => EntanglementEntropy(; cut = 4))
     simulate!(circuit, state; n_steps = n_steps, record_when = :every_step)
@@ -145,7 +153,8 @@ function rerun_case_c()
                 (probability = 1-c.params[:p_ctrl], gate = HaarRandom(), geometry = right)])
     end
     registry = RNGRegistry(gates_spacetime = 42, born_measurement = 1, gates_realization = 2)
-    state = SimulationState(L = L, bc = :periodic, maxdim = 64, rng = registry)
+    state = SimulationState(L = L, bc = :periodic, maxdim = 64, rng = registry,
+        retruncate = :gate)
     initialize!(state, ProductState(binary_int = 0))
     track!(state, :Mz => Magnetization(:Z))
     simulate!(circuit, state; n_steps = n_steps, record_when = :every_gate)
@@ -163,7 +172,8 @@ function rerun_case_d()
         apply!(c, HaarRandom(), Bricklayer(:odd))
     end
     registry = RNGRegistry(gates_spacetime = 42, born_measurement = 1, gates_realization = 2)
-    state = SimulationState(L = L, bc = :periodic, maxdim = 64, rng = registry)
+    state = SimulationState(L = L, bc = :periodic, maxdim = 64, rng = registry,
+        retruncate = :gate)
     initialize!(state, ProductState(binary_int = 0))
     track!(state, :entropy => EntanglementEntropy(; cut = 4))
     simulate!(circuit, state; n_steps = n_steps, record_when = :every_step)
@@ -188,7 +198,7 @@ function rerun_case_aklt()
     registry = RNGRegistry(gates_spacetime = 42, gates_realization = 2, born_measurement = 3)
     state = SimulationState(
         L = L, bc = bc, site_type = "S=1", maxdim = 128, rng = registry,
-        log_events = true)
+        log_events = true, retruncate = :gate)
     initialize!(state, ProductState(spin_state = "Z0"))
     track!(state, :entropy => EntanglementEntropy(cut = L÷2, renyi_index = 1, base = 2))
     track!(state, :string_order => StringOrder(1, L÷2+1, order = 1))

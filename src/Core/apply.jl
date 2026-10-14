@@ -12,7 +12,8 @@ through the uniform `execute!(state, gate, region)` protocol.
 
 Normalization dispatch (Contract 3.5) is trait-based:
 - `needs_normalization(gate) == false` (unitaries): NO normalize after apply
-- `needs_normalization(gate) == true` (projective gates): normalize + truncate
+- `needs_normalization(gate) == true` (projective gates): normalize, plus a
+  full-chain `truncate!` when the MPS backend has `retruncate == :gate`
 """
 function apply!(state::SimulationState, gate::AbstractGate, geo::AbstractGeometry)
     # Dispatch to appropriate handler based on geometry type
@@ -141,7 +142,8 @@ Execute `gate` on the physical sites `region` (already resolved from a
 geometry). This is the v0.1 gate-execution protocol:
 
 - **Default implementation**: `build_operator` → `apply_op_internal!`, then
-  normalize + truncate iff `needs_normalization(gate)` (see `_apply_single!`).
+  normalize (and, with `retruncate == :gate`, a full-chain `truncate!`) iff
+  `needs_normalization(gate)` (see `_apply_single!`).
 - **Gate-specific overrides**: gates with non-operator semantics (Born
   sampling + classical logic) override this method — see `Measure` and
   `Reset` below. User-defined gates may override it the same way:
@@ -238,14 +240,20 @@ Steps:
 2. Convert physical sites to RAM indices
 3. Build operator with physical site indices
 4. Apply operator to MPS
-5. Normalize + truncate iff `needs_normalization(gate)` (trait, Contract 3.5);
-   the normalization rescales the gauge-center tensor left by step 4 (no
-   full-chain inner product). Such a gate is rejected with an `ArgumentError`
-   — before any tensor is written back, so the state is unchanged — when it
-   annihilates the state (postselection onto a zero-probability outcome; see
+5. Normalize iff `needs_normalization(gate)` (trait, Contract 3.5), by
+   rescaling the gauge-center tensor left by step 4 (no full-chain inner
+   product). Such a gate is rejected with an `ArgumentError` — before any
+   tensor is written back, so the state is unchanged — when it annihilates
+   the state (postselection onto a zero-probability outcome; see
    `_check_postselection`). The probability is judged relative to the input
    norm, ‖Pψ‖²/‖ψ‖²: the MPS is not renormalized after truncated unitary
    layers, so ‖ψ‖² alone says nothing about the physics.
+6. With `state.backend.retruncate == :gate`, follow the normalization with a
+   full-chain `truncate!(mps; cutoff)`, recompressing the bonds the gate did
+   not touch (a projection can lower the Schmidt rank at every bond). With
+   `:never` (default) those bonds are left alone until the next gate that
+   touches them, like after a unitary; this saves two O(L) sweeps per
+   projective gate.
 """
 function _apply_single!(state::SimulationState, gate::AbstractGate, phy_sites::Vector{Int})
     # Contract 2.1: Support validation
@@ -279,7 +287,9 @@ function _apply_single!(state::SimulationState, gate::AbstractGate, phy_sites::V
         # so in the MPS ortho limits), so normalize! rescales that single
         # tensor instead of contracting the whole chain.
         normalize!(mps)
-        truncate!(mps; cutoff = cutoff)
+        if state.backend.retruncate == :gate
+            truncate!(mps; cutoff = cutoff)
+        end
     else
         # Apply operator using CT.jl algorithm
         apply_op_internal!(mps, op, state.backend.sites, cutoff, state.backend.maxdim)

@@ -94,7 +94,7 @@ function Base.setproperty!(s::SimulationState{MPSBackend}, name::Symbol, val)
 end
 
 """
-    SimulationState(; L, bc, site_type="Qubit", local_dim=2, cutoff=1e-10, maxdim=100, rng=nothing, log_events=false, backend=:mps)
+    SimulationState(; L, bc, site_type="Qubit", local_dim=2, cutoff=1e-10, maxdim=100, retruncate=:never, rng=nothing, log_events=false, backend=:mps)
 
 Create a new simulation state. MPS/statevector is created later via initialize!().
 
@@ -110,6 +110,16 @@ Parameters:
 - `local_dim`: local Hilbert space dimension (default 2)
 - cutoff: SVD truncation cutoff (only meaningful for `backend=:mps`; ignored for `backend=:statevector`/`:clifford`)
 - maxdim: maximum bond dimension (only meaningful for `backend=:mps`; ignored for `backend=:statevector`/`:clifford`)
+- `retruncate`: what a projective gate (`needs_normalization(gate) == true`,
+  e.g. `Measure`, `Reset`, `Projection`, `SpinSectorProjection`) does to the
+  bonds it did not touch. `:never` (default): nothing — only the bonds inside
+  the gate's range are SVD-truncated, like for a unitary gate, and the MPS is
+  renormalized. `:gate`: additionally run a full-chain `truncate!(; cutoff)`
+  after every projective gate (two sweeps over all `L` sites per gate; the
+  behavior before this keyword existed). Both give the same physics up to
+  truncation error; `:gate` keeps every bond minimal at all times, `:never`
+  avoids an ``O(L)`` cost per measurement. Only meaningful for
+  `backend=:mps`; ignored for the other backends.
 - rng: RNGRegistry for reproducible randomness
 - `log_events`: enable the typed event log (default false; see `events`, `measurements`).
   Off by default to avoid any cost in the hot loop.
@@ -140,6 +150,7 @@ function SimulationState(;
         local_dim::Int = 2,
         cutoff::Float64 = 1e-10,
         maxdim::Int = 100,
+        retruncate::Symbol = :never,
         rng = nothing,  # RNGRegistry, attached later or passed here
         log_events::Bool = false,
         backend::Symbol = :mps,
@@ -156,6 +167,8 @@ function SimulationState(;
         throw(ArgumentError("bc must be :open or :periodic, got $bc"))
     engine in (:builtin, :optimized) ||
         throw(ArgumentError("engine must be :builtin or :optimized, got $engine"))
+    retruncate in (:never, :gate) ||
+        throw(ArgumentError("retruncate must be :never or :gate, got $retruncate"))
 
     # Auto-detect local_dim from site_type if not explicitly set.
     # Any spin site type "S=<n>" / "S=<k>/2" (e.g. "S=1", "S=3/2", "S=2")
@@ -176,7 +189,7 @@ function SimulationState(;
             sites = siteinds(site_type, L)
         end
 
-        backend_obj = MPSBackend(nothing, sites, cutoff, maxdim)
+        backend_obj = MPSBackend(nothing, sites, cutoff, maxdim, retruncate)
     elseif backend == :statevector
         # No MPS bond-dimension folding concept for state vectors: identity mapping.
         phy_ram = collect(1:L)
