@@ -8,6 +8,40 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
 
 ## [Unreleased]
 
+### Performance
+
+- **Precompile workload** (`src/precompile.jl`, via PrecompileTools). The
+  package now runs one tiny trajectory per backend at precompile time —
+  built from the gates, geometries, observables, and recording modes of the
+  four worked examples, plus the remaining public gates and observables, the
+  feedback and event-log mechanisms, `bc=:open`, and circuit expansion /
+  printing — so the specialized methods are saved in the package image
+  instead of being JIT-compiled in every fresh session. Time to the first
+  trajectory in a fresh `julia` process, single thread, Julia 1.12.6
+  (minimum over repeated interleaved runs on a shared machine; observables
+  bit-identical before and after in every run):
+  | First trajectory | Before | After |
+  |---|---|---|
+  | Clifford MIPT, L=16 | 5.7 s | 0.33 s |
+  | State vector CIPT, L=8 | 5.9 s | 0.26 s |
+  | MPS spin-1 AKLT, L=8 | 36 s | 9.0 s |
+  | Gaussian DIII Majorana chain, L=16 | 7.2 s | 0.09 s |
+
+  `using QuantumCircuitsMPS` itself is unchanged (3.4–4.6 s either way).
+  The cost is a longer one-time precompile of the package itself (about
+  5 s → 2.5 min on an M4, once per install/update), which contributors can
+  switch off locally with a `LocalPreferences.toml` entry — see
+  CONTRIBUTING.md. No runtime behavior changes; the default test suite and
+  the Aqua/ExplicitImports gates pass unchanged.
+
+### Changed
+
+- The MPS multi-site SVD chain used `ITensors.findindex`, a deprecated alias
+  of `firstind`; it now calls `firstind` directly. No numerical change — the
+  rename only matters because the precompile workload executes that path
+  under `--depwarn=yes` during `Pkg.test`, where the alias printed a
+  deprecation warning.
+
 ## [0.5.8] - 2026-10-09
 
 ### Fixed

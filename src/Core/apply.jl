@@ -374,7 +374,7 @@ function _write_op_block!(mps::MPS, i_list::Vector{Int}, mps_ij::ITensor,
             if idx == 1
                 inds1 = [siteind(mps, 1)]
             else
-                inds1 = [findindex(mps[idx - 1], lefttags), findindex(mps[idx], "Site")]
+                inds1 = [firstind(mps[idx - 1], lefttags), firstind(mps[idx], "Site")]
             end
 
             lefttags = tags(linkind(mps, idx))
