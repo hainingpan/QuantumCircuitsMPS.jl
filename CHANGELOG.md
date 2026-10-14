@@ -8,6 +8,64 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
 
 ## [Unreleased]
 
+### Added
+
+- `SimulationState(; retruncate = :never | :gate)` (MPS backend only, stored
+  as `MPSBackend.retruncate`): what a projective gate — `Measure`, `Reset`,
+  `Projection`, `SpinSectorProjection`, `SpinSectorMeasurement`, any gate
+  with `needs_normalization(gate) == true` — does to the bonds it did not
+  touch. `:gate` runs the full-chain `truncate!(mps; cutoff)` after every
+  such gate, as before; `:never` leaves those bonds to the next gate that
+  touches them.
+
+### Changed
+
+- **Projective gates on the MPS backend no longer re-truncate the whole
+  chain** (`retruncate = :never` is the default). A projective gate still
+  SVD-truncates the bonds inside its range with `cutoff`/`maxdim` and
+  renormalizes the state; the bonds outside its range keep their current
+  dimension until a later gate covers them. Nothing is discarded, so the
+  retained state is never less accurate; what changes is *when* bonds are
+  compressed, so a trajectory is reproduced only to its own truncation
+  error, not digit for digit (``10^{-10}``–``10^{-5}`` on the measured
+  workloads below, well inside any ensemble error). Pass
+  `retruncate = :gate` to recover the previous digits; the EXTENDED golden
+  harness does so.
+- The MPS ortho limits now record the true gauge center after every
+  multi-site gate (the last site of the gate's range, where the SVD chain
+  leaves it). `normalize!` after a projective gate rescales that one tensor
+  instead of contracting the whole chain, and the next `orthogonalize!` no
+  longer re-factorizes the already-orthonormal tensors of the previous
+  gate's range. Same state, different rounding: with `retruncate = :gate`
+  the pre-refactor goldens are reproduced to ``10^{-14}``–``10^{-13}``
+  (RNG fingerprints exactly), so `test/golden_compare.jl` now compares
+  physics values at ``10^{-12}`` instead of ``10^{-14}``.
+
+### Performance
+
+- **MPS projective gates.** The full-chain `truncate!` after every
+  projective gate cost two ``O(L)`` sweeps per gate, i.e. ``O(pL^2)``
+  factorizations per layer of measurements at rate ``p`` against ``O(L)``
+  for the unitary layer, and parked the gauge center at site 1 so the next
+  unitary paid ``O(j)`` QRs to bring it back. With the default
+  `retruncate = :never` only the bonds inside the gate's range are
+  factorized, and `normalize!` rescales the gauge-center tensor instead of
+  contracting the chain. Single thread, median of 3 trajectories, same
+  seeds, before (v0.5.8) and after on the same machine:
+
+  | Trajectory | Before | After | Speedup | Allocations |
+  |---|---|---|---|---|
+  | MIPT, Haar + `Measure(:Z)` at p=0.15, L=20, maxdim=64, 20 steps | 1.62 s | 0.85 s | 1.9x | 2.7 → 1.7 GB |
+  | MIPT, p=0.3, L=64, maxdim=32, 4 steps | 0.86 s | 0.16 s | 5.5x | 2.5 → 0.44 GB |
+  | AKLT forced measurement (`SpinSectorProjection`, PBC), L=12, maxdim=50, p_nn=0.9 | 1.69 s | 0.36 s | 4.7x | 1.6 → 0.62 GB |
+  | AKLT, L=12, maxdim=128, p_nn=0.9 | 3.04 s | 1.04 s | 2.9x | 2.4 → 1.2 GB |
+  | AKLT, L=16, maxdim=50, p_nn=0.9 | 5.16 s | 1.88 s | 2.7x | 5.3 → 1.9 GB |
+
+  With `retruncate = :gate` the per-gate work is unchanged apart from the
+  gauge-center `normalize!` (AKLT L=12, maxdim=128: 1.49 s → 1.19 s;
+  single-site `Measure` already had a cheap `normalize!`, so the MIPT rows
+  are within timing noise).
+
 ## [0.5.8] - 2026-10-09
 
 ### Fixed
