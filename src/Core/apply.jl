@@ -238,13 +238,14 @@ Steps:
 2. Convert physical sites to RAM indices
 3. Build operator with physical site indices
 4. Apply operator to MPS
-5. Normalize + truncate iff `needs_normalization(gate)` (trait, Contract 3.5).
-   Such a gate is rejected with an `ArgumentError` — before any tensor is
-   written back, so the state is unchanged — when it annihilates the state
-   (postselection onto a zero-probability outcome; see `_check_postselection`).
-   The probability is judged relative to the input norm, ‖Pψ‖²/‖ψ‖²: the MPS
-   is not renormalized after truncated unitary layers, so ‖ψ‖² alone says
-   nothing about the physics.
+5. Normalize + truncate iff `needs_normalization(gate)` (trait, Contract 3.5);
+   the normalization rescales the gauge-center tensor left by step 4 (no
+   full-chain inner product). Such a gate is rejected with an `ArgumentError`
+   — before any tensor is written back, so the state is unchanged — when it
+   annihilates the state (postselection onto a zero-probability outcome; see
+   `_check_postselection`). The probability is judged relative to the input
+   norm, ‖Pψ‖²/‖ψ‖²: the MPS is not renormalized after truncated unitary
+   layers, so ‖ψ‖² alone says nothing about the physics.
 """
 function _apply_single!(state::SimulationState, gate::AbstractGate, phy_sites::Vector{Int})
     # Contract 2.1: Support validation
@@ -274,6 +275,9 @@ function _apply_single!(state::SimulationState, gate::AbstractGate, phy_sites::V
         i_list, block = _contract_op_block!(mps, op, state.backend.sites)
         _check_postselection(norm(block)^2, norm(mps)^2, gate, phy_sites)
         _write_op_block!(mps, i_list, block, cutoff, state.backend.maxdim)
+        # _write_op_block! leaves the gauge center at i_list[end] (and says
+        # so in the MPS ortho limits), so normalize! rescales that single
+        # tensor instead of contracting the whole chain.
         normalize!(mps)
         truncate!(mps; cutoff = cutoff)
     else
@@ -360,6 +364,15 @@ Second phase of `apply_op_internal!`: write the contracted block `mps_ij`
 back into `mps` over the sorted RAM range `i_list` — direct assignment for a
 single site, an SVD chain (respecting `cutoff`/`maxdim`) for a multi-site
 range.
+
+On return the gauge center of `mps` is at `i_list[end]`, and the MPS ortho
+limits say so. For a single site this is where `_contract_op_block!` left
+it. For a multi-site range the chain writes left-orthonormal `U` factors on
+`i_list[1]:i_list[end]-1` and the remaining `S * V` on `i_list[end]`;
+ITensorMPS's `setindex!` only ever widens the ortho limits (to
+`i_list[1]:i_list[end]` here), so they are reset explicitly. Without this
+the next `orthogonalize!` would re-factorize the already-orthonormal `U`s,
+and `normalize!`/`norm` would fall back to a full-chain inner product.
 """
 function _write_op_block!(mps::MPS, i_list::Vector{Int}, mps_ij::ITensor,
         cutoff::Float64, maxdim::Int)
@@ -385,6 +398,7 @@ function _write_op_block!(mps::MPS, i_list::Vector{Int}, mps_ij::ITensor,
         end
 
         mps[i_list[end]] = mps_ij
+        ITensorMPS.set_ortho_lims!(mps, i_list[end]:i_list[end])
     end
 
     return nothing
