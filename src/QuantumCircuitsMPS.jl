@@ -7,10 +7,11 @@ using ITensorMPS: ITensorMPS, @OpName_str, @SiteType_str, @StateName_str,
                   @ValName_str, MPO, MPS, OpName, SiteType, StateName, ValName,
                   expect, inner, linkind, op, ops, orthogonalize,
                   orthogonalize!, random_mps, siteind, siteinds, truncate!
-using ITensors: ITensors, ITensor, Index, dag, delta, dim, dims, findindex,
+using ITensors: ITensors, ITensor, Index, dag, delta, dim, dims, firstind,
                 inds, noprime, noprime!, plev, prime, scalar, tags
 using LinearAlgebra: LinearAlgebra, Diagonal, I, diag, diagm, mul!, norm,
                      normalize!, qr, svd, tr
+using PrecompileTools: PrecompileTools, @compile_workload, @setup_workload
 using Random: Random, AbstractRNG, MersenneTwister
 
 # Core
@@ -60,10 +61,11 @@ include("Geometry/Geometry.jl")
 # application code together is clearer.
 include("StateVector/StateVector.jl")
 
-# StateVector gate-application engine (Tier 2 / optimized): stride-loop
-# kernel, dispatches via `_apply_single!` (defined above in StateVector.jl)
-# checking `state.backend.engine`. Must come after StateVector.jl since
-# _apply_single! references `apply_gate_sv_optimized!` by name.
+# StateVector gate-application engine (Tier 2 / optimized, the default):
+# in-place stride-loop kernels, dispatched via `_apply_single!` (defined above
+# in StateVector.jl) checking `state.backend.engine`. Must come after
+# StateVector.jl since _apply_single! references `apply_gate_sv_optimized!`
+# by name.
 include("StateVector/optimized.jl")
 
 # Clifford gate-application engine: _apply_single! methods for
@@ -247,5 +249,12 @@ export plot_circuit
 #   apply_op_internal!                                     (apply internals)
 #   compute_basis_mapping, physical_to_ram, ram_to_physical (basis internals)
 # born_probability was promoted to the public Observables exports above.
+
+# Precompile workload (PrecompileTools): runs one tiny trajectory per backend
+# at package-precompile time so the specialized methods land in the pkgimage
+# instead of being JIT-compiled on first use. Must be the LAST include — it
+# calls the complete public API defined above. Zero effect on runtime
+# behavior; see src/precompile.jl for how to skip it during development.
+include("precompile.jl")
 
 end # module

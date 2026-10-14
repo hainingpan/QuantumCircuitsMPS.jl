@@ -45,6 +45,24 @@ using QuantumCircuitsMPS, Revise
 Test-only dependencies live in `test/Project.toml` (not the root
 `Project.toml`) — `Pkg.test()` instantiates that environment automatically.
 
+### Skipping the precompile workload while developing
+
+`src/precompile.jl` runs one tiny trajectory per backend at precompile time
+(a [PrecompileTools](https://github.com/JuliaLang/PrecompileTools.jl)
+workload) so users do not pay the first-call JIT cost. That makes every
+precompile of the package itself take a few minutes, which adds up when you
+are editing `src/` repeatedly. To skip it locally, write a
+`LocalPreferences.toml` next to the root `Project.toml` (it is gitignored):
+
+```toml
+[QuantumCircuitsMPS]
+precompile_workload = false
+```
+
+or, from Julia, `using Preferences; set_preferences!(QuantumCircuitsMPS, "precompile_workload" => false; force=true)`.
+Restart Julia afterwards. The preference only affects your local
+environment; CI and end users still get the workload.
+
 ## Running tests
 
 ```julia

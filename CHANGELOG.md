@@ -8,40 +8,119 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
 
 ## [Unreleased]
 
+### Changed
+
+- The MPS multi-site SVD chain used `ITensors.findindex`, a deprecated alias
+  of `firstind`; it now calls `firstind` directly. No numerical change — the
+  rename only matters because the precompile workload executes that path
+  under `--depwarn=yes` during `Pkg.test`, where the alias printed a
+  deprecation warning.
+- The state-vector backend's default gate-application engine is now
+  `engine=:optimized`; `engine=:builtin` (the reshape/permutedims/matmul
+  reference) stays available. The two engines sum the same products in a
+  different order, so they agree to rounding (``\sim 10^{-15}`` per gate),
+  not bitwise: state-vector trajectories can differ from v0.5.8's at that
+  level. The test suite is tolerance-based and unaffected;
+  `test/statevector/engine_agreement.jl` pins the agreement on random
+  gates, sites and local dimensions and on Reset/HaarRandom trajectories.
+  The default engine updates `state.backend.ψ` in place, so a reference
+  taken before a gate (`ψ0 = state.backend.ψ`) now sees the new amplitudes;
+  take `copy(state.backend.ψ)` for a snapshot. (`:builtin` still stores a
+  fresh vector per gate.)
+- `born_probability` on the state-vector backend now rejects a site outside
+  `1:L` or an outcome outside `0:local_dim-1` with an `ArgumentError`, as the
+  Clifford and Gaussian methods already did (it used to return `0.0` for a
+  nonexistent level, or ``\lVert\psi\rVert^2`` for site `0`). The
+  `BornProbability` observable already validated its outcome; this covers
+  direct calls.
+
 ### Performance
 
-Gaussian backend: the per-gate cost of `GaussianHaar`, `Measure(:Z)`, and
-`BondParity` is now ``O(N^2)`` in the number of Majoranas ``N`` instead of
-``O(N^3)``, in two steps.
+- **Precompile workload** (`src/precompile.jl`, via PrecompileTools). The
+  package now runs one tiny trajectory per backend at precompile time —
+  built from the gates, geometries, observables, and recording modes of the
+  four worked examples, plus the remaining public gates and observables, the
+  feedback and event-log mechanisms, `bc=:open`, and circuit expansion /
+  printing — so the specialized methods are saved in the package image
+  instead of being JIT-compiled in every fresh session. Time to the first
+  trajectory in a fresh `julia` process, single thread, Julia 1.12.6
+  (minimum over repeated interleaved runs on a shared machine; observables
+  bit-identical before and after in every run):
+  | First trajectory | Before | After |
+  |---|---|---|
+  | Clifford MIPT, L=16 | 5.7 s | 0.33 s |
+  | State vector CIPT, L=8 | 5.9 s | 0.26 s |
+  | MPS spin-1 AKLT, L=8 | 36 s | 9.0 s |
+  | Gaussian DIII Majorana chain, L=16 | 7.2 s | 0.09 s |
 
-- **Same arithmetic, cheaper evaluation** (bit-identical results). The purity
-  diagnostic ``\max\lvert\mathrm{diag}(\Gamma^2)+1\rvert``, evaluated after every
-  gate and measurement, formed the full product ``\Gamma\Gamma``; it is now
-  computed from the diagonal alone (`_purity_drift`). The
-  re-antisymmetrization after a Haar rotation (`antisymmetrize!`), the
-  index-set complement, and the complement-block update inside
-  `gaussian_contraction!` no longer allocate temporaries. Final covariance
-  matrices and observables of 26 trajectories (both site granularities,
-  ``L = 16``–``64``, including runs that force `purify!`) are bit-identical to
-  v0.5.8, signed zeros included.
-- **Closed-form parity projection** (`parity_projection!`). For the 2-Majorana
-  parity projector the general Schur-complement contraction reduces to a
-  rank-2 update of the complement block,
-  ``\Gamma_{ij} \leftarrow \Gamma_{ij} + \frac{s}{1 - s\,\Gamma_{ab}}(\Gamma_{ia}\Gamma_{jb} - \Gamma_{ib}\Gamma_{ja})``,
-  with rows and columns ``a, b`` set to the projected sector. `Measure(:Z)`
-  and `BondParity` now use it instead of `gaussian_contraction!` (which
-  remains the general-``\Upsilon`` kernel and the test reference): no index
-  slices, no `lu`/`inv`/`cond` on 2×2 blocks, no BLAS calls, and the result
-  is exactly antisymmetric. Because every operation now leaves ``\Gamma``
-  exactly antisymmetric, the Haar rotation re-antisymmetrizes only the
-  rotated rows and columns (bit-for-bit the full pass), the purity check is
-  a contiguous column-norm sweep, and the rotation's row/column blocks are
-  staged in the preallocated `state.backend.scratch` instead of four
-  temporaries (same BLAS calls, same result). Not bit-identical to v0.5.8 —
-  a different floating-point operation order in the projection — but on the
-  same 26 trajectories every measurement outcome is unchanged,
-  covariance-matrix entries agree to ``1.5\times10^{-14}`` and observables to
-  ``1.3\times10^{-13}``; the tolerance-based test suite is unchanged.
+  `using QuantumCircuitsMPS` itself is unchanged (3.4–4.6 s either way).
+  The cost is a longer one-time precompile of the package itself (about
+  5 s → 2.5 min on an M4, once per install/update), which contributors can
+  switch off locally with a `LocalPreferences.toml` entry — see
+  CONTRIBUTING.md. No runtime behavior changes; the default test suite and
+  the Aqua/ExplicitImports gates pass unchanged.
+- **State-vector gate kernels.** The `:optimized` engine only had a
+  stride-loop kernel for 1-site gates; every 2-site gate (`HaarRandom`,
+  `CZ`, ...) went through the same reshape → `permutedims` → matmul →
+  `permutedims` path as `:builtin`, three full copies of ``\psi`` per gate.
+  It now has an in-place 2-site stride kernel (adjacent or not, any
+  `local_dim`), both kernels apply the ``d^n \times d^n`` block with an
+  inlined matvec instead of a BLAS `gemv` call per block, and `Projection`
+  (the `Measure`/`Reset` hot path) no longer copies ``\psi`` to protect
+  against a rejected postselection: ``\lVert P\psi\rVert^2`` is the Born
+  probability, read off before the in-place apply. The state-vector
+  `born_probability` itself (two calls per `Measure`/`Reset`) walks the
+  strided runs of matching amplitudes instead of testing a base-`d` digit of
+  every index — same summation order, bitwise-identical values, 66 µs →
+  19 µs at `L=16`. Per gate at `L=16` (BenchmarkTools minimum): 1-site
+  283 µs → 94 µs, 2-site 340 µs → 158 µs, with no ``2^L``-sized allocation.
+  Old default (`:builtin`) → new default, minimum over repeated runs of one
+  seed, Apple M4, Julia 1.12.6:
+
+  | Workload | Before | After | Speedup |
+  |---|---|---|---|
+  | CIPT trajectory, `L=12` (`Reset`/`HaarRandom` staircase, `bc=:periodic`, `n_steps=L^2`, `Magnetization` + `TripartiteMutualInformation` at the end) | 7.8 ms, 37 MB | 3.7 ms, 2.4 MB | 2.1x |
+  | CIPT trajectory, `L=16` | 0.32 s, 990 MB | 0.096 s, 24 MB | 3.3x |
+  | the same `L=16` trajectory without the final observable (gates only) | 0.36 s | 0.060 s | 6x |
+  | `benchmark/` `apply!/haar2_one_bond_sv_L8` | 5.54 µs, 72 allocs | 3.79 µs, 35 allocs | 1.5x |
+  | `benchmark/` `simulate!/mipt_step_sv_L8` | 33.1 µs, 525 allocs | 20.1 µs, 291 allocs | 1.6x |
+
+  (`L=8` vectors are 4 KB, so the kernel change matters little there; the
+  gain grows with ``2^L``.) Of the 0.096 s at `L=16`, 0.03 s is the single
+  `TripartiteMutualInformation` evaluation, whose subset partial trace
+  still goes through a generic ``L``-dimensional `permutedims`. The two
+  engines' observables agree to ``10^{-15}`` on these trajectories.
+- **Gaussian backend kernels.** The per-gate cost of `GaussianHaar`,
+  `Measure(:Z)`, and `BondParity` is now ``O(N^2)`` in the number of
+  Majoranas ``N`` instead of ``O(N^3)``, in two steps.
+  - *Same arithmetic, cheaper evaluation* (bit-identical results). The purity
+    diagnostic ``\max\lvert\mathrm{diag}(\Gamma^2)+1\rvert``, evaluated after every
+    gate and measurement, formed the full product ``\Gamma\Gamma``; it is now
+    computed from the diagonal alone (`_purity_drift`). The
+    re-antisymmetrization after a Haar rotation (`antisymmetrize!`), the
+    index-set complement, and the complement-block update inside
+    `gaussian_contraction!` no longer allocate temporaries. Final covariance
+    matrices and observables of 26 trajectories (both site granularities,
+    ``L = 16``–``64``, including runs that force `purify!`) are bit-identical to
+    v0.5.8, signed zeros included.
+  - *Closed-form parity projection* (`parity_projection!`). For the 2-Majorana
+    parity projector the general Schur-complement contraction reduces to a
+    rank-2 update of the complement block,
+    ``\Gamma_{ij} \leftarrow \Gamma_{ij} + \frac{s}{1 - s\,\Gamma_{ab}}(\Gamma_{ia}\Gamma_{jb} - \Gamma_{ib}\Gamma_{ja})``,
+    with rows and columns ``a, b`` set to the projected sector. `Measure(:Z)`
+    and `BondParity` now use it instead of `gaussian_contraction!` (which
+    remains the general-``\Upsilon`` kernel and the test reference): no index
+    slices, no `lu`/`inv`/`cond` on 2×2 blocks, no BLAS calls, and the result
+    is exactly antisymmetric. Because every operation now leaves ``\Gamma``
+    exactly antisymmetric, the Haar rotation re-antisymmetrizes only the
+    rotated rows and columns (bit-for-bit the full pass), the purity check is
+    a contiguous column-norm sweep, and the rotation's row/column blocks are
+    staged in the preallocated `state.backend.scratch` instead of four
+    temporaries (same BLAS calls, same result). Not bit-identical to v0.5.8 —
+    a different floating-point operation order in the projection — but on the
+    same 26 trajectories every measurement outcome is unchanged,
+    covariance-matrix entries agree to ``1.5\times10^{-14}`` and observables to
+    ``1.3\times10^{-13}``; the tolerance-based test suite is unchanged.
 
   Steady-state cost per trajectory, single thread (Julia and BLAS), GC
   included, Apple M4 / Julia 1.12.6 (`L` sites, ``L`` steps, periodic; "DIII"

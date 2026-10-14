@@ -501,6 +501,42 @@ using Random
             @test_throws ArgumentError EntanglementEntropy(cut = collect(1:L))(s)
         end
     end
+
+    # =====================================================================
+    # 11. born_probability (SV): strided sum == digit-test sum, input checks
+    # =====================================================================
+    @testset "born_probability (SV backend): values and validation" begin
+        # Reference: the digit test over every basis integer, same summation
+        # order as the strided implementation, so equality is exact.
+        function digit_sum(s, site, k)
+            ψ, L, d = s.backend.ψ, s.L, s.local_dim
+            stride = d^(L - site)
+            total = 0.0
+            for n0 in 0:(length(ψ) - 1)
+                (n0 ÷ stride) % d == k && (total += abs2(ψ[n0 + 1]))
+            end
+            return total
+        end
+        rng = MersenneTwister(5)
+        for (L, site_type) in ((1, "Qubit"), (5, "Qubit"), (3, "S=1"), (3, "S=3/2"))
+            s = SimulationState(L = L, bc = :open, backend = :statevector,
+                site_type = site_type,
+                rng = RNGRegistry(gates_spacetime = 1, gates_realization = 2, born_measurement = 3))
+            initialize!(s, ProductState(binary_int = 0))
+            d = s.local_dim
+            s.backend.ψ .= normalize!(randn(rng, ComplexF64, d^L))
+            for site in 1:L
+                for k in 0:(d - 1)
+                    @test born_probability(s, site, k) === digit_sum(s, site, k)
+                end
+                @test sum(born_probability(s, site, k) for k in 0:(d - 1)) ≈ 1.0 atol = 1e-12
+                @test_throws ArgumentError born_probability(s, site, d)
+                @test_throws ArgumentError born_probability(s, site, -1)
+            end
+            @test_throws ArgumentError born_probability(s, 0, 0)
+            @test_throws ArgumentError born_probability(s, L + 1, 0)
+        end
+    end
 end
 
 # ======================================================================

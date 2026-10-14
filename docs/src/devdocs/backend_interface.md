@@ -48,7 +48,7 @@ whose numerical payload starts as `nothing` and is populated by
 | Backend | Payload field | Other fields | Representation |
 |---|---|---|---|
 | `MPSBackend` | `mps::Union{MPS, Nothing}` | `sites::Vector{Index}`, `cutoff::Float64`, `maxdim::Int` | ITensorMPS.jl matrix product state |
-| `StateVectorBackend` | `ψ::Union{Vector{ComplexF64}, Nothing}` | `engine::Symbol` (`:builtin` or `:optimized`) | dense state vector, `local_dim^L` amplitudes |
+| `StateVectorBackend` | `ψ::Union{Vector{ComplexF64}, Nothing}` | `engine::Symbol` (`:optimized`, the default, or `:builtin`) | dense state vector, `local_dim^L` amplitudes |
 | `CliffordBackend` | `tableau::Union{MixedDestabilizer, Nothing}` | — | QuantumClifford.jl stabilizer tableau |
 | `GaussianBackend` | `corr::Union{Matrix{Float64}, Nothing}` | `scratch::Union{Matrix{Float64}, Nothing}`, `purify_tol::Float64`, `majoranas_per_site::Int` | dense ``N \times N`` real antisymmetric Majorana covariance matrix ``\Gamma`` (``N = L \cdot \text{majoranas\_per\_site}``; ``\Gamma^2 = -I``) |
 
@@ -179,16 +179,21 @@ Contract obligations (every implementation):
    between the contraction and the SVD write-back (`_contract_op_block!` /
    `_write_op_block!`, the two phases of `apply_op_internal!`; the MPS is
    gauged at the block's first site there, so `norm(mps)` is the input norm
-   at the cost of one tensor); StateVector checks the new vector before
-   storing it (the `:optimized` engine works on a copy for such gates, as its
-   kernel mutates in place), with the stored vector still the input.
+   at the cost of one tensor); StateVector's `:builtin` engine checks the
+   fresh vector before storing it, with the stored vector still the input.
+   The default `:optimized` engine mutates in place, so it runs the guard
+   *before* its kernel whenever ``\lVert P\psi\rVert^2`` has a closed form
+   (`_sv_projected_norm2`: for `Projection(k)` it is
+   `born_probability(state, site, k)`, one read-only pass — the
+   `Measure`/`Reset` hot path, no copy of ``\psi``) and applies the gate to a
+   copy otherwise (`SpinSectorProjection`, user-defined projective gates).
 5. Random-content gates draw from `:gates_realization` (see
    [RNG expectations](@ref backend-interface-rng)).
 
 | Backend | Gate-content protocol | Application kernel |
 |---|---|---|
 | MPS | `build_operator(gate, site_index(es), local_dim; rng, mps, ram_sites) -> ITensor` | `apply_op_internal!` (contract + SVD chain, respects `cutoff`/`maxdim`) |
-| StateVector | `gate_matrix(gate) -> Matrix{ComplexF64}`; random gates via `gate_matrix(gate, rng; local_dim)` (dispatch in `_resolve_gate_matrix_sv`) | `apply_gate_sv!` (`:builtin`) or `apply_gate_sv_optimized!` (`:optimized`) |
+| StateVector | `gate_matrix(gate) -> Matrix{ComplexF64}`; random gates via `gate_matrix(gate, rng; local_dim)` (dispatch in `_resolve_gate_matrix_sv`) | `apply_gate_sv_optimized!` (`:optimized`, default: in-place stride kernels for 1- and 2-site gates) or `apply_gate_sv!` (`:builtin`: reshape/permutedims/matmul reference) |
 | Clifford | none — symbolic ops (`QuantumClifford.sX`, `sCPHASE`, `sCNOT`, ..., `random_clifford`) | `QuantumClifford.apply!(tableau, op[, indices])` |
 | Gaussian | **none — direct covariance-matrix update, no shared protocol.** `GaussianHaar` conjugates a Haar-`SO(n)` block directly onto rows/columns of `state.backend.corr` (``\Gamma \leftarrow R\Gamma R^{\mathsf T}``, `n=4` fermionic-mode / `n=2` Majorana-chain granularity). Measurement gates (`Measure(:Z)`, `BondParity`) go through the closed-form rank-2 parity-projection kernel `parity_projection!` instead — the 2-Majorana special case of the general fermionic-linear-optics contraction kernel `gaussian_contraction!` (see §3). | in-place mutation of `state.backend.corr` (no ITensor, no dense matrix, no tableau) |
 
