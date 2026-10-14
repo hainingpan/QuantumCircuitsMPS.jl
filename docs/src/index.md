@@ -48,6 +48,11 @@ using QuantumCircuitsMPS
 circuit visualization). Julia 1.12+. For interactive development, `Pkg.add("Revise")` globally and
 add `using Revise` before `using QuantumCircuitsMPS`.
 
+The package precompiles a small workload for every backend when it is installed or updated, so the
+one-time precompile takes a few minutes; in return, the first trajectory in a fresh session runs
+without a long compile pause. Contributors editing `src/` can switch this off locally — see
+[CONTRIBUTING.md](https://github.com/hainingpan/QuantumCircuitsMPS.jl/blob/main/CONTRIBUTING.md).
+
 ## Quick Example
 
 ```julia
