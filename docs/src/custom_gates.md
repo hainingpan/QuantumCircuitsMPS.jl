@@ -53,9 +53,10 @@ registered; each method you define is simply found by dispatch.
    `kron(A, B)` acts with `A` on the first site.
 4. **Opt-in traits** (both default to `false`, so unitaries need neither) —
    `QuantumCircuitsMPS.needs_normalization(gate) -> Bool`: `true` for
-   non-unitary gates, so the backend renormalizes after applying (and, on
-   MPS, truncates) — or throws an `ArgumentError`, leaving the state
-   unchanged, if the gate annihilates the state (see example (b));
+   non-unitary gates, so the backend renormalizes after applying (on MPS,
+   also recompressing the whole chain when `retruncate = :gate`) — or
+   throws an `ArgumentError`, leaving the state unchanged, if the gate
+   annihilates the state (see example (b));
    `QuantumCircuitsMPS.is_measurement(gate) -> Bool`:
    `true` for gates that Born-sample via the `:born_measurement` RNG stream.
 5. **Full override** —
