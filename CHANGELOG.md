@@ -8,6 +8,32 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
 
 ## [Unreleased]
 
+### Changed
+
+- The MPS multi-site SVD chain used `ITensors.findindex`, a deprecated alias
+  of `firstind`; it now calls `firstind` directly. No numerical change — the
+  rename only matters because the precompile workload executes that path
+  under `--depwarn=yes` during `Pkg.test`, where the alias printed a
+  deprecation warning.
+- The state-vector backend's default gate-application engine is now
+  `engine=:optimized`; `engine=:builtin` (the reshape/permutedims/matmul
+  reference) stays available. The two engines sum the same products in a
+  different order, so they agree to rounding (``\sim 10^{-15}`` per gate),
+  not bitwise: state-vector trajectories can differ from v0.5.8's at that
+  level. The test suite is tolerance-based and unaffected;
+  `test/statevector/engine_agreement.jl` pins the agreement on random
+  gates, sites and local dimensions and on Reset/HaarRandom trajectories.
+  The default engine updates `state.backend.ψ` in place, so a reference
+  taken before a gate (`ψ0 = state.backend.ψ`) now sees the new amplitudes;
+  take `copy(state.backend.ψ)` for a snapshot. (`:builtin` still stores a
+  fresh vector per gate.)
+- `born_probability` on the state-vector backend now rejects a site outside
+  `1:L` or an outcome outside `0:local_dim-1` with an `ArgumentError`, as the
+  Clifford and Gaussian methods already did (it used to return `0.0` for a
+  nonexistent level, or ``\lVert\psi\rVert^2`` for site `0`). The
+  `BornProbability` observable already validated its outcome; this covers
+  direct calls.
+
 ### Performance
 
 - **Precompile workload** (`src/precompile.jl`, via PrecompileTools). The
@@ -33,14 +59,37 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
   switch off locally with a `LocalPreferences.toml` entry — see
   CONTRIBUTING.md. No runtime behavior changes; the default test suite and
   the Aqua/ExplicitImports gates pass unchanged.
+- **State-vector gate kernels.** The `:optimized` engine only had a
+  stride-loop kernel for 1-site gates; every 2-site gate (`HaarRandom`,
+  `CZ`, ...) went through the same reshape → `permutedims` → matmul →
+  `permutedims` path as `:builtin`, three full copies of ``\psi`` per gate.
+  It now has an in-place 2-site stride kernel (adjacent or not, any
+  `local_dim`), both kernels apply the ``d^n \times d^n`` block with an
+  inlined matvec instead of a BLAS `gemv` call per block, and `Projection`
+  (the `Measure`/`Reset` hot path) no longer copies ``\psi`` to protect
+  against a rejected postselection: ``\lVert P\psi\rVert^2`` is the Born
+  probability, read off before the in-place apply. The state-vector
+  `born_probability` itself (two calls per `Measure`/`Reset`) walks the
+  strided runs of matching amplitudes instead of testing a base-`d` digit of
+  every index — same summation order, bitwise-identical values, 66 µs →
+  19 µs at `L=16`. Per gate at `L=16` (BenchmarkTools minimum): 1-site
+  283 µs → 94 µs, 2-site 340 µs → 158 µs, with no ``2^L``-sized allocation.
+  Old default (`:builtin`) → new default, minimum over repeated runs of one
+  seed, Apple M4, Julia 1.12.6:
 
-### Changed
+  | Workload | Before | After | Speedup |
+  |---|---|---|---|
+  | CIPT trajectory, `L=12` (`Reset`/`HaarRandom` staircase, `bc=:periodic`, `n_steps=L^2`, `Magnetization` + `TripartiteMutualInformation` at the end) | 7.8 ms, 37 MB | 3.7 ms, 2.4 MB | 2.1x |
+  | CIPT trajectory, `L=16` | 0.32 s, 990 MB | 0.096 s, 24 MB | 3.3x |
+  | the same `L=16` trajectory without the final observable (gates only) | 0.36 s | 0.060 s | 6x |
+  | `benchmark/` `apply!/haar2_one_bond_sv_L8` | 5.54 µs, 72 allocs | 3.79 µs, 35 allocs | 1.5x |
+  | `benchmark/` `simulate!/mipt_step_sv_L8` | 33.1 µs, 525 allocs | 20.1 µs, 291 allocs | 1.6x |
 
-- The MPS multi-site SVD chain used `ITensors.findindex`, a deprecated alias
-  of `firstind`; it now calls `firstind` directly. No numerical change — the
-  rename only matters because the precompile workload executes that path
-  under `--depwarn=yes` during `Pkg.test`, where the alias printed a
-  deprecation warning.
+  (`L=8` vectors are 4 KB, so the kernel change matters little there; the
+  gain grows with ``2^L``.) Of the 0.096 s at `L=16`, 0.03 s is the single
+  `TripartiteMutualInformation` evaluation, whose subset partial trace
+  still goes through a generic ``L``-dimensional `permutedims`. The two
+  engines' observables agree to ``10^{-15}`` on these trajectories.
 
 ## [0.5.8] - 2026-10-09
 

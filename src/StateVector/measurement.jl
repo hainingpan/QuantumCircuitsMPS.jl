@@ -15,19 +15,30 @@ For a state vector `ψ` of length `d^L`, sums `|ψ_n|²` over all basis integers
 `outcome`. Site 1 is MSB (slowest index).
 
 Digit extraction: for 0-indexed basis integer `n`, physical site `s` (1-indexed, site 1 = MSB),
-and local dimension `d`: `digit = (n ÷ d^(L-s)) % d` (see [`_sv_digit`](@ref); the
-loop-invariant stride `d^(L-s)` is hoisted out of the loop).
+and local dimension `d`: `digit = (n ÷ d^(L-s)) % d` (see [`_sv_digit`](@ref)). The
+amplitudes with that digit equal to `outcome` form runs of `stride = d^(L-s)`
+consecutive entries, one per block of `stride*d`, so the loop walks those runs
+directly (no per-amplitude division) in ascending index order — the same
+summation order as a digit test over all `n`, hence the same `Float64` result.
+This is also the ``\lVert P\psi\rVert^2`` of the `Projection` postselection
+guard (`_sv_projected_norm2`), so `Measure`/`Reset` call it twice per site.
 """
 function born_probability(state::SimulationState{StateVectorBackend}, physical_site::Int, outcome::Int)
     ψ = state.backend.ψ
     L = state.L
     d = state.local_dim
+    1 <= physical_site <= L || throw(ArgumentError(
+        "born_probability: physical_site must be in 1:$L, got $physical_site"))
+    0 <= outcome < d || throw(ArgumentError(
+        "born_probability: outcome must be a level index in 0:$(d - 1) " *
+        "(local_dim=$d), got $outcome"))
     stride = d^(L - physical_site)
+    block = stride * d
     total = 0.0
-    for n0 in 0:(length(ψ) - 1)
-        digit = _sv_digit(n0, stride, d)
-        if digit == outcome
-            total += abs2(ψ[n0 + 1])
+    @inbounds for j in 0:block:(length(ψ) - 1)
+        base = j + outcome * stride
+        for i in 1:stride
+            total += abs2(ψ[base + i])
         end
     end
     return total

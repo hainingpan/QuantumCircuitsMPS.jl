@@ -61,10 +61,11 @@ include("Geometry/Geometry.jl")
 # application code together is clearer.
 include("StateVector/StateVector.jl")
 
-# StateVector gate-application engine (Tier 2 / optimized): stride-loop
-# kernel, dispatches via `_apply_single!` (defined above in StateVector.jl)
-# checking `state.backend.engine`. Must come after StateVector.jl since
-# _apply_single! references `apply_gate_sv_optimized!` by name.
+# StateVector gate-application engine (Tier 2 / optimized, the default):
+# in-place stride-loop kernels, dispatched via `_apply_single!` (defined above
+# in StateVector.jl) checking `state.backend.engine`. Must come after
+# StateVector.jl since _apply_single! references `apply_gate_sv_optimized!`
+# by name.
 include("StateVector/optimized.jl")
 
 # Clifford gate-application engine: _apply_single! methods for

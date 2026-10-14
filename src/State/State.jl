@@ -124,12 +124,13 @@ Parameters:
   `initialize!`).
 - `pbc_fold_start`: physical site the PBC zig-zag fold starts from (default `L÷4+1`).
   Only meaningful for `backend=:mps` with `bc=:periodic`; ignored for `backend=:statevector`/`:clifford`/`:gaussian`.
-- engine: gate-application engine for `backend=:statevector` only — `:builtin`
-  (default, Tier 1 reshape/permutedims engine, ground truth) or `:optimized`
-  (Tier 2 hand-written stride-loop engine, numerically verified to match
-  `:builtin` bitwise/to <1e-13, faster especially for 1-site gates). Accepted
-  (but ignored) when `backend=:mps` or `backend=:clifford`, for API
-  consistency across backends.
+- engine: gate-application engine for `backend=:statevector` only —
+  `:optimized` (default, Tier 2 hand-written in-place stride-loop kernels for
+  1- and 2-site gates) or `:builtin` (Tier 1 reshape/permutedims engine, the
+  ground truth the kernels are verified against; the two agree to rounding,
+  ~1e-15, not bitwise). Accepted (but ignored) when `backend=:mps`,
+  `backend=:clifford` or `backend=:gaussian`, for API consistency across
+  backends.
 
 For "Qudit" site type, `local_dim` specifies the dimension (e.g., `local_dim=4` for d=4).
 """
@@ -143,7 +144,7 @@ function SimulationState(;
         rng = nothing,  # RNGRegistry, attached later or passed here
         log_events::Bool = false,
         backend::Symbol = :mps,
-        engine::Symbol = :builtin,
+        engine::Symbol = :optimized,
         pbc_fold_start::Int = L÷4+1
 )
     # Validate L (added in v0.4.0 — previously L=0 / negative L were silently
