@@ -7,7 +7,7 @@ using ITensorMPS: ITensorMPS, @OpName_str, @SiteType_str, @StateName_str,
                   @ValName_str, MPO, MPS, OpName, SiteType, StateName, ValName,
                   expect, inner, linkind, op, ops, orthogonalize,
                   orthogonalize!, random_mps, siteind, siteinds, truncate!
-using ITensors: ITensors, ITensor, Index, dag, delta, dim, dims, findindex,
+using ITensors: ITensors, ITensor, Index, dag, delta, dim, dims, firstind,
                 inds, noprime, noprime!, plev, prime, scalar, tags
 using LinearAlgebra: LinearAlgebra, Diagonal, I, diag, diagm, mul!, norm,
                      normalize!, qr, svd, tr
