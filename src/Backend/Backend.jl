@@ -37,12 +37,23 @@ abstract type AbstractBackend end
 """
 MPS-based backend: holds the underlying matrix product state, site indices,
 and truncation parameters (SVD cutoff, maximum bond dimension).
+
+`retruncate` selects what happens to the bonds a projective gate (one with
+`needs_normalization(gate) == true`) did NOT touch:
+- `:never` (default): only the bonds inside the gate's range are SVD-truncated,
+  exactly as for a unitary gate; the rest of the chain is left as is until the
+  next gate that touches it. The MPS is still renormalized after every
+  projective gate.
+- `:gate`: additionally run a full-chain `truncate!(mps; cutoff)` after every
+  projective gate (two sweeps over all `L` sites per gate — the behavior
+  before this option existed).
 """
 mutable struct MPSBackend <: AbstractBackend
     mps::Union{MPS, Nothing}
     sites::Vector{Index}
     cutoff::Float64
     maxdim::Int
+    retruncate::Symbol
 end
 
 """

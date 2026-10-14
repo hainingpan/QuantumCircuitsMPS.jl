@@ -37,10 +37,12 @@ println("Entropy: $(state.observables[:entropy][end])")
 ```
 
 `backend=:mps` is shown explicitly above but is the default and can be omitted.
-`cutoff` (SVD truncation threshold, default `1e-10`) and `maxdim` (maximum
-bond dimension, default `100`) are MPS-only keywords — they are silently
-ignored on the other two backends for cross-backend API consistency (see the
-[Backend Interface Contract](@ref)).
+`cutoff` (SVD truncation threshold, default `1e-10`), `maxdim` (maximum
+bond dimension, default `100`) and `retruncate` (what a projective gate does
+to the bonds it did not touch, default `:never`; see
+[Normalization After Truncation](@ref)) are MPS-only keywords — they are
+silently ignored on the other backends for cross-backend API consistency
+(see the [Backend Interface Contract](@ref)).
 
 ## Internal Engine
 
@@ -55,11 +57,32 @@ every backend (including this one) must implement.
 
 Unitary gates are **not** renormalized after application (only gates with
 `needs_normalization(gate) == true`, such as projections and measurements,
-trigger `normalize!` + `truncate!`). When a unitary layer is truncated by
+trigger `normalize!`). When a unitary layer is truncated by
 `cutoff`/`maxdim`, the discarded Schmidt weight is simply dropped, so the
 stored MPS has ``\langle\psi|\psi\rangle < 1``. This is a valid
 (unnormalized) representation of the retained state — the norm carries the
 accumulated truncation weight and can be read off with `norm(state.backend.mps)`.
+
+Every gate, unitary or projective, SVD-truncates the bonds *inside* its
+range with `cutoff`/`maxdim`. A projection also changes the Schmidt spectrum
+at every other bond (it can only lower the ranks), and the `retruncate`
+keyword decides what to do about that:
+
+- `retruncate = :never` (default): nothing. Untouched bonds keep their
+  current dimension until the next gate that touches them — in a brickwork
+  circuit, within one layer. Nothing is discarded, so this is never less
+  accurate; the cost is at most a layer of slightly larger bonds.
+- `retruncate = :gate`: a full-chain `truncate!(; cutoff)` after every
+  projective gate (an orthogonalization sweep to one end and an SVD sweep
+  back), which keeps every bond minimal at all times at a cost of ``O(L)``
+  factorizations per measurement — for a layer of ``pL`` measurements, that
+  is ``O(pL^2)`` against the ``O(L)`` of the unitary layer. This was the only
+  behavior before the keyword existed.
+
+The two settings give the same physics up to truncation error: they differ in
+*when* bonds are compressed, so an individual trajectory is reproduced only
+to the level of its own truncation error (on a `maxdim`-limited run that can
+be well above machine precision), not digit for digit.
 
 Every built-in observable divides the norm out, so reported values are
 expectation values of the *normalized* retained state: `born_probability`

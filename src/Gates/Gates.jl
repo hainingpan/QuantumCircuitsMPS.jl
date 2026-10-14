@@ -12,8 +12,9 @@ A gate type plugs into the backends through a small protocol:
 - `gate_matrix(gate) -> Matrix{ComplexF64}`: dense matrix for the
   state-vector backend (random gates use `gate_matrix(gate, rng; local_dim)`).
 - `needs_normalization(gate) -> Bool` (trait, default `false`): `true` for
-  non-unitary gates (e.g. `Projection`) — backends renormalize (and, for
-  MPS, truncate) after applying such a gate.
+  non-unitary gates (e.g. `Projection`) — backends renormalize after
+  applying such a gate (the MPS backend also recompresses the whole chain
+  when its `retruncate` option is `:gate`).
 - `is_measurement(gate) -> Bool` (trait): `true` for gates that Born-sample
   via the `:born_measurement` RNG stream (e.g. `Measure`, `Reset`).
 - Gates with non-operator semantics (Born sampling + classical feedback)

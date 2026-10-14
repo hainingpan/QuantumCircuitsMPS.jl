@@ -47,7 +47,7 @@ whose numerical payload starts as `nothing` and is populated by
 
 | Backend | Payload field | Other fields | Representation |
 |---|---|---|---|
-| `MPSBackend` | `mps::Union{MPS, Nothing}` | `sites::Vector{Index}`, `cutoff::Float64`, `maxdim::Int` | ITensorMPS.jl matrix product state |
+| `MPSBackend` | `mps::Union{MPS, Nothing}` | `sites::Vector{Index}`, `cutoff::Float64`, `maxdim::Int`, `retruncate::Symbol` (`:never` or `:gate`) | ITensorMPS.jl matrix product state |
 | `StateVectorBackend` | `ψ::Union{Vector{ComplexF64}, Nothing}` | `engine::Symbol` (`:optimized`, the default, or `:builtin`) | dense state vector, `local_dim^L` amplitudes |
 | `CliffordBackend` | `tableau::Union{MixedDestabilizer, Nothing}` | — | QuantumClifford.jl stabilizer tableau |
 | `GaussianBackend` | `corr::Union{Matrix{Float64}, Nothing}` | `scratch::Union{Matrix{Float64}, Nothing}`, `purify_tol::Float64`, `majoranas_per_site::Int` | dense ``N \times N`` real antisymmetric Majorana covariance matrix ``\Gamma`` (``N = L \cdot \text{majoranas\_per\_site}``; ``\Gamma^2 = -I``) |
@@ -70,9 +70,9 @@ in there, deciding:
   throws `ArgumentError` for `local_dim != 2` (fermionic-mode formalism is
   qubit-only) and, when `site_type="Majorana"`, for odd `L` (a pure Gaussian
   state needs an even number of Majoranas).
-- **Keyword semantics**: `cutoff`/`maxdim`/`pbc_fold_start` are meaningful
-  only for `:mps`; `engine` only for `:statevector`. Irrelevant keywords are
-  accepted and ignored for cross-backend API consistency.
+- **Keyword semantics**: `cutoff`/`maxdim`/`retruncate`/`pbc_fold_start` are
+  meaningful only for `:mps`; `engine` only for `:statevector`. Irrelevant
+  keywords are accepted and ignored for cross-backend API consistency.
 
 ## Required methods
 
@@ -158,7 +158,10 @@ Contract obligations (every implementation):
    representation (see table below) — never hardcode gate matrices in the
    backend.
 4. Honor the `needs_normalization(gate)` trait after applying:
-   MPS → `normalize!` + `truncate!(; cutoff)`; StateVector → `normalize!`;
+   MPS → `normalize!` (a rescaling of the gauge-center tensor, which
+   `_write_op_block!` leaves at the last site of the gate's range) plus,
+   only when `state.backend.retruncate == :gate`, a full-chain
+   `truncate!(; cutoff)`; StateVector → `normalize!`;
    Clifford → not applicable (all supported operations preserve stabilizer
    states); Gaussian → not applicable (`GaussianHaar` is an exact
    orthogonal conjugation that preserves ``\Gamma^2 = -I`` to machine precision; the
