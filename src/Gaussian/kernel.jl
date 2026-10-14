@@ -113,6 +113,57 @@ function occupation_covariance(bits::AbstractVector{Bool})
 end
 
 @doc raw"""
+    antisymmetrize!(Γ::AbstractMatrix{Float64}) -> Γ
+
+In-place ``\Gamma \leftarrow (\Gamma - \Gamma^T)/2``: every off-diagonal pair becomes
+``(\Gamma_{ij} - \Gamma_{ji})/2`` and ``(\Gamma_{ji} - \Gamma_{ij})/2``, the diagonal becomes
+zero. Bit-for-bit the same result as the broadcast
+`Γ .= (Γ .- transpose(Γ)) ./ 2`, without the temporary copy of
+`transpose(Γ)` that broadcast allocates to avoid aliasing. Both halves of a
+pair are computed from their own subtraction rather than as `v` and `-v`:
+the two agree for every nonzero value, but a pair of exact zeros gives
+`+0.0`/`+0.0` under subtraction and `+0.0`/`-0.0` under negation, and the
+sign of a zero changes LAPACK's Householder sign choices downstream
+(`eigvals` of ``i\Gamma_A`` moved by 1e-14 before this was pinned). Returns `Γ`.
+"""
+function antisymmetrize!(Γ::AbstractMatrix{Float64})
+    N = size(Γ, 1)
+    size(Γ, 2) == N || throw(DimensionMismatch("Γ must be square, got $(size(Γ))"))
+    @inbounds for j in 1:N
+        Γ[j, j] = 0.0
+        for i in (j + 1):N
+            a = Γ[i, j]
+            b = Γ[j, i]
+            Γ[i, j] = (a - b) / 2
+            Γ[j, i] = (b - a) / 2
+        end
+    end
+    return Γ
+end
+
+@doc raw"""
+    _purity_drift(Γ::AbstractMatrix{Float64}) -> Float64
+
+Purity diagnostic ``\max_i\lvert(\Gamma^2)_{ii} + 1\rvert`` (zero for a pure state,
+``\Gamma^2 = -I``), computed from the diagonal only: ``(\Gamma^2)_{ii} = \sum_j \Gamma_{ij}\Gamma_{ji}``,
+``O(N^2)`` and allocation-free, instead of forming the full ``O(N^3)`` product
+``\Gamma\Gamma``. Same arithmetic as `maximum(abs.(diag(Γ * Γ) .+ 1))` up to the
+summation order inside BLAS.
+"""
+function _purity_drift(Γ::AbstractMatrix{Float64})
+    N = size(Γ, 1)
+    worst = 0.0
+    @inbounds for i in 1:N
+        acc = 0.0
+        for j in 1:N
+            acc += Γ[i, j] * Γ[j, i]
+        end
+        worst = max(worst, abs(acc + 1))
+    end
+    return worst
+end
+
+@doc raw"""
     purify!(Γ::Matrix{Float64}) -> Matrix{Float64}
 
 Project a (numerically drifted) covariance matrix back onto the manifold of
@@ -125,7 +176,7 @@ function purify!(Γ::Matrix{Float64})
     vals, vecs = eigen(Hermitian(Γ ./ im))
     clamped = [v < 0 ? -1.0 : (v > 0 ? 1.0 : 0.0) for v in vals]
     Γ .= .-imag.(vecs * Diagonal(clamped) * vecs')
-    Γ .= (Γ .- transpose(Γ)) ./ 2
+    antisymmetrize!(Γ)
     return Γ
 end
 
@@ -146,9 +197,10 @@ C = (\Gamma_{RR}\Upsilon_{LL}+I)^{-1}\\
 
 Throws `ArgumentError` when ``\Gamma_{RR}\Upsilon_{LL}+I`` is singular (a probability-zero
 measurement outcome) — no least-squares fallback. If the result drifts off
-the pure-state manifold beyond `purify_tol` (``\max\lvert\mathrm{diag}(\Gamma^2)+1\rvert``), calls
-[`purify!`](@ref) and re-antisymmetrizes. `scratch` (same size as Γ) is an
-optional preallocated buffer for the ix̄-block update.
+the pure-state manifold beyond `purify_tol` (``\max\lvert\mathrm{diag}(\Gamma^2)+1\rvert``,
+see [`_purity_drift`](@ref)), calls [`purify!`](@ref) and re-antisymmetrizes.
+`scratch` (same size as Γ) is an optional preallocated buffer for the
+ix̄-block update.
 """
 function gaussian_contraction!(Γ::Matrix{Float64}, Υ::AbstractMatrix,
         ix::Vector{Int};
@@ -158,7 +210,7 @@ function gaussian_contraction!(Γ::Matrix{Float64}, Υ::AbstractMatrix,
     m = length(ix)
     size(Υ) == (2m, 2m) ||
         throw(ArgumentError("Upsilon must be $(2m)x$(2m) for length(ix)=$m, got $(size(Υ))"))
-    ix_bar = setdiff(1:N, ix)
+    ix_bar = [k for k in 1:N if !(k in ix)]
 
     Γ_RR = Γ[ix, ix]
     Γ_LR = Γ[ix_bar, ix]
@@ -177,20 +229,29 @@ function gaussian_contraction!(Γ::Matrix{Float64}, Υ::AbstractMatrix,
     D = Γ_RR * transpose(C)
 
     if scratch === nothing
-        Γ[ix_bar, ix_bar] .+= Γ_LR * A * transpose(Γ_LR)
+        _add_block!(Γ, ix_bar, Γ_LR * A * transpose(Γ_LR))
     else
         buf = @view scratch[1:(N - m), 1:(N - m)]
         mul!(@view(scratch[1:(N - m), (N - m + 1):N]), Γ_LR, A)
         mul!(buf, @view(scratch[1:(N - m), (N - m + 1):N]), transpose(Γ_LR))
-        Γ[ix_bar, ix_bar] .+= buf
+        _add_block!(Γ, ix_bar, buf)
     end
     Γ[ix, ix_bar] = Υ_RL * C * transpose(Γ_LR)
     Γ[ix, ix] = Υ_RR + Υ_RL * D * transpose(Υ_RL)
     Γ[ix_bar, ix] = -transpose(Γ[ix, ix_bar])
 
-    if maximum(abs.(diag(Γ * Γ) .+ 1)) > purify_tol
-        purify!(Γ)
-        Γ .= (Γ .- transpose(Γ)) ./ 2
+    if _purity_drift(Γ) > purify_tol
+        purify!(Γ)   # ends with antisymmetrize!
+    end
+    return Γ
+end
+
+# Γ[ix_bar, ix_bar] .+= P without the (N-m)² temporary that broadcast
+# allocates for the right-hand-side `getindex`.
+function _add_block!(Γ::Matrix{Float64}, ix_bar::Vector{Int}, P::AbstractMatrix{Float64})
+    @inbounds for (jj, j) in enumerate(ix_bar), (ii, i) in enumerate(ix_bar)
+
+        Γ[i, j] += P[ii, jj]
     end
     return Γ
 end

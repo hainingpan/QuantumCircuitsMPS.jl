@@ -98,6 +98,47 @@ const QCM = QuantumCircuitsMPS
         @test maximum(abs.(Γ + Γ')) < 1e-14
     end
 
+    @testset "antisymmetrize! is bit-identical to the broadcast" begin
+        rng = MersenneTwister(11)
+        for N in (2, 7, 16), trial in 1:5
+
+            A = randn(rng, N, N)
+            # Plant exact zeros of both signs, including equal-sign pairs
+            # (the case where `v, -v` and the broadcast disagree on signed
+            # zeros) and a nonzero diagonal.
+            A[1, 2] = 0.0
+            A[2, 1] = 0.0
+            A[1, N] = -0.0
+            A[N, 1] = 0.0
+            A[N, N - 1] = -0.0
+            A[N - 1, N] = -0.0
+            ref = (A .- transpose(A)) ./ 2
+            B = copy(A)
+            @test QCM.antisymmetrize!(B) === B
+            @test isequal(B, ref)                       # isequal: -0.0 ≠ 0.0
+            @test isequal(QCM.antisymmetrize!(copy(B)), B)   # idempotent
+        end
+        @test_throws DimensionMismatch QCM.antisymmetrize!(zeros(3, 4))
+    end
+
+    @testset "_purity_drift matches max|diag(Γ²)+1|" begin
+        rng = MersenneTwister(5)
+        @test QCM._purity_drift(QCM.vacuum_covariance(3)) == 0.0
+        for N in (4, 10, 32)
+            # pure random state: drift at roundoff level
+            O = QCM.haar_orthogonal(rng, N)
+            Γ = O * QCM.vacuum_covariance(N ÷ 2) * transpose(O)
+            @test QCM._purity_drift(Γ) ≈ maximum(abs.(diag(Γ * Γ) .+ 1)) atol = 1e-15
+            @test QCM._purity_drift(Γ) < 1e-13
+            # mixed / drifted state: an O(1) and an O(1e-6) drift
+            @test QCM._purity_drift(zeros(N, N)) == 1.0
+            noise = 1e-6 .* randn(rng, N, N)
+            Γ .+= (noise .- noise') ./ 2
+            @test QCM._purity_drift(Γ) ≈ maximum(abs.(diag(Γ * Γ) .+ 1)) rtol = 1e-10
+            @test 1e-7 < QCM._purity_drift(Γ) < 1e-4
+        end
+    end
+
     @testset "parity_projection_upsilon gives valid pure states" begin
         # Cross-mode pair (Majoranas 2,3): both outcomes have prob 1/2 on vacuum
         for s in (+1, -1)

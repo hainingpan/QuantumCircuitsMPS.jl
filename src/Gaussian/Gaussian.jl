@@ -84,9 +84,9 @@ function _apply_single!(state::SimulationState{GaussianBackend}, gate::GaussianH
 
     Γ[ix, :] .= O * Γ[ix, :]
     Γ[:, ix] .= Γ[:, ix] * O'
-    Γ .= (Γ .- transpose(Γ)) ./ 2
+    antisymmetrize!(Γ)
 
-    if maximum(abs.(diag(Γ * Γ) .+ 1)) > state.backend.purify_tol
+    if _purity_drift(Γ) > state.backend.purify_tol
         purify!(Γ)
     end
     return nothing
