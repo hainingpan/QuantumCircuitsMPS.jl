@@ -11,6 +11,7 @@ using ITensors: ITensors, ITensor, Index, dag, delta, dim, dims, firstind,
                 inds, noprime, noprime!, plev, prime, scalar, tags
 using LinearAlgebra: LinearAlgebra, Diagonal, I, diag, diagm, mul!, norm,
                      normalize!, qr, svd, tr
+using PrecompileTools: PrecompileTools, @compile_workload, @setup_workload
 using Random: Random, AbstractRNG, MersenneTwister
 
 # Core
@@ -247,5 +248,12 @@ export plot_circuit
 #   apply_op_internal!                                     (apply internals)
 #   compute_basis_mapping, physical_to_ram, ram_to_physical (basis internals)
 # born_probability was promoted to the public Observables exports above.
+
+# Precompile workload (PrecompileTools): runs one tiny trajectory per backend
+# at package-precompile time so the specialized methods land in the pkgimage
+# instead of being JIT-compiled on first use. Must be the LAST include — it
+# calls the complete public API defined above. Zero effect on runtime
+# behavior; see src/precompile.jl for how to skip it during development.
+include("precompile.jl")
 
 end # module
