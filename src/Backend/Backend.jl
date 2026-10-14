@@ -94,8 +94,11 @@ fermionic mode `i` (Bravyi's convention; an unoccupied mode has
 Gaussian state. Mode `i` (1-indexed, `1 <= i <= L`) maps to Majorana indices
 `(2i−1, 2i)`.
 
-`scratch` is a preallocated `2L×2L` buffer of the same size as `corr`, used
-by the Gaussian gate-application kernel to avoid per-gate allocation.
+`scratch` is a preallocated `2L×2L` buffer of the same size as `corr`: the
+`GaussianHaar` rotation stages its row/column blocks in it
+(`conjugate_rows_cols!`) and the general contraction kernel
+`gaussian_contraction!` accepts it, so no gate allocates per application
+(the parity projection `parity_projection!` is allocation-free on its own).
 
 `purify_tol` is the threshold on ``\|\Gamma^2+I\|`` (or an equivalent purity
 diagnostic) above which the backend re-purifies `corr` to correct

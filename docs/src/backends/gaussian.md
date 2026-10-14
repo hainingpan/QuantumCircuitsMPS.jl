@@ -24,7 +24,7 @@ entropies = state.observables[:entropy]
 println("Final entropy: $(entropies[end])")
 ```
 
-**Physics**: `GaussianHaar()` draws an independent Haar-random ``O(4)``/``O(2)`` rotation for each bond (from `:gates_realization`) and conjugates it directly onto the Majorana covariance matrix — no dense Hilbert-space unitary is ever built. `Measure(:Z)` and `BondParity()` are projective parity measurements of, respectively, the on-site occupation parity ``i\gamma_{2i-1}\gamma_{2i} = 1 - 2c_i^\dagger c_i`` and the bond parity spanning two adjacent sites; both collapse ``\Gamma`` via the same fermionic-linear-optics contraction kernel used for the unitary case.
+**Physics**: `GaussianHaar()` draws an independent Haar-random ``O(4)``/``O(2)`` rotation for each bond (from `:gates_realization`) and conjugates it directly onto the Majorana covariance matrix — no dense Hilbert-space unitary is ever built. `Measure(:Z)` and `BondParity()` are projective parity measurements of, respectively, the on-site occupation parity ``i\gamma_{2i-1}\gamma_{2i} = 1 - 2c_i^\dagger c_i`` and the bond parity spanning two adjacent sites; both collapse ``\Gamma`` with the closed-form rank-2 update that the fermionic-linear-optics contraction formula reduces to for a parity projector (``O(N^2)`` per measurement, no linear solve; `parity_projection!` in the internals), so a projective measurement costs about the same as a Haar gate.
 
 ## What a Gaussian State Is
 

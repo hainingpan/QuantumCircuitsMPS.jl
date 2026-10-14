@@ -198,7 +198,7 @@ Contract obligations (every implementation):
 | MPS | `build_operator(gate, site_index(es), local_dim; rng, mps, ram_sites) -> ITensor` | `apply_op_internal!` (contract + SVD chain, respects `cutoff`/`maxdim`) |
 | StateVector | `gate_matrix(gate) -> Matrix{ComplexF64}`; random gates via `gate_matrix(gate, rng; local_dim)` (dispatch in `_resolve_gate_matrix_sv`) | `apply_gate_sv_optimized!` (`:optimized`, default: in-place stride kernels for 1- and 2-site gates) or `apply_gate_sv!` (`:builtin`: reshape/permutedims/matmul reference) |
 | Clifford | none — symbolic ops (`QuantumClifford.sX`, `sCPHASE`, `sCNOT`, ..., `random_clifford`) | `QuantumClifford.apply!(tableau, op[, indices])` |
-| Gaussian | **none — direct covariance-matrix update, no shared protocol.** `GaussianHaar` conjugates a Haar-`SO(n)` block directly onto rows/columns of `state.backend.corr` (``\Gamma \leftarrow R\Gamma R^{\mathsf T}``, `n=4` fermionic-mode / `n=2` Majorana-chain granularity). Measurement gates (`Measure(:Z)`, `BondParity`) go through the separate fermionic-linear-optics contraction kernel `gaussian_contraction!` instead (see §3). | in-place mutation of `state.backend.corr` (no ITensor, no dense matrix, no tableau) |
+| Gaussian | **none — direct covariance-matrix update, no shared protocol.** `GaussianHaar` conjugates a Haar-`SO(n)` block directly onto rows/columns of `state.backend.corr` (``\Gamma \leftarrow R\Gamma R^{\mathsf T}``, `n=4` fermionic-mode / `n=2` Majorana-chain granularity). Measurement gates (`Measure(:Z)`, `BondParity`) go through the closed-form rank-2 parity-projection kernel `parity_projection!` instead — the 2-Majorana special case of the general fermionic-linear-optics contraction kernel `gaussian_contraction!` (see §3). | in-place mutation of `state.backend.corr` (no ITensor, no dense matrix, no tableau) |
 
 ### 3. `_measure_single_site!(state, site) -> Int` — the measurement primitive
 
@@ -218,8 +218,9 @@ gets measurement for free** if it implements `born_probability` and can apply
 `Projection`; it only needs its own override when `Projection` has no
 representation (the Clifford case, which uses `QuantumClifford.projectZ!`
 instead; and the Gaussian case, which has no `Projection` gate at all and
-instead collapses `Γ` via the fermionic-linear-optics contraction kernel
-`gaussian_contraction!` with a parity projector).
+instead collapses `Γ` via `parity_projection!`, the closed-form rank-2
+evaluation of the fermionic-linear-optics contraction kernel
+`gaussian_contraction!` for a parity projector).
 
 Gaussian's `BondParity` gate needs an even *more* specific measurement
 primitive than `_measure_single_site!` provides (it measures **two** sites,
