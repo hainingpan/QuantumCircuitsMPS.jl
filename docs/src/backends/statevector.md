@@ -44,15 +44,15 @@ The MPS backend's memory usage instead scales with bond dimension (`maxdim`), st
 
 The state-vector backend has two interchangeable gate-application engines, chosen via the `engine` keyword:
 
-- **`engine=:builtin`** (default): reshape → matrix-multiply → reshape-back. Simple and easy to audit; the reference implementation every correctness check is validated against.
-- **`engine=:optimized`**: a stride-loop gate-application kernel that skips the reshape/permute overhead, faster for larger `L`. Produces bitwise-identical results to `engine=:builtin` on the same input (see the [Yao.jl](https://github.com/QuantumBFS/Yao.jl) pattern it's based on, credited in the top-level `README`).
+- **`engine=:optimized`** (default): in-place stride-loop kernels for 1-site and 2-site gates (adjacent or not), after the pattern of [Yao.jl](https://github.com/QuantumBFS/Yao.jl)'s `u1apply!` (credited in the top-level `README`). No reshape/permute, no per-gate copy of the state vector: a gate costs one pass over the `local_dim^L` amplitudes and allocates only two `d^n`-element buffers. Gates on 3+ sites (only a user `MatrixGate` can have them) fall back to the `:builtin` algorithm applied in place.
+- **`engine=:builtin`**: reshape → matrix-multiply → reshape-back, allocating a fresh vector per gate. Simple and easy to audit; the reference implementation the kernels are validated against.
 
 ```julia
-state = SimulationState(L=20, bc=:open, backend=:statevector, engine=:optimized,
+state = SimulationState(L=20, bc=:open, backend=:statevector, engine=:builtin,
     rng=RNGRegistry(gates_spacetime=1, gates_realization=2, born_measurement=3))
 ```
 
-Use `:builtin` when auditability matters most (e.g. debugging an observable formula); reach for `:optimized` once you're pushing `L` toward the upper end of the state-vector backend's practical range and want faster gate application.
+The two engines compute the same products in a different order, so they agree to rounding (``\sim 10^{-15}`` per gate), not bitwise; `test/statevector/engine_agreement.jl` pins this on random gates, sites and local dimensions, and on full Reset/HaarRandom trajectories. Use `:builtin` when auditability matters most (e.g. debugging an observable formula); the default is the right choice for production sweeps — at `L=16` its gate application is about six times faster and allocates no ``2^L``-sized temporaries (numbers in the changelog).
 
 ## Region Entanglement Entropy
 
