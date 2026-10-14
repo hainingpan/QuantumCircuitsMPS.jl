@@ -6,11 +6,13 @@
 # `Projection` is not a Gaussian gate and is rejected by Gaussian.jl's
 # fallback `_apply_single!`. Instead we override `born_probability` (a
 # direct, non-destructive covariance-matrix read) and
-# `_measure_single_site!` (parity projection via the contraction kernel).
-# `Measure(:Z)` then flows through the EXISTING generic `execute!` method in
-# Core/apply.jl unchanged. (`Reset` is rejected on this backend by a
-# dedicated `execute!` override in Gaussian.jl — it would need a qubit
-# PauliX, which has no fermionic Gaussian counterpart.)
+# `_measure_single_site!` (parity projection via the closed-form rank-2
+# kernel `parity_projection!`, the 2-Majorana special case of the general
+# contraction kernel `gaussian_contraction!`). `Measure(:Z)` then flows
+# through the EXISTING generic `execute!` method in Core/apply.jl unchanged.
+# (`Reset` is rejected on this backend by a dedicated `execute!` override in
+# Gaussian.jl — it would need a qubit PauliX, which has no fermionic
+# Gaussian counterpart.)
 #
 # Occupation convention (see kernel.jl header):
 #   Γ[2i−1, 2i] = ⟨i γ_{2i−1} γ_{2i}⟩ = 1 − 2⟨cᵢ†cᵢ⟩,  i.e.  ⟨cᵢ†cᵢ⟩ = (1 − Γ[2i−1, 2i]) / 2
@@ -60,8 +62,9 @@ end
 Override the default (Projection-based) `_measure_single_site!` for the
 Gaussian backend. Born-samples the occupation of `site` and collapses the
 covariance matrix onto the observed parity sector via
+[`parity_projection!`](@ref) (the closed-form rank-2 evaluation of
 [`gaussian_contraction!`](@ref) with the projector
-[`parity_projection_upsilon`](@ref), mutating `state.backend.corr` in place.
+[`parity_projection_upsilon`](@ref)), mutating `state.backend.corr` in place.
 
 **Draw contract (REDUNDANT-DRAW, cross-backend lockstep):** exactly ONE
 scalar `:born_measurement` draw is consumed per measured site — always,
@@ -74,16 +77,16 @@ genuinely consumed by the comparison (for a deterministic site `p₀ ∈ {0,1}`
 and the comparison is vacuous, i.e. the draw is redundant, exactly as on
 the Clifford backend).
 
-**Outcome → parity sign mapping:** the kernel
-projector `parity_projection_upsilon(s)` projects onto the parity sector
-``i\gamma_{2i-1}\gamma_{2i} = -s`` and leaves the post-measurement state
-with ``\Gamma[2i-1,2i]=-s``. To end with `Γ[2i−1,2i] = +1` (outcome 0,
-unoccupied) we contract with `s = −1`; for `Γ[2i−1,2i] = −1` (outcome 1,
-occupied), `s = +1`. I.e. ``s = 2\cdot\mathrm{outcome}-1``.
+**Outcome → parity sign mapping:** `parity_projection!(Γ, a, b, s)`
+projects onto the parity sector ``i\gamma_{2i-1}\gamma_{2i} = -s`` and leaves
+the post-measurement state with ``\Gamma[2i-1,2i]=-s``. To end with
+`Γ[2i−1,2i] = +1` (outcome 0, unoccupied) we project with `s = −1`; for
+`Γ[2i−1,2i] = −1` (outcome 1, occupied), `s = +1`. I.e.
+``s = 2\cdot\mathrm{outcome}-1``.
 
 Throws `ArgumentError` if the sampled outcome has probability ≤ 1e-15
 (probability-zero branch — cannot be projected onto);
-`gaussian_contraction!` additionally raises its own singular-matrix
+`parity_projection!` additionally raises its own vanishing-state
 `ArgumentError` as a second line of defense.
 
 Logs a `MeasurementOutcome` event exactly like the default implementation
@@ -109,9 +112,8 @@ function _measure_single_site!(state::SimulationState{GaussianBackend}, site::In
         "probability ($p_outcome) — cannot project onto a probability-zero branch."))
     # outcome=0 (unoccupied, target Γ[2i-1,2i]=+1) ⇒ s=-1; outcome=1 ⇒ s=+1.
     s = 2 * outcome - 1
-    ix = collect(site_majoranas(state, site))
-    gaussian_contraction!(Γ, parity_projection_upsilon(s), ix;
-        scratch = state.backend.scratch, purify_tol = state.backend.purify_tol)
+    a, b = site_majoranas(state, site)
+    parity_projection!(Γ, a, b, s; purify_tol = state.backend.purify_tol)
     if state.event_log !== nothing
         log_event!(state, MeasurementOutcome(state.event_step, state.event_op_idx, [site], outcome))
     end
@@ -154,8 +156,8 @@ P(\mathrm{outcome}=0)=\frac{1+g}{2},\qquad P(\mathrm{outcome}=1)=\frac{1-g}{2}
 — the SAME affine structure as the on-site occupation measurement
 (`_measure_single_site!`), because on-site occupation is itself the bond
 parity of the intra-mode pair (``n = (1 - i\gamma_{2i-1}\gamma_{2i})/2``). The kernel sign
-``s = 2\cdot\mathrm{outcome}-1`` is MINUS the measured parity eigenvalue: contracting
-`parity_projection_upsilon(s)` leaves ``\Gamma[ix_1,ix_2] = -s``, i.e.
+``s = 2\cdot\mathrm{outcome}-1`` is MINUS the measured parity eigenvalue:
+[`parity_projection!`](@ref)`(Γ, ix₁, ix₂, s)` leaves ``\Gamma[ix_1,ix_2] = -s``, i.e.
 ``\langle i\hat\gamma\hat\gamma\rangle = -s = 1 - 2\cdot\mathrm{outcome}`` post-measurement.
 
 **Draw contract (REDUNDANT-DRAW, cross-backend lockstep):** exactly ONE
@@ -195,15 +197,16 @@ function execute!(state::SimulationState{GaussianBackend}, gate::BondParity, phy
     end
     # Inner Majoranas of the bond, granularity-aware via site_majoranas:
     # fermionic — lower site's SECOND Majorana, upper site's FIRST (RAM-
-    # mapped): [2·lo, 2·hi − 1], wrap bond (L, 1) → [2L, 1]. Majorana chain
+    # mapped): (2·lo, 2·hi − 1), wrap bond (L, 1) → (2L, 1). Majorana chain
     # (majoranas_per_site == 1) — each site IS one Majorana: bond (i, i+1)
-    # → [i, i+1], wrap bond (L, 1) → [L, 1].
-    ix = [last(site_majoranas(state, lo)), first(site_majoranas(state, hi))]
+    # → (i, i+1), wrap bond (L, 1) → (L, 1).
+    ix1 = last(site_majoranas(state, lo))
+    ix2 = first(site_majoranas(state, hi))
     # REDUNDANT-DRAW CONTRACT: draw BEFORE computing any probability, exactly
     # one scalar per measurement (mirrors _measure_single_site! line-for-line).
     born_measurement_rng = get_rng(state.rng_registry, :born_measurement)
     r = rand(born_measurement_rng)
-    g = Γ[ix[1], ix[2]]
+    g = Γ[ix1, ix2]
     p0 = (1 + g) / 2          # P(outcome 0, bond parity iγγ = +1); verified against test/gaussian/oracle.jl
     outcome = r < p0 ? 0 : 1
     p_outcome = outcome == 0 ? p0 : 1 - p0
@@ -211,8 +214,7 @@ function execute!(state::SimulationState{GaussianBackend}, gate::BondParity, phy
         "BondParity collapse onto outcome $outcome on bond ($lo, $hi) has vanishing " *
         "probability ($p_outcome) — cannot project onto a probability-zero branch."))
     s = 2 * outcome - 1       # kernel sign = −(measured parity eigenvalue); post Γ[ix₁,ix₂] = −s
-    gaussian_contraction!(Γ, parity_projection_upsilon(s), ix;
-        scratch = state.backend.scratch, purify_tol = state.backend.purify_tol)
+    parity_projection!(Γ, ix1, ix2, s; purify_tol = state.backend.purify_tol)
     if state.event_log !== nothing
         log_event!(state, MeasurementOutcome(
             state.event_step, state.event_op_idx, [

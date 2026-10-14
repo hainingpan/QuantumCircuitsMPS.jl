@@ -76,15 +76,20 @@ function _apply_single!(state::SimulationState{GaussianBackend}, gate::GaussianH
 
     # Granularity-aware Majorana index resolution (fermionic: 4 indices →
     # SO(4); Majorana chain: 2 indices → SO(2)).
-    ix = vcat(collect.((site_majoranas(state, phy_sites[1]),
-        site_majoranas(state, phy_sites[2])))...)
+    ix = vcat(collect(site_majoranas(state, phy_sites[1])),
+        collect(site_majoranas(state, phy_sites[2])))
 
     rng = get_rng(state.rng_registry, :gates_realization)
     O = haar_orthogonal(rng, length(ix))
 
-    Γ[ix, :] .= O * Γ[ix, :]
-    Γ[:, ix] .= Γ[:, ix] * O'
-    antisymmetrize!(Γ)
+    scratch = state.backend.scratch
+    if scratch === nothing
+        scratch = state.backend.scratch = zeros(Float64, size(Γ))
+    end
+    conjugate_rows_cols!(Γ, O, ix, scratch)   # Γ[ix,:] = O Γ[ix,:]; Γ[:,ix] = Γ[:,ix] Oᵀ
+    # Only rows/columns `ix` changed; the rest of Γ is still exactly
+    # antisymmetric, so the restricted pass equals the full one bit for bit.
+    antisymmetrize!(Γ, ix)
 
     if _purity_drift(Γ) > state.backend.purify_tol
         purify!(Γ)

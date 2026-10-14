@@ -8,6 +8,57 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
 
 ## [Unreleased]
 
+### Performance
+
+Gaussian backend: the per-gate cost of `GaussianHaar`, `Measure(:Z)`, and
+`BondParity` is now ``O(N^2)`` in the number of Majoranas ``N`` instead of
+``O(N^3)``, in two steps.
+
+- **Same arithmetic, cheaper evaluation** (bit-identical results). The purity
+  diagnostic ``\max\lvert\mathrm{diag}(\Gamma^2)+1\rvert``, evaluated after every
+  gate and measurement, formed the full product ``\Gamma\Gamma``; it is now
+  computed from the diagonal alone (`_purity_drift`). The
+  re-antisymmetrization after a Haar rotation (`antisymmetrize!`), the
+  index-set complement, and the complement-block update inside
+  `gaussian_contraction!` no longer allocate temporaries. Final covariance
+  matrices and observables of 26 trajectories (both site granularities,
+  ``L = 16``–``64``, including runs that force `purify!`) are bit-identical to
+  v0.5.8, signed zeros included.
+- **Closed-form parity projection** (`parity_projection!`). For the 2-Majorana
+  parity projector the general Schur-complement contraction reduces to a
+  rank-2 update of the complement block,
+  ``\Gamma_{ij} \leftarrow \Gamma_{ij} + \frac{s}{1 - s\,\Gamma_{ab}}(\Gamma_{ia}\Gamma_{jb} - \Gamma_{ib}\Gamma_{ja})``,
+  with rows and columns ``a, b`` set to the projected sector. `Measure(:Z)`
+  and `BondParity` now use it instead of `gaussian_contraction!` (which
+  remains the general-``\Upsilon`` kernel and the test reference): no index
+  slices, no `lu`/`inv`/`cond` on 2×2 blocks, no BLAS calls, and the result
+  is exactly antisymmetric. Because every operation now leaves ``\Gamma``
+  exactly antisymmetric, the Haar rotation re-antisymmetrizes only the
+  rotated rows and columns (bit-for-bit the full pass), the purity check is
+  a contiguous column-norm sweep, and the rotation's row/column blocks are
+  staged in the preallocated `state.backend.scratch` instead of four
+  temporaries (same BLAS calls, same result). Not bit-identical to v0.5.8 —
+  a different floating-point operation order in the projection — but on the
+  same 26 trajectories every measurement outcome is unchanged,
+  covariance-matrix entries agree to ``1.5\times10^{-14}`` and observables to
+  ``1.3\times10^{-13}``; the tolerance-based test suite is unchanged.
+
+  Steady-state cost per trajectory, single thread (Julia and BLAS), GC
+  included, Apple M4 / Julia 1.12.6 (`L` sites, ``L`` steps, periodic; "DIII"
+  = Majorana chain with `BondParity`/`GaussianHaar` bricklayers at
+  ``p = 0.5``, "fermionic" = `GaussianHaar` bricklayers with `Measure(:Z)` and
+  `BondParity` at ``p = 0.3``):
+
+  | Case | v0.5.8 | step 1 | step 2 (now) | Speedup | Alloc v0.5.8 → now |
+  |---|---|---|---|---|---|
+  | DIII, ``L = 32`` | 6.8 ms | 3.0 ms | 1.5 ms | **4.5x** | 23.5 → 1.4 MB |
+  | DIII, ``L = 64`` | 177 ms | 23.7 ms | 9.3 ms | **19x** | 307.5 → 5.0 MB |
+  | fermionic, ``L = 32`` | 65 ms | 9.7 ms | 4.0 ms | **16x** | 115.5 → 3.2 MB |
+  | fermionic, ``L = 64`` | 1045 ms | 116 ms | 36 ms | **29x** | 1686 → 12.5 MB |
+
+  What remains per gate is the rank-2 update itself, the per-gate purity
+  check, and LAPACK's QR behind `haar_orthogonal` on a 2×2/4×4 block.
+
 ## [0.5.8] - 2026-10-09
 
 ### Fixed
