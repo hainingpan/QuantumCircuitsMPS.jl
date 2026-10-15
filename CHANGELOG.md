@@ -8,74 +8,72 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
 
 ## [Unreleased]
 
+## [0.5.9] - 2026-10-14
+
 ### Added
 
 - `SimulationState(; retruncate = :never | :gate)` (MPS backend only, stored
-  as `MPSBackend.retruncate`): what a projective gate — `Measure`, `Reset`,
-  `Projection`, `SpinSectorProjection`, `SpinSectorMeasurement`, any gate
-  with `needs_normalization(gate) == true` — does to the bonds it did not
-  touch. `:gate` runs the full-chain `truncate!(mps; cutoff)` after every
-  such gate, as before; `:never` leaves those bonds to the next gate that
-  touches them.
+  as `MPSBackend.retruncate`) controls what a projective gate — `Measure`,
+  `Reset`, `Projection`, `SpinSectorProjection`, `SpinSectorMeasurement`,
+  any gate with `needs_normalization(gate) == true` — does to the bonds it
+  did not touch. `:never` (the new default) leaves them to the next gate
+  that covers them; `:gate` runs the full-chain `truncate!(mps; cutoff)`
+  after every such gate, as every earlier version did.
 
 ### Changed
 
-- The MPS multi-site SVD chain used `ITensors.findindex`, a deprecated alias
-  of `firstind`; it now calls `firstind` directly. No numerical change — the
-  rename only matters because the precompile workload executes that path
-  under `--depwarn=yes` during `Pkg.test`, where the alias printed a
-  deprecation warning.
+- **Projective gates on the MPS backend no longer re-truncate the whole
+  chain** (`retruncate = :never`). A projective gate still SVD-truncates the
+  bonds inside its range with `cutoff`/`maxdim` and renormalizes the state;
+  the bonds outside its range keep their current dimension until a later
+  gate covers them. Nothing is discarded, so the retained state is never
+  less accurate; what changes is *when* bonds are compressed, so a v0.5.8
+  trajectory is reproduced only to its own truncation error
+  (``10^{-10}``–``10^{-5}`` on the workloads below, well inside any ensemble
+  error), not digit for digit. Pass `retruncate = :gate` to recover the
+  previous digits; the `EXTENDED_TESTS` golden harness does so.
+- The MPS ortho limits now record the true gauge center after every
+  multi-site gate (the last site of the gate's range, where the SVD chain
+  leaves it), so `normalize!` after a projective gate rescales that one
+  tensor instead of contracting the whole chain, and the next
+  `orthogonalize!` does not re-factorize tensors that are already
+  orthonormal. Same state, different rounding: with `retruncate = :gate`
+  the v0.5.8 goldens are reproduced to ``10^{-14}``–``10^{-13}`` (RNG
+  fingerprints exactly), so `test/golden_compare.jl` now compares physics
+  values at ``10^{-12}`` instead of ``10^{-14}``.
 - The state-vector backend's default gate-application engine is now
-  `engine=:optimized`; `engine=:builtin` (the reshape/permutedims/matmul
+  `engine=:optimized`; `engine=:builtin` (the reshape/`permutedims`/matmul
   reference) stays available. The two engines sum the same products in a
   different order, so they agree to rounding (``\sim 10^{-15}`` per gate),
-  not bitwise: state-vector trajectories can differ from v0.5.8's at that
-  level. The test suite is tolerance-based and unaffected;
-  `test/statevector/engine_agreement.jl` pins the agreement on random
-  gates, sites and local dimensions and on Reset/HaarRandom trajectories.
-  The default engine updates `state.backend.ψ` in place, so a reference
-  taken before a gate (`ψ0 = state.backend.ψ`) now sees the new amplitudes;
-  take `copy(state.backend.ψ)` for a snapshot. (`:builtin` still stores a
-  fresh vector per gate.)
+  not bitwise, and state-vector trajectories can differ from v0.5.8's at
+  that level; `test/statevector/engine_agreement.jl` pins the agreement on
+  random gates, sites, and local dimensions and on `Reset`/`HaarRandom`
+  trajectories. The default engine updates `state.backend.ψ` in place, so a
+  reference taken before a gate now sees the new amplitudes — take
+  `copy(state.backend.ψ)` for a snapshot (`:builtin` still stores a fresh
+  vector per gate).
 - `born_probability` on the state-vector backend now rejects a site outside
   `1:L` or an outcome outside `0:local_dim-1` with an `ArgumentError`, as the
   Clifford and Gaussian methods already did (it used to return `0.0` for a
   nonexistent level, or ``\lVert\psi\rVert^2`` for site `0`). The
   `BornProbability` observable already validated its outcome; this covers
   direct calls.
-- **Projective gates on the MPS backend no longer re-truncate the whole
-  chain** (`retruncate = :never` is the default). A projective gate still
-  SVD-truncates the bonds inside its range with `cutoff`/`maxdim` and
-  renormalizes the state; the bonds outside its range keep their current
-  dimension until a later gate covers them. Nothing is discarded, so the
-  retained state is never less accurate; what changes is *when* bonds are
-  compressed, so a trajectory is reproduced only to its own truncation
-  error, not digit for digit (``10^{-10}``–``10^{-5}`` on the measured
-  workloads below, well inside any ensemble error). Pass
-  `retruncate = :gate` to recover the previous digits; the EXTENDED golden
-  harness does so.
-- The MPS ortho limits now record the true gauge center after every
-  multi-site gate (the last site of the gate's range, where the SVD chain
-  leaves it). `normalize!` after a projective gate rescales that one tensor
-  instead of contracting the whole chain, and the next `orthogonalize!` no
-  longer re-factorizes the already-orthonormal tensors of the previous
-  gate's range. Same state, different rounding: with `retruncate = :gate`
-  the pre-refactor goldens are reproduced to ``10^{-14}``–``10^{-13}``
-  (RNG fingerprints exactly), so `test/golden_compare.jl` now compares
-  physics values at ``10^{-12}`` instead of ``10^{-14}``.
+- The MPS multi-site SVD chain calls `ITensors.firstind` instead of its
+  deprecated alias `findindex`. No numerical change.
 
 ### Performance
 
-- **Precompile workload** (`src/precompile.jl`, via PrecompileTools). The
-  package now runs one tiny trajectory per backend at precompile time —
-  built from the gates, geometries, observables, and recording modes of the
-  four worked examples, plus the remaining public gates and observables, the
-  feedback and event-log mechanisms, `bc=:open`, and circuit expansion /
-  printing — so the specialized methods are saved in the package image
-  instead of being JIT-compiled in every fresh session. Time to the first
-  trajectory in a fresh `julia` process, single thread, Julia 1.12.6
-  (minimum over repeated interleaved runs on a shared machine; observables
-  bit-identical before and after in every run):
+- **Precompile workload** (`src/precompile.jl`, via the new PrecompileTools
+  dependency). The package now runs one tiny trajectory per backend at
+  precompile time — built from the gates, geometries, observables, and
+  recording modes of the four worked examples, plus the remaining public
+  gates and observables, the feedback and event-log mechanisms, `bc=:open`,
+  and circuit expansion / printing — so the specialized methods are saved in
+  the package image instead of being JIT-compiled in every fresh session.
+  Time to the first trajectory in a fresh `julia` process, single thread,
+  Julia 1.12.6 (minimum over repeated interleaved runs on a shared machine;
+  observables bit-identical before and after in every run):
+
   | First trajectory | Before | After |
   |---|---|---|
   | Clifford MIPT, L=16 | 5.7 s | 0.33 s |
@@ -87,8 +85,7 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
   The cost is a longer one-time precompile of the package itself (about
   5 s → 2.5 min on an M4, once per install/update), which contributors can
   switch off locally with a `LocalPreferences.toml` entry — see
-  CONTRIBUTING.md. No runtime behavior changes; the default test suite and
-  the Aqua/ExplicitImports gates pass unchanged.
+  CONTRIBUTING.md. No runtime behavior changes.
 - **State-vector gate kernels.** The `:optimized` engine only had a
   stride-loop kernel for 1-site gates; every 2-site gate (`HaarRandom`,
   `CZ`, ...) went through the same reshape → `permutedims` → matmul →
@@ -144,35 +141,33 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
   are within timing noise).
 - **Gaussian backend kernels.** The per-gate cost of `GaussianHaar`,
   `Measure(:Z)`, and `BondParity` is now ``O(N^2)`` in the number of
-  Majoranas ``N`` instead of ``O(N^3)``, in two steps.
-  - *Same arithmetic, cheaper evaluation* (bit-identical results). The purity
-    diagnostic ``\max\lvert\mathrm{diag}(\Gamma^2)+1\rvert``, evaluated after every
-    gate and measurement, formed the full product ``\Gamma\Gamma``; it is now
-    computed from the diagonal alone (`_purity_drift`). The
-    re-antisymmetrization after a Haar rotation (`antisymmetrize!`), the
-    index-set complement, and the complement-block update inside
-    `gaussian_contraction!` no longer allocate temporaries. Final covariance
-    matrices and observables of 26 trajectories (both site granularities,
-    ``L = 16``–``64``, including runs that force `purify!`) are bit-identical to
-    v0.5.8, signed zeros included.
-  - *Closed-form parity projection* (`parity_projection!`). For the 2-Majorana
-    parity projector the general Schur-complement contraction reduces to a
-    rank-2 update of the complement block,
+  Majoranas ``N`` instead of ``O(N^3)``.
+  - The purity diagnostic ``\max\lvert\mathrm{diag}(\Gamma^2)+1\rvert``,
+    evaluated after every gate and measurement, formed the full product
+    ``\Gamma\Gamma``; it is now computed from the diagonal alone. The
+    re-antisymmetrization after a Haar rotation, the index-set complement,
+    and the complement-block update inside the general contraction no longer
+    allocate temporaries. These steps are bit-identical to v0.5.8.
+  - `Measure(:Z)` and `BondParity` now use a closed-form parity projection
+    (`parity_projection!`): for the 2-Majorana parity projector the general
+    Schur-complement contraction reduces to a rank-2 update of the
+    complement block,
     ``\Gamma_{ij} \leftarrow \Gamma_{ij} + \frac{s}{1 - s\,\Gamma_{ab}}(\Gamma_{ia}\Gamma_{jb} - \Gamma_{ib}\Gamma_{ja})``,
-    with rows and columns ``a, b`` set to the projected sector. `Measure(:Z)`
-    and `BondParity` now use it instead of `gaussian_contraction!` (which
-    remains the general-``\Upsilon`` kernel and the test reference): no index
-    slices, no `lu`/`inv`/`cond` on 2×2 blocks, no BLAS calls, and the result
-    is exactly antisymmetric. Because every operation now leaves ``\Gamma``
-    exactly antisymmetric, the Haar rotation re-antisymmetrizes only the
-    rotated rows and columns (bit-for-bit the full pass), the purity check is
+    with rows and columns ``a, b`` set to the projected sector — no index
+    slices, no `lu`/`inv`/`cond` on 2×2 blocks, no BLAS calls, and the
+    result is exactly antisymmetric. `gaussian_contraction!` remains the
+    general-``\Upsilon`` kernel and the test reference. Because every
+    operation now leaves ``\Gamma`` exactly antisymmetric, the Haar rotation
+    re-antisymmetrizes only the rotated rows and columns, the purity check is
     a contiguous column-norm sweep, and the rotation's row/column blocks are
     staged in the preallocated `state.backend.scratch` instead of four
-    temporaries (same BLAS calls, same result). Not bit-identical to v0.5.8 —
-    a different floating-point operation order in the projection — but on the
-    same 26 trajectories every measurement outcome is unchanged,
-    covariance-matrix entries agree to ``1.5\times10^{-14}`` and observables to
-    ``1.3\times10^{-13}``; the tolerance-based test suite is unchanged.
+    temporaries (same BLAS calls, same result). The projection's
+    floating-point operation order differs from v0.5.8's, so results are
+    not bit-identical, but on 26 trajectories (both site granularities,
+    ``L = 16``–``64``, including runs that force `purify!`) every measurement
+    outcome is unchanged, covariance-matrix entries agree to
+    ``1.5\times10^{-14}`` and observables to ``1.3\times10^{-13}``; the
+    tolerance-based test suite is unchanged.
 
   Steady-state cost per trajectory, single thread (Julia and BLAS), GC
   included, Apple M4 / Julia 1.12.6 (`L` sites, ``L`` steps, periodic; "DIII"
@@ -180,12 +175,12 @@ in spirit (pre-1.0, so breaking changes can land in minor versions).
   ``p = 0.5``, "fermionic" = `GaussianHaar` bricklayers with `Measure(:Z)` and
   `BondParity` at ``p = 0.3``):
 
-  | Case | v0.5.8 | step 1 | step 2 (now) | Speedup | Alloc v0.5.8 → now |
-  |---|---|---|---|---|---|
-  | DIII, ``L = 32`` | 6.8 ms | 3.0 ms | 1.5 ms | **4.5x** | 23.5 → 1.4 MB |
-  | DIII, ``L = 64`` | 177 ms | 23.7 ms | 9.3 ms | **19x** | 307.5 → 5.0 MB |
-  | fermionic, ``L = 32`` | 65 ms | 9.7 ms | 4.0 ms | **16x** | 115.5 → 3.2 MB |
-  | fermionic, ``L = 64`` | 1045 ms | 116 ms | 36 ms | **29x** | 1686 → 12.5 MB |
+  | Case | Before | After | Speedup | Allocations |
+  |---|---|---|---|---|
+  | DIII, ``L = 32`` | 6.8 ms | 1.5 ms | 4.5x | 23.5 → 1.4 MB |
+  | DIII, ``L = 64`` | 177 ms | 9.3 ms | 19x | 307.5 → 5.0 MB |
+  | fermionic, ``L = 32`` | 65 ms | 4.0 ms | 16x | 115.5 → 3.2 MB |
+  | fermionic, ``L = 64`` | 1045 ms | 36 ms | 29x | 1686 → 12.5 MB |
 
   What remains per gate is the rank-2 update itself, the per-gate purity
   check, and LAPACK's QR behind `haar_orthogonal` on a 2×2/4×4 block.
@@ -734,7 +729,8 @@ documentation.
 
 Initial clean release, with CIPT and MIPT example notebooks.
 
-[Unreleased]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.8...HEAD
+[Unreleased]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.9...HEAD
+[0.5.9]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.8...v0.5.9
 [0.5.8]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.7...v0.5.8
 [0.5.7]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.6...v0.5.7
 [0.5.6]: https://github.com/hainingpan/QuantumCircuitsMPS.jl/compare/v0.5.5...v0.5.6

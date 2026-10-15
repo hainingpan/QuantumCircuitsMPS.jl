@@ -1,6 +1,6 @@
 name = "QuantumCircuitsMPS"
 uuid = "ed2bb82c-fd6e-4581-809a-ddc7a64756b9"
-version = "0.5.8"
+version = "0.5.9"
 authors = ["Haining Pan <haining.pan.physics@gmail.com>", "Jedediah H Pixley <jed.pixley@physics.rutgers.edu>"]
 
 [deps]
